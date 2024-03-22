@@ -1,0 +1,6 @@
+﻿double Foo(double a, double b)
+{
+    return a + b;
+}
+
+Print(Foo(1, 2));
