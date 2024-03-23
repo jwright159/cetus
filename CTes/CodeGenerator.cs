@@ -39,18 +39,26 @@ public class CodeGenerator : CTesBaseVisitor<LLVMValueRef>
 		LLVMBasicBlockRef entry = LLVM.AppendBasicBlock(mainFunction, "entry");
 		LLVM.PositionBuilderAtEnd(builder, entry);
 		
-		GeneratePrintfBinding();
+		GeneratePrintfBindings();
+		GenerateOpenGLBindings();
 		
 		Visit(program);
 		
 		LLVM.BuildRetVoid(builder);
 	}
 	
-	private void GeneratePrintfBinding()
+	private void GeneratePrintfBindings()
 	{
 		LLVMTypeRef[] paramTypes = [LLVM.PointerType(LLVM.Int8Type(), 0)];
 		LLVMTypeRef functionType = LLVM.FunctionType(LLVM.Int32Type(), paramTypes, true);
 		valueIdentifiers.Add("Print", LLVM.AddFunction(module, "printf", functionType));
+	}
+	
+	private void GenerateOpenGLBindings()
+	{
+		LLVMTypeRef[] paramTypes = [];
+		LLVMTypeRef functionType = LLVM.FunctionType(LLVM.VoidType(), paramTypes, false);
+		valueIdentifiers.Add("glfwInit", LLVM.AddFunction(module, "glfwInit", functionType));
 	}
 	
 	public override LLVMValueRef VisitNumber(CTesParser.NumberContext context)
@@ -60,7 +68,7 @@ public class CodeGenerator : CTesBaseVisitor<LLVMValueRef>
 	
 	public override LLVMValueRef VisitString(CTesParser.StringContext context)
 	{
-		string str = string.Concat(context.CHARACTER().Select(ch => ch.GetText()));
+		string str = context.CHARACTER().GetText();
 		str = System.Text.RegularExpressions.Regex.Unescape(str);
 		return LLVM.BuildGlobalStringPtr(builder, str, string.Concat(str.Where(char.IsLetter)) + "String");
 	}
@@ -114,8 +122,8 @@ public class CodeGenerator : CTesBaseVisitor<LLVMValueRef>
 			foreach (CTesParser.StatementContext? statement in context.statement())
 				Visit(statement);
 			
-			if (context.@return() != null)
-				LLVM.BuildRet(builder, Visit(context.@return().expression()));
+			if (context.returnStatement() != null)
+				LLVM.BuildRet(builder, Visit(context.returnStatement().expression()));
 			else
 				LLVM.BuildRetVoid(builder);
 		}
@@ -176,12 +184,13 @@ public class CodeGenerator : CTesBaseVisitor<LLVMValueRef>
 		RunExe(filename + ".exe");
 	}
 	
+	private static readonly string[] Libs = ["glfw3dll.lib"];
 	private static void CompileSFileToExe(string sFilePath, string exeFilePath)
 	{
 		ProcessStartInfo startInfo = new()
 		{
 			FileName = "clang",
-			Arguments = $"{sFilePath} -o {exeFilePath}",
+			Arguments = $"{sFilePath} -o {exeFilePath} {string.Join(" ", Libs.Select(lib => $"lib/{lib}"))}",
 			RedirectStandardOutput = true,
 			RedirectStandardError = true,
 			UseShellExecute = false,

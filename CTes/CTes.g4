@@ -5,9 +5,9 @@ grammar CTes;
  */
 
 program: (functionDefinition | statement)* ;
-functionDefinition: returnType=typeIdentifier functionName=WORD parameters '{' statement* return? '}' ;
+functionDefinition: returnType=typeIdentifier functionName=WORD parameters '{' statement* returnStatement? '}' ;
 statement: functionCall ';' ;
-return: 'return' expression ';' ;
+returnStatement: 'return' expression ';' ;
 expression: functionCall | add | value ;
 add: lhs=value '+' rhs=value ;
 functionCall: function=valueIdentifier arguments ;
@@ -17,7 +17,7 @@ value: valueIdentifier | number | string ;
 valueIdentifier: WORD ;
 number: NUMBER ;
 typeIdentifier: WORD ;
-string: '"' (CHARACTER)* '"' ;
+string: '"' CHARACTER? '"' ;
 
 /*
  * Lexer Rules

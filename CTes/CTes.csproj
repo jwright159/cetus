@@ -16,6 +16,10 @@
       <None Update="sample.ctes">
         <CopyToOutputDirectory>Always</CopyToOutputDirectory>
       </None>
+        
+        <Content Include="lib/**">
+            <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+        </Content>
     </ItemGroup>
 
 </Project>

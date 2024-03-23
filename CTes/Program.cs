@@ -10,8 +10,12 @@ CTesParser.ProgramContext program = parser.program();
 CodeGenerator visitor = new();
 visitor.Generate(program);
 visitor.Dump();
+Console.WriteLine();
+
 // visitor.Optimize();
 // visitor.Dump();
-Console.WriteLine();
+// Console.WriteLine();
+
 visitor.CompileAndRun();
+
 visitor.Dispose();
