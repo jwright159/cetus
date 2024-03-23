@@ -1,17 +1,22 @@
 ﻿using System.Diagnostics;
 using System.Runtime.InteropServices;
+using CTes.Antlr;
 using LLVMSharp;
 
 namespace CTes;
 
-public class CodeGenerator
+public class CodeGenerator : CTesBaseVisitor<LLVMValueRef>
 {
 	private LLVMModuleRef module;
 	private LLVMBuilderRef builder;
 	private LLVMValueRef mainFunction;
 	
-	private LLVMValueRef printfFunction;
-	private LLVMValueRef format;
+	private Dictionary<string, LLVMTypeRef> typeIdentifiers = new()
+	{
+		{ "double", LLVM.DoubleType() }
+	};
+	
+	private Dictionary<string, LLVMValueRef> valueIdentifiers = new();
 	
 	public CodeGenerator()
 	{
@@ -25,7 +30,7 @@ public class CodeGenerator
 		builder = LLVM.CreateBuilder();
 	}
 	
-	public void Generate(IEnumerable<Expression> expressions)
+	public void Generate(CTesParser.ProgramContext program)
 	{
 		LLVMTypeRef[] paramTypes = [];
 		LLVMTypeRef functionType = LLVM.FunctionType(LLVM.VoidType(), paramTypes, false);
@@ -36,57 +41,97 @@ public class CodeGenerator
 		
 		GeneratePrintfBinding();
 		
-		foreach (Expression expression in expressions)
-		{
-			LLVMValueRef result = GenerateExpression(expression);
-			LLVM.BuildCall(builder, printfFunction, [format, result], "printfCall");
-		}
+		Visit(program);
 		
 		LLVM.BuildRetVoid(builder);
 	}
 	
 	private void GeneratePrintfBinding()
 	{
-		format = LLVM.BuildGlobalStringPtr(builder, "%f\n", "format");
-		
 		LLVMTypeRef[] paramTypes = [LLVM.PointerType(LLVM.Int8Type(), 0)];
 		LLVMTypeRef functionType = LLVM.FunctionType(LLVM.Int32Type(), paramTypes, true);
-		printfFunction = LLVM.AddFunction(module, "printf", functionType);
+		valueIdentifiers.Add("Print", LLVM.AddFunction(module, "printf", functionType));
 	}
 	
-	private LLVMValueRef GenerateExpression(Expression expression)
+	public override LLVMValueRef VisitNumber(CTesParser.NumberContext context)
 	{
-		if (expression is NumberExpression numberExpression)
-		{
-			return LLVM.ConstReal(LLVM.DoubleType(), numberExpression.Value);
-		}
+		return LLVM.ConstReal(LLVM.DoubleType(), double.Parse(context.GetText()));
+	}
+	
+	public override LLVMValueRef VisitString(CTesParser.StringContext context)
+	{
+		string str = string.Concat(context.CHARACTER().Select(ch => ch.GetText()));
+		str = System.Text.RegularExpressions.Regex.Unescape(str);
+		return LLVM.BuildGlobalStringPtr(builder, str, string.Concat(str.Where(char.IsLetter)) + "String");
+	}
+	
+	public override LLVMValueRef VisitAdd(CTesParser.AddContext context)
+	{
+		return LLVM.BuildFAdd(builder, Visit(context.lhs), Visit(context.rhs), "addtmp");
+	}
+	
+	public override LLVMValueRef VisitValueIdentifier(CTesParser.ValueIdentifierContext context)
+	{
+		string name = context.GetText();
+		if (!valueIdentifiers.TryGetValue(name, out LLVMValueRef result))
+			throw new Exception($"Identifier '{name}' not found");
+		return result;
+	}
+	
+	public override LLVMValueRef VisitFunctionCall(CTesParser.FunctionCallContext context)
+	{
+		LLVMValueRef function = Visit(context.function);
+		string functionName = context.function.GetText();
+		if (function.IsAFunction().IsNull())
+			throw new Exception($"Value '{functionName}' is not a function");
+		LLVMValueRef[] args = context.arguments().expression().Select(Visit).ToArray();
+		foreach ((LLVMValueRef arg, LLVMTypeRef typ) in args.Zip(LLVM.GetParamTypes(LLVM.TypeOf(function))))
+			if (LLVM.TypeOf(arg).TypeKind != typ.TypeKind)
+				throw new Exception($"Argument type mismatch in call to '{functionName}'");
+		return LLVM.BuildCall(builder, function, args, functionName + "Call");
+	}
+	
+	public override LLVMValueRef VisitFunctionDefinition(CTesParser.FunctionDefinitionContext context)
+	{
+		string name = context.functionName.Text;
+		LLVMValueRef function = LLVM.AddFunction(module, name, LLVM.FunctionType(LLVM.DoubleType(), context.parameters()._types.Select(typ => typeIdentifiers[typ.GetText()]).ToArray(), false));
+		LLVM.SetLinkage(function, LLVMLinkage.LLVMExternalLinkage);
 		
-		if (expression is IdentifierExpression identifierExpression)
+		for (int i = 0; i < context.parameters()._args.Count; ++i)
 		{
-			throw new NotImplementedException("Variable declarations are not supported yet");
-		}
-		
-		if (expression is BinaryExpression binaryExpression)
-		{
-			LLVMValueRef left = GenerateExpression(binaryExpression.Left);
-			LLVMValueRef right = GenerateExpression(binaryExpression.Right);
+			string argumentName = context.parameters()._args[i].Text;
 			
-			switch (binaryExpression.Operator.Value)
-			{
-				case "+":
-					return LLVM.BuildFAdd(builder, left, right, "addtmp");
-				case "-":
-					return LLVM.BuildFSub(builder, left, right, "subtmp");
-				case "*":
-					return LLVM.BuildFMul(builder, left, right, "multmp");
-				case "/":
-					return LLVM.BuildFDiv(builder, left, right, "divtmp");
-				default:
-					throw new Exception($"Unsupported operator: {binaryExpression.Operator.Value}");
-			}
+			LLVMValueRef param = LLVM.GetParam(function, (uint)i);
+			LLVM.SetValueName(param, argumentName);
+			
+			valueIdentifiers.Add(argumentName, param);
 		}
 		
-		throw new Exception($"Unsupported expression type: {expression.GetType()}");
+		LLVM.PositionBuilderAtEnd(builder, LLVM.AppendBasicBlock(function, "entry"));
+		
+		try
+		{
+			foreach (CTesParser.StatementContext? statement in context.statement())
+				Visit(statement);
+			
+			if (context.@return() != null)
+				LLVM.BuildRet(builder, Visit(context.@return().expression()));
+			else
+				LLVM.BuildRetVoid(builder);
+		}
+		catch (Exception)
+		{
+			LLVM.DeleteFunction(function);
+			throw;
+		}
+		
+		LLVM.VerifyFunction(function, LLVMVerifierFailureAction.LLVMPrintMessageAction);
+		
+		valueIdentifiers.Add(name, function);
+		
+		LLVM.PositionBuilderAtEnd(builder, mainFunction.GetLastBasicBlock());
+		
+		return function;
 	}
 	
 	public void Optimize()
@@ -107,40 +152,28 @@ public class CodeGenerator
 		LLVM.DisposeBuilder(builder);
 	}
 	
-	public static void GenerateAndDump(IEnumerable<Expression> expressions)
+	public void Dump()
 	{
-		CodeGenerator generator = new();
-		generator.Generate(expressions);
-		generator.Optimize();
-		LLVM.DumpModule(generator.module);
-		generator.Dispose();
+		LLVM.DumpModule(module);
 	}
 	
-	public static void GenerateAndCompile(IEnumerable<Expression> expressions, string filename = "main")
+	public void CompileAndRun(string filename = "main")
 	{
-		CodeGenerator generator = new();
-		generator.Generate(expressions);
-		generator.Optimize();
-		LLVM.DumpModule(generator.module);
-		Console.WriteLine();
-		
 		const string targetTriple = "x86_64-pc-windows-msvc";
 		if (LLVM.GetTargetFromTriple(targetTriple, out LLVMTargetRef target, out string error))
 			throw new Exception(error);
 		LLVMTargetMachineRef targetMachine = LLVM.CreateTargetMachine(target, targetTriple, "generic", "", LLVMCodeGenOptLevel.LLVMCodeGenLevelDefault, LLVMRelocMode.LLVMRelocDefault, LLVMCodeModel.LLVMCodeModelDefault);
 		
-		LLVM.SetModuleDataLayout(generator.module, LLVM.CreateTargetDataLayout(targetMachine));
-		LLVM.SetTarget(generator.module, targetTriple);
+		LLVM.SetModuleDataLayout(module, LLVM.CreateTargetDataLayout(targetMachine));
+		LLVM.SetTarget(module, targetTriple);
 		
 		IntPtr asmFilename = Marshal.StringToHGlobalAnsi(filename + ".s");
-		if (LLVM.TargetMachineEmitToFile(targetMachine, generator.module, asmFilename, LLVMCodeGenFileType.LLVMAssemblyFile, out error))
+		if (LLVM.TargetMachineEmitToFile(targetMachine, module, asmFilename, LLVMCodeGenFileType.LLVMAssemblyFile, out error))
 			throw new Exception(error);
 		Marshal.FreeHGlobal(asmFilename);
 		
 		CompileSFileToExe(filename + ".s", filename + ".exe");
 		RunExe(filename + ".exe");
-		
-		generator.Dispose();
 	}
 	
 	private static void CompileSFileToExe(string sFilePath, string exeFilePath)
@@ -187,5 +220,7 @@ public class CodeGenerator
 		
 		string output = process.StandardOutput.ReadToEnd();
 		Console.Write(output);
+		string error = process.StandardError.ReadToEnd();
+		Console.Write(error);
 	}
 }

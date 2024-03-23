@@ -4,14 +4,20 @@ grammar CTes;
  * Parser Rules
  */
 
-file: (functionDefinition | statement)* ;
-functionDefinition: returnType=WORD functionName=WORD parameters '{' statement* return? '}' ;
+program: (functionDefinition | statement)* ;
+functionDefinition: returnType=typeIdentifier functionName=WORD parameters '{' statement* return? '}' ;
 statement: functionCall ';' ;
 return: 'return' expression ';' ;
-expression: WORD | NUMBER | expression '+' expression | functionCall ;
-functionCall: WORD arguments ;
-arguments: '(' (expression (',' expression)* ','?)? ')' ;
-parameters: '(' (WORD WORD (',' WORD WORD)* ','?)? ')' ;
+expression: functionCall | add | value ;
+add: lhs=value '+' rhs=value ;
+functionCall: function=valueIdentifier arguments ;
+arguments: '(' (args+=expression (',' args+=expression)* ','?)? ')' ;
+parameters: '(' (types+=typeIdentifier args+=WORD (',' types+=typeIdentifier args+=WORD)* ','?)? ')' ;
+value: valueIdentifier | number | string ;
+valueIdentifier: WORD ;
+number: NUMBER ;
+typeIdentifier: WORD ;
+string: '"' (CHARACTER)* '"' ;
 
 /*
  * Lexer Rules
@@ -19,4 +25,5 @@ parameters: '(' (WORD WORD (',' WORD WORD)* ','?)? ')' ;
 
 WORD: [a-zA-Z]+ ;
 NUMBER: [0-9]+ ;
+CHARACTER: [a-zA-Z0-9%\\]+ ;
 WHITESPACE: (' '|'\t'|'\r'|'\n')+ -> skip ;

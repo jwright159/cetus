@@ -3,4 +3,5 @@
     return a + b;
 }
 
-Print(Foo(1, 2));
+Print("%f\n", Foo(1, 2));
+Print("%f\n", Foo(2, 2));
