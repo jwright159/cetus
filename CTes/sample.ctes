@@ -4,5 +4,5 @@
 }
 
 Print("%f\n", Foo(1, 2));
-Print(4, 4);
+Print("%i\n", glfwInit());
 Print("%f\n", Foo(2, 2));

@@ -11,6 +11,8 @@ public class CodeGenerator : CTesBaseVisitor<LLVMValueRef>
 	private LLVMBuilderRef builder;
 	private LLVMValueRef mainFunction;
 	
+	private LLVMTypeRef pointerType = LLVM.PointerType(LLVM.Int8Type(), 0);
+	
 	private Dictionary<string, LLVMTypeRef> typeIdentifiers = new()
 	{
 		{ "double", LLVM.DoubleType() }
@@ -39,7 +41,8 @@ public class CodeGenerator : CTesBaseVisitor<LLVMValueRef>
 		LLVMBasicBlockRef entry = LLVM.AppendBasicBlock(mainFunction, "entry");
 		LLVM.PositionBuilderAtEnd(builder, entry);
 		
-		GeneratePrintfBindings();
+		valueIdentifiers.Add("NULL", LLVM.ConstPointerNull(pointerType));
+		GenerateStandardBindings();
 		GenerateOpenGLBindings();
 		
 		Visit(program);
@@ -47,20 +50,48 @@ public class CodeGenerator : CTesBaseVisitor<LLVMValueRef>
 		LLVM.BuildRetVoid(builder);
 	}
 	
-	private void GeneratePrintfBindings()
+	private void GenerateStandardBindings()
 	{
-		LLVMTypeRef[] paramTypes = [LLVM.PointerType(LLVM.Int8Type(), 0)];
+		GeneratePrintfBinding();
+		GenerateFflushBinding();
+	}
+	
+	private void GeneratePrintfBinding()
+	{
+		LLVMTypeRef[] paramTypes = [pointerType];
 		LLVMTypeRef functionType = LLVM.FunctionType(LLVM.Int32Type(), paramTypes, true);
 		LLVMValueRef function = LLVM.AddFunction(module, "printf", functionType);
 		valueIdentifiers.Add("Print", function);
 	}
 	
+	private void GenerateFflushBinding()
+	{
+		LLVMTypeRef[] paramTypes = [pointerType];
+		LLVMTypeRef functionType = LLVM.FunctionType(LLVM.Int32Type(), paramTypes, true);
+		LLVMValueRef function = LLVM.AddFunction(module, "fflush", functionType);
+		valueIdentifiers.Add("Flush", function);
+	}
+	
 	private void GenerateOpenGLBindings()
 	{
+		GenerateGlfwInitBinding();
+		GenerateGlfwGetErrorBinding();
+	}
+	
+	private void GenerateGlfwInitBinding()
+	{
 		LLVMTypeRef[] paramTypes = [];
-		LLVMTypeRef functionType = LLVM.FunctionType(LLVM.VoidType(), paramTypes, false);
+		LLVMTypeRef functionType = LLVM.FunctionType(LLVM.Int32Type(), paramTypes, false);
 		LLVMValueRef function = LLVM.AddFunction(module, "glfwInit", functionType);
 		valueIdentifiers.Add("glfwInit", function);
+	}
+	
+	private void GenerateGlfwGetErrorBinding()
+	{
+		LLVMTypeRef[] paramTypes = [pointerType];
+		LLVMTypeRef functionType = LLVM.FunctionType(LLVM.Int32Type(), paramTypes, false);
+		LLVMValueRef function = LLVM.AddFunction(module, "glfwGetError", functionType);
+		valueIdentifiers.Add("glfwGetError", function);
 	}
 	
 	public override LLVMValueRef VisitNumber(CTesParser.NumberContext context)
@@ -70,9 +101,10 @@ public class CodeGenerator : CTesBaseVisitor<LLVMValueRef>
 	
 	public override LLVMValueRef VisitString(CTesParser.StringContext context)
 	{
-		string str = context.CHARACTER().GetText();
+		string str = context.CHARACTER()?.GetText() ?? "";
 		str = System.Text.RegularExpressions.Regex.Unescape(str);
-		return LLVM.BuildGlobalStringPtr(builder, str, string.Concat(str.Where(char.IsLetter)) + "String");
+		string name = string.Concat(str.Where(char.IsLetter));
+		return LLVM.BuildGlobalStringPtr(builder, str, (name.Length == 0 ? "some" : name) + "String");
 	}
 	
 	public override LLVMValueRef VisitAdd(CTesParser.AddContext context)
@@ -231,6 +263,7 @@ public class CodeGenerator : CTesBaseVisitor<LLVMValueRef>
 			UseShellExecute = false,
 			CreateNoWindow = true,
 		};
+		startInfo.EnvironmentVariables["PATH"] += ";lib";
 		
 		using Process? process = Process.Start(startInfo);
 		if (process == null)
