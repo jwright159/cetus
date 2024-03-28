@@ -51,14 +51,16 @@ public class CodeGenerator : CTesBaseVisitor<LLVMValueRef>
 	{
 		LLVMTypeRef[] paramTypes = [LLVM.PointerType(LLVM.Int8Type(), 0)];
 		LLVMTypeRef functionType = LLVM.FunctionType(LLVM.Int32Type(), paramTypes, true);
-		valueIdentifiers.Add("Print", LLVM.AddFunction(module, "printf", functionType));
+		LLVMValueRef function = LLVM.AddFunction(module, "printf", functionType);
+		valueIdentifiers.Add("Print", function);
 	}
 	
 	private void GenerateOpenGLBindings()
 	{
 		LLVMTypeRef[] paramTypes = [];
 		LLVMTypeRef functionType = LLVM.FunctionType(LLVM.VoidType(), paramTypes, false);
-		valueIdentifiers.Add("glfwInit", LLVM.AddFunction(module, "glfwInit", functionType));
+		LLVMValueRef function = LLVM.AddFunction(module, "glfwInit", functionType);
+		valueIdentifiers.Add("glfwInit", function);
 	}
 	
 	public override LLVMValueRef VisitNumber(CTesParser.NumberContext context)
@@ -89,13 +91,22 @@ public class CodeGenerator : CTesBaseVisitor<LLVMValueRef>
 	public override LLVMValueRef VisitFunctionCall(CTesParser.FunctionCallContext context)
 	{
 		LLVMValueRef function = Visit(context.function);
+		LLVMTypeRef functionType = function.TypeOf().GetElementType();
 		string functionName = context.function.GetText();
+		
 		if (function.IsAFunction().IsNull())
 			throw new Exception($"Value '{functionName}' is not a function");
+		
 		LLVMValueRef[] args = context.arguments().expression().Select(Visit).ToArray();
-		foreach ((LLVMValueRef arg, LLVMTypeRef typ) in args.Zip(LLVM.GetParamTypes(LLVM.TypeOf(function))))
-			if (LLVM.TypeOf(arg).TypeKind != typ.TypeKind)
-				throw new Exception($"Argument type mismatch in call to '{functionName}'");
+		
+		bool isVarArg = LLVM.IsFunctionVarArg(functionType);
+		if (isVarArg ? args.Length < function.CountParams() : args.Length != function.CountParams())
+			throw new Exception($"Argument count mismatch in call to '{functionName}', expected {(isVarArg ? "at least " : "")}{function.CountParams()} but got {args.Length}");
+		
+		foreach ((LLVMValueRef arg, LLVMValueRef typ) in args.Zip(function.GetParams()))
+			if (arg.TypeOf().TypeKind != typ.TypeOf().TypeKind)
+				throw new Exception($"Argument type mismatch in call to '{functionName}', expected {typ.TypeOf().TypeKind} but got {arg.TypeOf().TypeKind}");
+		
 		return LLVM.BuildCall(builder, function, args, functionName + "Call");
 	}
 	
