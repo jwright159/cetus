@@ -3,12 +3,20 @@
 extern void printf(char* format, ...);
 
 extern int glfwInit();
+extern int glfwWindowHint(int hint, int value);
+const int GLFW_CONTEXT_VERSION_MAJOR = 0x00022002;
+const int GLFW_CONTEXT_VERSION_MINOR = 0x00022003;
+const int GLFW_OPENGL_PROFILE = 0x00022008;
+const int GLFW_OPENGL_CORE_PROFILE = 0x00032001;
 
-double Foo(double a, double b)
+int Foo(int a, int b)
 {
     return a + b;
 }
 
-printf("%f\n", Foo(1, 2));
+printf("%i\n", Foo(1, 2));
 glfwInit();
-printf("%f\n", Foo(2, 2));
+glfwWindowHint(*GLFW_CONTEXT_VERSION_MAJOR, 3);
+glfwWindowHint(*GLFW_CONTEXT_VERSION_MINOR, 3);
+glfwWindowHint(*GLFW_OPENGL_PROFILE, *GLFW_OPENGL_CORE_PROFILE);
+printf("%i\n", Foo(2, 2));
