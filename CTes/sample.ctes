@@ -1,8 +1,14 @@
-﻿double Foo(double a, double b)
+﻿include glfw3;
+
+extern void printf(char* format, ...);
+
+extern int glfwInit();
+
+double Foo(double a, double b)
 {
     return a + b;
 }
 
-Print("%f\n", Foo(1, 2));
-Print("%i\n", glfwInit());
-Print("%f\n", Foo(2, 2));
+printf("%f\n", Foo(1, 2));
+glfwInit();
+printf("%f\n", Foo(2, 2));
