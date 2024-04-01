@@ -1,22 +1,67 @@
 ﻿include glfw3;
 
-extern void printf(char* format, ...);
+extern void printf(string format, ...);
 
+extern struct GLFWwindow;
+extern struct GLFWmonitor;
+delegate int GLFWglproc(...);
 extern int glfwInit();
 extern int glfwWindowHint(int hint, int value);
+extern GLFWwindow* glfwCreateWindow(int width, int height, char* title, GLFWmonitor* monitor, GLFWwindow* share);
+extern void glfwMakeContextCurrent(GLFWwindow* window);
+extern int glfwWindowShouldClose(GLFWwindow* window);
+extern void glfwSwapBuffers(GLFWwindow* window);
+extern void glfwPollEvents();
+extern void glfwTerminate();
+extern GLFWglproc* glfwGetProcAddress(string procname);
 const int GLFW_CONTEXT_VERSION_MAJOR = 0x00022002;
 const int GLFW_CONTEXT_VERSION_MINOR = 0x00022003;
 const int GLFW_OPENGL_PROFILE = 0x00022008;
 const int GLFW_OPENGL_CORE_PROFILE = 0x00032001;
+const int GL_COLOR_BUFFER_BIT = 0x00004000;
 
 int Foo(int a, int b)
 {
     return a + b;
 }
 
-printf("%i\n", Foo(1, 2));
-glfwInit();
-glfwWindowHint(*GLFW_CONTEXT_VERSION_MAJOR, 3);
-glfwWindowHint(*GLFW_CONTEXT_VERSION_MINOR, 3);
-glfwWindowHint(*GLFW_OPENGL_PROFILE, *GLFW_OPENGL_CORE_PROFILE);
-printf("%i\n", Foo(2, 2));
+bool glfwWindowShouldCloseBool(GLFWwindow* window)
+{
+    return glfwWindowShouldClose(window) != 0;
+}
+
+void main()
+{
+    printf("%i\n", Foo(1, 2));
+    glfwInit();
+    glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
+    glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);
+    glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
+    printf("%i\n", Foo(2, 2));
+    
+    GLFWglproc* glClearColor = glfwGetProcAddress("glClearColor");
+    GLFWglproc* glClear = glfwGetProcAddress("glClear");
+    
+    GLFWwindow* window = glfwCreateWindow(800, 600, "LearnOpenGL", NULL, NULL);
+    if (window == NULL)
+    {
+        printf("Failed to create GLFW window\n");
+        glfwTerminate();
+        return;
+    }
+    glfwMakeContextCurrent(window);
+    
+    printf("Starting loop\n");
+    while (!glfwWindowShouldCloseBool(window))
+    {
+        printf("Looping\n");
+        glClearColor(0.2f, 0.3f, 0.3f, 1.0f);
+        glClear(GL_COLOR_BUFFER_BIT);
+        
+        glfwSwapBuffers(window);
+        glfwPollEvents();
+    }
+    printf("Exiting loop\n");
+    
+    glfwTerminate();
+}
