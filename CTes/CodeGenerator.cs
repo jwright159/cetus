@@ -14,18 +14,18 @@ public class CodeGenerator : CTesBaseVisitor<TypedValue>
 	private Dictionary<string, TypedValue> autoDerefGlobalIdentifiers = new();
 	private Dictionary<string, TypedValue> noDerefGlobalIdentifiers = new()
 	{
-		{ "void", LLVM.VoidType() },
-		{ "float", LLVM.FloatType() },
-		{ "double", LLVM.DoubleType() },
-		{ "char", LLVM.Int8Type() },
-		{ "int", LLVM.Int32Type() },
-		{ "long", LLVM.Int64Type() },
-		{ "string", LLVM.PointerType(LLVM.Int8Type(), 0) },
-		{ "bool", LLVM.Int1Type() },
-		{ "true", LLVM.ConstInt(LLVM.Int1Type(), 1, false) },
-		{ "false", LLVM.ConstInt(LLVM.Int1Type(), 0, false) },
-		{ "NULL", new TypedValue(false, LLVM.PointerType(LLVM.Int8Type(), 0), LLVM.ConstPointerNull(LLVM.PointerType(LLVM.Int8Type(), 0))) },
+		{ "void", (TypedValueType)LLVM.VoidType() },
+		{ "float", (TypedValueType)LLVM.FloatType() },
+		{ "double", (TypedValueType)LLVM.DoubleType() },
+		{ "char", (TypedValueType)LLVM.Int8Type() },
+		{ "int", (TypedValueType)LLVM.Int32Type() },
+		{ "long", (TypedValueType)LLVM.Int64Type() },
+		{ "string", (TypedValueType)LLVM.PointerType(LLVM.Int8Type(), 0) },
+		{ "bool", (TypedValueType)LLVM.Int1Type() },
+		{ "true", (TypedValueValue)LLVM.ConstInt(LLVM.Int1Type(), 1, false) },
+		{ "false", (TypedValueValue)LLVM.ConstInt(LLVM.Int1Type(), 0, false) },
 	};
+	private Dictionary<string, TypedValue> autoDerefLocalIdentifiers = new();
 	private Dictionary<string, TypedValue> noDerefLocalIdentifiers = new();
 	
 	private List<string> referencedLibs = [];
@@ -50,22 +50,22 @@ public class CodeGenerator : CTesBaseVisitor<TypedValue>
 	
 	public override TypedValue VisitDecimalNumber(CTesParser.DecimalNumberContext context)
 	{
-		return LLVM.ConstInt(LLVM.Int32Type(), ulong.Parse(context.digits.Text), true);
+		return (TypedValueValue)LLVM.ConstInt(LLVM.Int32Type(), ulong.Parse(context.digits.Text), true);
 	}
 	
 	public override TypedValue VisitHexNumber(CTesParser.HexNumberContext context)
 	{
-		return LLVM.ConstInt(LLVM.Int32Type(), ulong.Parse(context.digits.Text[2..], NumberStyles.HexNumber), true);
+		return (TypedValueValue)LLVM.ConstInt(LLVM.Int32Type(), ulong.Parse(context.digits.Text[2..], NumberStyles.HexNumber), true);
 	}
 	
 	public override TypedValue VisitFloatNumber(CTesParser.FloatNumberContext context)
 	{
-		return LLVM.ConstReal(LLVM.FloatType(), float.Parse(context.digits.Text[..^1]));
+		return (TypedValueValue)LLVM.ConstReal(LLVM.FloatType(), float.Parse(context.digits.Text[..^1]));
 	}
 	
 	public override TypedValue VisitDoubleNumber(CTesParser.DoubleNumberContext context)
 	{
-		return LLVM.ConstReal(LLVM.DoubleType(), double.Parse(context.digits.Text));
+		return (TypedValueValue)LLVM.ConstReal(LLVM.DoubleType(), double.Parse(context.digits.Text));
 	}
 	
 	public override TypedValue VisitString(CTesParser.StringContext context)
@@ -73,55 +73,64 @@ public class CodeGenerator : CTesBaseVisitor<TypedValue>
 		string str = context.STRING().GetText()[1..^1];
 		str = System.Text.RegularExpressions.Regex.Unescape(str);
 		string name = string.Concat(str.Where(char.IsLetter));
-		return LLVM.BuildGlobalStringPtr(builder, str, (name.Length == 0 ? "some" : name) + "String");
+		return (TypedValueValue)LLVM.BuildGlobalStringPtr(builder, str, (name.Length == 0 ? "some" : name) + "String");
+	}
+	
+	public override TypedValue VisitNull(CTesParser.NullContext context)
+	{
+		return new TypedValueNull();
 	}
 	
 	public override TypedValue VisitDelegateDeclaration(CTesParser.DelegateDeclarationContext context)
 	{
 		string name = context.name.Text;
-		LLVMTypeRef returnType = Visit(context.returnType).Type;
+		LLVMTypeRef returnType = Visit(context.returnType).Type(default);
 		CTesParser.ParameterContext[] parameters = context.parameters()._params.Where(param => param.name != null).ToArray();
-		LLVMTypeRef[] paramTypes = parameters.Select(param => param.type).Select(Visit).Select(type => type.Type).ToArray();
+		LLVMTypeRef[] paramTypes = parameters.Select(param => param.type).Select(Visit).Select(type => type.Type(default)).ToArray();
 		bool isVarArg = context.parameters()._params.Any(param => param.varArg != null);
 		LLVMTypeRef functionType = LLVM.FunctionType(returnType, paramTypes, isVarArg);
-		noDerefGlobalIdentifiers.Add(name, new TypedValue(true, functionType, default));
-		return functionType;
+		TypedValue result = new TypedValueType(functionType);
+		noDerefGlobalIdentifiers.Add(name, result);
+		return result;
 	}
 	
 	public override TypedValue VisitAddition(CTesParser.AdditionContext context)
 	{
-		return LLVM.BuildAdd(builder, Visit(context.lhs).Value, Visit(context.rhs).Value, "addtmp");
+		return (TypedValueValue)LLVM.BuildAdd(builder, Visit(context.lhs).Value(LLVM.Int32Type()), Visit(context.rhs).Value(LLVM.Int32Type()), "addtmp");
 	}
 	
 	public override TypedValue VisitValueIdentifier(CTesParser.ValueIdentifierContext context)
 	{
 		string name = context.GetText();
-
-		if (noDerefLocalIdentifiers.TryGetValue(name, out TypedValue result))
+		
+		if (noDerefLocalIdentifiers.TryGetValue(name, out TypedValue? result))
 			return result;
-
+		
+		if (autoDerefLocalIdentifiers.TryGetValue(name, out result))
+			return (TypedValueValue)LLVM.BuildLoad(builder, result.Value(null), "loadvartmp");
+		
 		if (noDerefGlobalIdentifiers.TryGetValue(name, out result))
 			return result;
-
+		
 		if (autoDerefGlobalIdentifiers.TryGetValue(name, out result))
-			return LLVM.BuildLoad(builder, result.Value, "loadvartmp");
-
+			return (TypedValueValue)LLVM.BuildLoad(builder, result.Value(null), "loadvartmp");
+		
 		throw new Exception($"Identifier '{name}' not found");
 	}
 	
 	public override TypedValue VisitTypeIdentifier(CTesParser.TypeIdentifierContext context)
 	{
 		string name = context.name.Text;
-		if (!noDerefGlobalIdentifiers.TryGetValue(name, out TypedValue result))
+		if (!noDerefGlobalIdentifiers.TryGetValue(name, out TypedValue? result))
 			throw new Exception($"Type '{name}' not found");
-		return context._pointers.Aggregate(result.Type, (type, _) => LLVM.PointerType(type, 0));
+		return (TypedValueType)context._pointers.Aggregate(result.Type(null), (type, _) => LLVM.PointerType(type, 0));
 	}
 	
 	public override TypedValue VisitFunctionCall(CTesParser.FunctionCallContext context)
 	{
 		TypedValue function = Visit(context.function);
 		string functionName = context.function.GetText();
-		LLVMTypeRef functionType = function.Type.TypeKind == LLVMTypeKind.LLVMPointerTypeKind ? function.Type.GetElementType() : function.Type;
+		LLVMTypeRef functionType = function.Type(null).TypeKind == LLVMTypeKind.LLVMPointerTypeKind ? function.Type(null).GetElementType() : function.Type(null);
 		
 		if (functionType.TypeKind != LLVMTypeKind.LLVMFunctionTypeKind)
 			throw new Exception($"Value '{functionName}' is a {functionType.TypeKind}, not a function");
@@ -133,10 +142,11 @@ public class CodeGenerator : CTesBaseVisitor<TypedValue>
 			throw new Exception($"Argument count mismatch in call to '{functionName}', expected {(isVarArg ? "at least " : "")}{functionType.CountParamTypes()} but got {args.Length}");
 		
 		foreach ((TypedValue arg, LLVMTypeRef type) in args.Zip(functionType.GetParamTypes()))
-			if (arg.Type.TypeKind != type.TypeKind)
-				throw new Exception($"Argument type mismatch in call to '{functionName}', expected {type.TypeKind} but got {arg.Type.TypeKind}");
+			if (arg.Type(null).TypeKind != type.TypeKind)
+				throw new Exception($"Argument type mismatch in call to '{functionName}', expected {type.TypeKind} but got {arg.Type(null).TypeKind}");
 		
-		return LLVM.BuildCall(builder, function.Value, args.Select(arg => arg.Value).ToArray(), functionType.GetReturnType().TypeKind == LLVMTypeKind.LLVMVoidTypeKind ? "" : functionName + "Call");
+		LLVM.BuildCall(builder, function.Value(null), args.Select(arg => arg.Value(null)).ToArray(), functionType.GetReturnType().TypeKind == LLVMTypeKind.LLVMVoidTypeKind ? "" : functionName + "Call");
+		return default;
 	}
 	
 	public override TypedValue VisitIfStatement(CTesParser.IfStatementContext context)
@@ -146,7 +156,7 @@ public class CodeGenerator : CTesBaseVisitor<TypedValue>
 		LLVMBasicBlockRef elseBlock = LLVM.AppendBasicBlock(functionBlock, "ifElse");
 		LLVMBasicBlockRef mergeBlock = LLVM.AppendBasicBlock(functionBlock, "ifMerge");
 		
-		LLVMValueRef condition = Visit(context.condition).Value;
+		LLVMValueRef condition = Visit(context.condition).Value(null);
 		LLVM.BuildCondBr(builder, condition, thenBlock, elseBlock);
 		
 		LLVM.PositionBuilderAtEnd(builder, thenBlock);
@@ -172,7 +182,7 @@ public class CodeGenerator : CTesBaseVisitor<TypedValue>
 		LLVM.BuildBr(builder, conditionBlock);
 		
 		LLVM.PositionBuilderAtEnd(builder, conditionBlock);
-		LLVMValueRef condition = Visit(context.condition).Value;
+		LLVMValueRef condition = Visit(context.condition).Value(null);
 		LLVM.BuildCondBr(builder, condition, bodyBlock, mergeBlock);
 		
 		LLVM.PositionBuilderAtEnd(builder, bodyBlock);
@@ -186,22 +196,23 @@ public class CodeGenerator : CTesBaseVisitor<TypedValue>
 	public override TypedValue VisitFunctionDefinition(CTesParser.FunctionDefinitionContext context)
 	{
 		string name = context.name.Text;
-		LLVMTypeRef returnType = Visit(context.returnType).Type;
+		LLVMTypeRef returnType = Visit(context.returnType).Type(null);
 		CTesParser.ParameterContext[] parameters = context.parameters()._params.Where(param => param.name != null).ToArray();
-		LLVMTypeRef[] paramTypes = parameters.Select(param => param.type).Select(Visit).Select(type => type.Type).ToArray();
+		LLVMTypeRef[] paramTypes = parameters.Select(param => param.type).Select(Visit).Select(type => type.Type(null)).ToArray();
 		bool isVarArg = context.parameters()._params.Any(param => param.varArg != null);
 		LLVMTypeRef functionType = LLVM.FunctionType(returnType, paramTypes, isVarArg);
 		LLVMValueRef function = LLVM.AddFunction(module, name, functionType);
 		LLVM.SetLinkage(function, LLVMLinkage.LLVMExternalLinkage);
 		
 		noDerefLocalIdentifiers.Clear();
+		autoDerefLocalIdentifiers.Clear();
 		
 		for (int i = 0; i < context.parameters()._params.Count; ++i)
 		{
 			string argumentName = context.parameters()._params[i].name.Text;
 			LLVMValueRef param = function.GetParam((uint)i);
 			LLVM.SetValueName(param, argumentName);
-			noDerefLocalIdentifiers.Add(argumentName, param);
+			noDerefLocalIdentifiers.Add(argumentName, (TypedValueValue)param);
 		}
 		
 		LLVM.PositionBuilderAtEnd(builder, function.AppendBasicBlock("entry"));
@@ -220,14 +231,15 @@ public class CodeGenerator : CTesBaseVisitor<TypedValue>
 		
 		LLVM.VerifyFunction(function, LLVMVerifierFailureAction.LLVMPrintMessageAction);
 		
-		noDerefGlobalIdentifiers.Add(name, new TypedValue(false, functionType, function));
+		TypedValue result = new TypedValueValue(functionType, function);
+		noDerefGlobalIdentifiers.Add(name, result);
 		
-		return function;
+		return result;
 	}
 	
 	public override TypedValue VisitReturnStatement(CTesParser.ReturnStatementContext context)
 	{
-		return context.expression() != null ? LLVM.BuildRet(builder, Visit(context.expression()).Value) : LLVM.BuildRetVoid(builder);
+		return context.expression() != null ? LLVM.BuildRet(builder, Visit(context.expression()).Value(null)) : LLVM.BuildRetVoid(builder);
 	}
 	
 	public override TypedValue VisitIncludeLibrary(CTesParser.IncludeLibraryContext context)
@@ -298,7 +310,7 @@ public class CodeGenerator : CTesBaseVisitor<TypedValue>
 		LLVMValueRef variable = LLVM.BuildAlloca(builder, type.Type, name);
 		LLVM.BuildStore(builder, value.Value, variable);
 		TypedValue result = new(false, type.Type, variable);
-		autoDerefGlobalIdentifiers.Add(name, result);
+		autoDerefLocalIdentifiers.Add(name, result);
 		return result;
 	}
 	
@@ -411,14 +423,31 @@ public class CodeGenerator : CTesBaseVisitor<TypedValue>
 	}
 }
 
-public readonly struct TypedValue(bool isType, LLVMTypeRef type, LLVMValueRef value)
+public interface TypedValue
 {
-	public bool IsType { get; } = isType;
-	public LLVMTypeRef Type { get; } = type;
-	public LLVMValueRef Value { get; } = value;
-	
-	public override string ToString() => IsType ? Type.ToString() : Value.ToString();
-	
-	public static implicit operator TypedValue(LLVMValueRef value) => new(false, value.IsAFunction().Pointer == IntPtr.Zero ? value.TypeOf() : value.TypeOf().GetElementType(), value);
-	public static implicit operator TypedValue(LLVMTypeRef type) => new(true, type, default);
+	public LLVMTypeRef Type(LLVMTypeRef inference);
+	public LLVMValueRef Value(LLVMTypeRef inference);
+}
+
+public readonly struct TypedValueValue(LLVMTypeRef type, LLVMValueRef value) : TypedValue
+{
+	public LLVMTypeRef Type(LLVMTypeRef inference) => type;
+	public LLVMValueRef Value(LLVMTypeRef inference) => value;
+	public override string ToString() => value.ToString();
+	public static implicit operator TypedValueValue(LLVMValueRef value) => new(value.IsAFunction().Pointer == IntPtr.Zero ? value.TypeOf() : value.TypeOf().GetElementType(), value);
+}
+
+public readonly struct TypedValueType(LLVMTypeRef type) : TypedValue
+{
+	public LLVMTypeRef Type(LLVMTypeRef inference) => type;
+	public LLVMValueRef Value(LLVMTypeRef inference) => throw new Exception("Cannot get the value of a type");
+	public override string ToString() => type.ToString();
+	public static implicit operator TypedValueType(LLVMTypeRef type) => new(type);
+}
+
+public readonly struct TypedValueNull : TypedValue
+{
+	public LLVMTypeRef Type(LLVMTypeRef inference) => inference.Pointer != IntPtr.Zero ? inference : throw new Exception("Cannot infer the type of null");
+	public LLVMValueRef Value(LLVMTypeRef inference) => inference.Pointer != IntPtr.Zero ? LLVM.ConstPointerNull(inference) : throw new Exception("Cannot infer the type of null");
+	public override string ToString() => "null";
 }
