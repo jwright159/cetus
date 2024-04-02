@@ -64,7 +64,7 @@ parameter
     | varArg='...'
     ;
 
-value: null | string | number | valueIdentifier ;
+value: string | number | valueIdentifier ;
 valueIdentifier: WORD ;
 number
     : decimalNumber
@@ -78,7 +78,6 @@ floatNumber: digits=FLOAT_NUMBER ;
 doubleNumber: digits=DOUBLE_NUMBER ;
 typeIdentifier: name=WORD (pointers+=ASTERISK)* ;
 string: STRING ;
-null: 'NULL' ;
 
 /*
  * Lexer Rules
