@@ -1,13 +1,16 @@
-﻿using Antlr4.Runtime;
-using CTes;
-using CTes.Antlr;
+﻿using CTes;
 
-AntlrFileStream stream = new("sample.ctes");
-CTesLexer lexer = new(stream);
-CTesParser parser = new(new CommonTokenStream(lexer));
+// Lexer lexer = new(File.ReadAllText("sample.ctes"));
+Lexer lexer = new("""
+                  void main(int a)
+                  {
+                      
+                  }
+                  """);
+Parser parser = new(lexer);
 
-CTesParser.ProgramContext program = parser.program();
-CodeGenerator visitor = new();
+Parser.ProgramContext program = parser.Parse();
+Visitor visitor = new();
 visitor.Generate(program);
 visitor.Dump();
 Console.WriteLine();
