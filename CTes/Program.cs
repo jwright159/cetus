@@ -1,12 +1,6 @@
 ﻿using CTes;
 
-// Lexer lexer = new(File.ReadAllText("sample.ctes"));
-Lexer lexer = new("""
-                  void main(int a)
-                  {
-                      
-                  }
-                  """);
+Lexer lexer = new(File.ReadAllText("sample.ctes"));
 Parser parser = new(lexer);
 
 Parser.ProgramContext program = parser.Parse();
