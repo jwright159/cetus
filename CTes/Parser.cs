@@ -72,6 +72,11 @@ public class Parser(Lexer lexer)
 			programStatement = functionDefinition;
 			return functionDefinitionResult;
 		}
+		else if (ParseExternFunctionDeclaration(out ExternFunctionDeclarationContext? externFunctionDeclaration) is var externFunctionDeclarationResult and not Result.TokenRuleFailed)
+		{
+			programStatement = externFunctionDeclaration;
+			return externFunctionDeclarationResult;
+		}
 		else
 		{
 			programStatement = null;
@@ -112,13 +117,13 @@ public class Parser(Lexer lexer)
 		// public List<FunctionStatementContext> Statements = null!;
 	}
 	
-	public Result ParseFunctionDefinition(out FunctionDefinitionContext? includeLibrary)
+	public Result ParseFunctionDefinition(out FunctionDefinitionContext? functionDefinition)
 	{
 		int startIndex = lexer.Index;
 		if (ParseTypeIdentifier(out TypeIdentifierContext? returnType) is not Result.TokenRuleFailed && lexer.Eat(out Word? functionName) && ParseFunctionParameters(out FunctionParametersContext? parameters) is not Result.TokenRuleFailed && lexer.Eat<LeftBrace>())
 		{
 			Result? result = null;
-			FunctionDefinitionContext functionDefinition = new();
+			functionDefinition = new FunctionDefinitionContext();
 			functionDefinition.FunctionName = functionName.TokenText;
 			functionDefinition.Parameters = parameters.Parameters;
 			functionDefinition.ReturnType = returnType;
@@ -132,14 +137,45 @@ public class Parser(Lexer lexer)
 			// }
 			if (!lexer.Eat<RightBrace>())
 				result ??= new Result.ComplexRuleFailed("Expected '}'", new Result.TokenRuleFailed("Expected '}'", lexer.Line, lexer.Column));
-			includeLibrary = functionDefinition;
 			return result ?? new Result.Ok();
 		}
 		else
 		{
 			lexer.Index = startIndex;
-			includeLibrary = null;
+			functionDefinition = null;
 			return new Result.TokenRuleFailed("Expected function definition", lexer.Line, lexer.Column);
+		}
+	}
+	
+	
+	public class ExternFunctionDeclarationContext : IProgramStatementContext
+	{
+		public string FunctionName = null!;
+		public List<FunctionParameterContext> Parameters = null!;
+		public TypeIdentifierContext ReturnType = null!;
+	}
+	
+	public Result ParseExternFunctionDeclaration(out ExternFunctionDeclarationContext? externFunctionDeclaration)
+	{
+		int startIndex = lexer.Index;
+		if (
+			lexer.Eat<Extern>() &&
+			ParseTypeIdentifier(out TypeIdentifierContext? returnType) is var typeIdentifierResult and not Result.TokenRuleFailed &&
+			lexer.Eat(out Word? functionName) &&
+			ParseFunctionParameters(out FunctionParametersContext? parameters) is var functionParametersResult and not Result.TokenRuleFailed &&
+			lexer.Eat<Semicolon>())
+		{
+			externFunctionDeclaration = new ExternFunctionDeclarationContext();
+			externFunctionDeclaration.FunctionName = functionName.TokenText;
+			externFunctionDeclaration.Parameters = parameters.Parameters;
+			externFunctionDeclaration.ReturnType = returnType;
+			return typeIdentifierResult as Result.ComplexRuleFailed as Result ?? functionParametersResult as Result.ComplexRuleFailed as Result ?? new Result.Ok();
+		}
+		else
+		{
+			lexer.Index = startIndex;
+			externFunctionDeclaration = null;
+			return new Result.TokenRuleFailed("Expected extern function definition", lexer.Line, lexer.Column);
 		}
 	}
 	
@@ -159,12 +195,16 @@ public class Parser(Lexer lexer)
 			{
 				if (functionParameterResult is Result.ComplexRuleFailed)
 					result ??= functionParameterResult;
-				parameters.Parameters.Add(parameter);
+				if (functionParameterResult is Result.Ok)
+					parameters.Parameters.Add(parameter);
 				if (!lexer.Eat<Comma>())
 					break;
 			}
 			if (!lexer.Eat<RightParenthesis>())
+			{
 				result ??= new Result.ComplexRuleFailed("Expected ')'", new Result.TokenRuleFailed("Expected ')'", lexer.Line, lexer.Column));
+				lexer.EatTo<RightParenthesis>();
+			}
 			return result ?? new Result.Ok();
 		}
 		else

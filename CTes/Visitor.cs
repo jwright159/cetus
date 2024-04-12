@@ -59,6 +59,8 @@ public class Visitor
 		foreach (Parser.IProgramStatementContext statement in context.ProgramStatements)
 			if (statement is Parser.FunctionDefinitionContext functionDefinition)
 				VisitFunctionDefinition(functionDefinition);
+			else if (statement is Parser.ExternFunctionDeclarationContext externFunctionDeclaration)
+				VisitExternFunctionDeclaration(externFunctionDeclaration);
 			else if (statement is Parser.IncludeLibraryContext includeLibrary)
 				VisitIncludeLibrary(includeLibrary);
 			else
@@ -263,20 +265,18 @@ public class Visitor
 		referencedLibs.Add(context.LibraryName);
 	}
 	
-	// public TypedValue VisitExternFunctionDeclaration(Parser.ExternFunctionDeclarationContext context)
-	// {
-	// 	string name = context.name.Text;
-	// 	LLVMTypeRef returnType = Visit(context.returnType).Type;
-	// 	Parser.ParameterContext[] parameters = context.parameters()._params.Where(param => param.name != null).ToArray();
-	// 	LLVMTypeRef[] paramTypes = parameters.Select(param => param.type).Select(Visit).Select(type => type.Type).ToArray();
-	// 	bool isVarArg = context.parameters()._params.Any(param => param.varArg != null);
-	// 	LLVMTypeRef functionType = LLVM.FunctionType(returnType, paramTypes, isVarArg);
-	// 	LLVMValueRef function = LLVM.AddFunction(module, name, functionType);
-	// 	TypedValue result = new TypedValueValue(functionType, function);
-	// 	noDerefGlobalIdentifiers.Add(name, result);
-	// 	return default!;
-	// }
-	//
+	private void VisitExternFunctionDeclaration(Parser.ExternFunctionDeclarationContext context)
+	{
+		string name = context.FunctionName;
+		LLVMTypeRef returnType = VisitTypeIdentifier(context.ReturnType).LLVMType;
+		LLVMTypeRef[] paramTypes = context.Parameters.Select(param => param.ParameterType).Select(VisitTypeIdentifier).Select(type => type.LLVMType).ToArray();
+		// bool isVarArg = context.Parameters.Any(param => param.varArg != null);
+		LLVMTypeRef functionType = LLVM.FunctionType(returnType, paramTypes, false);
+		LLVMValueRef function = LLVM.AddFunction(module, name, functionType);
+		TypedValue result = new TypedValueValue(new TypedTypeTmp(functionType), function);
+		noDerefGlobalIdentifiers.Add(name, result);
+	}
+	
 	// public TypedValue VisitExternStructDeclaration(Parser.ExternStructDeclarationContext context)
 	// {
 	// 	string name = context.name.Text;

@@ -21,4 +21,9 @@ public class Lexer(string contents)
 	{
 		return IToken.TryParse(contents, ref Index, out T? _);
 	}
+	
+	public void EatTo<T>() where T : IToken, new()
+	{
+		while (!IsAtEnd && !Eat<T>()) Index++;
+	}
 }
