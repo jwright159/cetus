@@ -113,6 +113,7 @@ public class Parser(Lexer lexer)
 	{
 		public string FunctionName = null!;
 		public List<FunctionParameterContext> Parameters = null!;
+		public bool IsVarArg;
 		public TypeIdentifierContext ReturnType = null!;
 		// public List<FunctionStatementContext> Statements = null!;
 	}
@@ -126,6 +127,7 @@ public class Parser(Lexer lexer)
 			functionDefinition = new FunctionDefinitionContext();
 			functionDefinition.FunctionName = functionName.TokenText;
 			functionDefinition.Parameters = parameters.Parameters;
+			functionDefinition.IsVarArg = parameters.IsVarArg;
 			functionDefinition.ReturnType = returnType;
 			// functionDefinition.Statements = [];
 			// while (ParseFunctionStatement(out FunctionStatementContext? statement) is var functionStatementResult and not ParseResult.TokenRuleFailed)
@@ -152,6 +154,7 @@ public class Parser(Lexer lexer)
 	{
 		public string FunctionName = null!;
 		public List<FunctionParameterContext> Parameters = null!;
+		public bool IsVarArg;
 		public TypeIdentifierContext ReturnType = null!;
 	}
 	
@@ -168,6 +171,7 @@ public class Parser(Lexer lexer)
 			externFunctionDeclaration = new ExternFunctionDeclarationContext();
 			externFunctionDeclaration.FunctionName = functionName.TokenText;
 			externFunctionDeclaration.Parameters = parameters.Parameters;
+			externFunctionDeclaration.IsVarArg = parameters.IsVarArg;
 			externFunctionDeclaration.ReturnType = returnType;
 			return typeIdentifierResult as Result.ComplexRuleFailed as Result ?? functionParametersResult as Result.ComplexRuleFailed as Result ?? new Result.Ok();
 		}
@@ -183,6 +187,7 @@ public class Parser(Lexer lexer)
 	public class FunctionParametersContext : IContext
 	{
 		public List<FunctionParameterContext> Parameters = [];
+		public bool IsVarArg;
 	}
 	
 	public Result ParseFunctionParameters(out FunctionParametersContext? parameters)
@@ -199,6 +204,11 @@ public class Parser(Lexer lexer)
 					parameters.Parameters.Add(parameter);
 				if (!lexer.Eat<Comma>())
 					break;
+				if (lexer.Eat<Ellipsis>())
+				{
+					parameters.IsVarArg = true;
+					break;
+				}
 			}
 			if (!lexer.Eat<RightParenthesis>())
 			{

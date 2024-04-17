@@ -214,8 +214,8 @@ public class Visitor
 		string name = context.FunctionName;
 		LLVMTypeRef returnType = VisitTypeIdentifier(context.ReturnType).LLVMType;
 		LLVMTypeRef[] paramTypes = context.Parameters.Select(param => param.ParameterType).Select(VisitTypeIdentifier).Select(type => type.LLVMType).ToArray();
-		//bool isVarArg = context.parameters()._params.Any(param => param.varArg != null);
-		LLVMTypeRef functionType = LLVM.FunctionType(returnType, paramTypes, false);
+		bool isVarArg = context.IsVarArg;
+		LLVMTypeRef functionType = LLVM.FunctionType(returnType, paramTypes, isVarArg);
 		LLVMValueRef function = LLVM.AddFunction(module, name, functionType);
 		LLVM.SetLinkage(function, LLVMLinkage.LLVMExternalLinkage);
 		
@@ -270,8 +270,8 @@ public class Visitor
 		string name = context.FunctionName;
 		LLVMTypeRef returnType = VisitTypeIdentifier(context.ReturnType).LLVMType;
 		LLVMTypeRef[] paramTypes = context.Parameters.Select(param => param.ParameterType).Select(VisitTypeIdentifier).Select(type => type.LLVMType).ToArray();
-		// bool isVarArg = context.Parameters.Any(param => param.varArg != null);
-		LLVMTypeRef functionType = LLVM.FunctionType(returnType, paramTypes, false);
+		bool isVarArg = context.IsVarArg;
+		LLVMTypeRef functionType = LLVM.FunctionType(returnType, paramTypes, isVarArg);
 		LLVMValueRef function = LLVM.AddFunction(module, name, functionType);
 		TypedValue result = new TypedValueValue(new TypedTypeTmp(functionType), function);
 		noDerefGlobalIdentifiers.Add(name, result);
