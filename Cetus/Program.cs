@@ -1,6 +1,6 @@
-﻿using CTes;
+﻿using Cetus;
 
-Lexer lexer = new(File.ReadAllText("sample.ctes"));
+Lexer lexer = new(File.ReadAllText("sample.cetus"));
 Parser parser = new(lexer);
 
 Parser.ProgramContext program = parser.Parse();

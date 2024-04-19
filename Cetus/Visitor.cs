@@ -3,7 +3,7 @@ using System.Globalization;
 using System.Runtime.InteropServices;
 using LLVMSharp;
 
-namespace CTes;
+namespace Cetus;
 
 public class Visitor
 {

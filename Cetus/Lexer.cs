@@ -1,7 +1,7 @@
 ﻿using System.Diagnostics.CodeAnalysis;
-using CTes.Tokens;
+using Cetus.Tokens;
 
-namespace CTes;
+namespace Cetus;
 
 public class Lexer(string contents)
 {

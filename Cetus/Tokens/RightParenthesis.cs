@@ -1,4 +1,4 @@
-﻿namespace CTes.Tokens;
+﻿namespace Cetus.Tokens;
 
 public class RightParenthesis : ISpecialCharacterToken<RightParenthesis>
 {

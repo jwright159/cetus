@@ -1,6 +1,6 @@
-﻿using CTes.Tokens;
+﻿using Cetus.Tokens;
 
-namespace CTes;
+namespace Cetus;
 
 public class Parser(Lexer lexer)
 {

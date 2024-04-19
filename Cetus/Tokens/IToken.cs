@@ -1,6 +1,6 @@
 ﻿using System.Diagnostics.CodeAnalysis;
 
-namespace CTes.Tokens;
+namespace Cetus.Tokens;
 
 public interface IToken
 {

@@ -1,4 +1,4 @@
-grammar CTes;
+grammar Cetus;
 
 /*
  * Parser Rules
