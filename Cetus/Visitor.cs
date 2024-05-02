@@ -141,7 +141,10 @@ public class Visitor
 		string name = context.TypeName;
 		if (!noDerefGlobalIdentifiers.TryGetValue(name, out TypedValue? result))
 			throw new Exception($"Type '{name}' not found");
-		return result.Type; //(TypedValueType)context.pointerDepth.Aggregate(result.Type, (type, _) => LLVM.PointerType(type, 0));
+		LLVMTypeRef type = result.Type.LLVMType;
+		for (int i = 0; i < context.PointerCount; ++i)
+			type = LLVM.PointerType(type, 0);
+		return new TypedTypeWrap(type);
 	}
 	
 	// public TypedValue VisitFunctionCall(Parser.FunctionCallContext context)

@@ -321,6 +321,7 @@ public class Parser(Lexer lexer)
 	public class TypeIdentifierContext : IContext
 	{
 		public string TypeName = null!;
+		public int PointerCount;
 	}
 	
 	public Result ParseTypeIdentifier(out TypeIdentifierContext? typeIdentifier)
@@ -329,6 +330,8 @@ public class Parser(Lexer lexer)
 		{
 			typeIdentifier = new TypeIdentifierContext();
 			typeIdentifier.TypeName = typeName.TokenText;
+			while (lexer.Eat<Dereference>())
+				typeIdentifier.PointerCount++;
 			return new Result.Ok();
 		}
 		else
