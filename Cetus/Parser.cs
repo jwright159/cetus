@@ -77,6 +77,11 @@ public class Parser(Lexer lexer)
 			programStatement = externFunctionDeclaration;
 			return externFunctionDeclarationResult;
 		}
+		else if (ParseExternStructDeclaration(out ExternStructDeclarationContext? externStructDeclaration) is var externStructDeclarationResult and not Result.TokenRuleFailed)
+		{
+			programStatement = externStructDeclaration;
+			return externStructDeclarationResult;
+		}
 		else
 		{
 			programStatement = null;
@@ -174,6 +179,33 @@ public class Parser(Lexer lexer)
 			externFunctionDeclaration.IsVarArg = parameters.IsVarArg;
 			externFunctionDeclaration.ReturnType = returnType;
 			return typeIdentifierResult as Result.ComplexRuleFailed as Result ?? functionParametersResult as Result.ComplexRuleFailed as Result ?? new Result.Ok();
+		}
+		else
+		{
+			lexer.Index = startIndex;
+			externFunctionDeclaration = null;
+			return new Result.TokenRuleFailed("Expected extern function definition", lexer.Line, lexer.Column);
+		}
+	}
+	
+	
+	public class ExternStructDeclarationContext : IProgramStatementContext
+	{
+		public string StructName = null!;
+	}
+	
+	public Result ParseExternStructDeclaration(out ExternStructDeclarationContext? externFunctionDeclaration)
+	{
+		int startIndex = lexer.Index;
+		if (
+			lexer.Eat<Extern>() &&
+			lexer.Eat<Struct>() &&
+			lexer.Eat(out Word? structName) &&
+			lexer.Eat<Semicolon>())
+		{
+			externFunctionDeclaration = new ExternStructDeclarationContext();
+			externFunctionDeclaration.StructName = structName.TokenText;
+			return new Result.Ok();
 		}
 		else
 		{

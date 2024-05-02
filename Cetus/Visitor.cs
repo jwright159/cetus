@@ -61,6 +61,8 @@ public class Visitor
 				VisitFunctionDefinition(functionDefinition);
 			else if (statement is Parser.ExternFunctionDeclarationContext externFunctionDeclaration)
 				VisitExternFunctionDeclaration(externFunctionDeclaration);
+			else if (statement is Parser.ExternStructDeclarationContext externStructDeclaration)
+				VisitExternStructDeclaration(externStructDeclaration);
 			else if (statement is Parser.IncludeLibraryContext includeLibrary)
 				VisitIncludeLibrary(includeLibrary);
 			else
@@ -247,7 +249,7 @@ public class Visitor
 		
 		LLVM.VerifyFunction(function, LLVMVerifierFailureAction.LLVMPrintMessageAction);
 		
-		TypedValue result = new TypedValueValue(new TypedTypeTmp(functionType), function);
+		TypedValue result = new TypedValueValue(new TypedTypeWrap(functionType), function);
 		noDerefGlobalIdentifiers.Add(name, result);
 	}
 	
@@ -273,19 +275,18 @@ public class Visitor
 		bool isVarArg = context.IsVarArg;
 		LLVMTypeRef functionType = LLVM.FunctionType(returnType, paramTypes, isVarArg);
 		LLVMValueRef function = LLVM.AddFunction(module, name, functionType);
-		TypedValue result = new TypedValueValue(new TypedTypeTmp(functionType), function);
+		TypedValue result = new TypedValueValue(new TypedTypeWrap(functionType), function);
 		noDerefGlobalIdentifiers.Add(name, result);
 	}
 	
-	// public TypedValue VisitExternStructDeclaration(Parser.ExternStructDeclarationContext context)
-	// {
-	// 	string name = context.name.Text;
-	// 	LLVMTypeRef @struct = LLVM.StructCreateNamed(LLVM.GetGlobalContext(), name);
-	// 	TypedValue result = new TypedValueType(@struct);
-	// 	noDerefGlobalIdentifiers.Add(name, result);
-	// 	return default!;
-	// }
-	//
+	public void VisitExternStructDeclaration(Parser.ExternStructDeclarationContext context)
+	{
+		string name = context.StructName;
+		LLVMTypeRef @struct = LLVM.StructCreateNamed(LLVM.GetGlobalContext(), name);
+		TypedValue result = new TypedValueType(new TypedTypeWrap(@struct));
+		noDerefGlobalIdentifiers.Add(name, result);
+	}
+	
 	// public TypedValue VisitExternVariableDeclaration(Parser.ExternVariableDeclarationContext context)
 	// {
 	// 	string name = context.name.Text;
@@ -481,7 +482,7 @@ public static class TypedTypeExtensions
 	}
 }
 
-public readonly struct TypedTypeTmp(LLVMTypeRef type) : TypedType
+public readonly struct TypedTypeWrap(LLVMTypeRef type) : TypedType
 {
 	public LLVMTypeRef LLVMType => type;
 }
