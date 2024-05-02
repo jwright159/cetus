@@ -65,6 +65,8 @@ public class Visitor
 				VisitExternStructDeclaration(externStructDeclaration);
 			else if (statement is Parser.IncludeLibraryContext includeLibrary)
 				VisitIncludeLibrary(includeLibrary);
+			else if (statement is Parser.DelegateDeclarationContext delegateDeclaration)
+				VisitDelegateDeclaration(delegateDeclaration);
 			else
 				throw new Exception("Unknown statement type: " + statement.GetType());
 	}
@@ -96,20 +98,18 @@ public class Visitor
 	// 	string name = string.Concat(str.Where(char.IsLetter));
 	// 	return new TypedValueValue(StringType, LLVM.BuildGlobalStringPtr(builder, str, (name.Length == 0 ? "some" : name) + "String"));
 	// }
-	//
-	// public TypedValue VisitDelegateDeclaration(Parser.DelegateDeclarationContext context)
-	// {
-	// 	string name = context.name.Text;
-	// 	LLVMTypeRef returnType = Visit(context.returnType).Type;
-	// 	Parser.ParameterContext[] parameters = context.parameters()._params.Where(param => param.name != null).ToArray();
-	// 	LLVMTypeRef[] paramTypes = parameters.Select(param => param.type).Select(Visit).Select(type => type.Type).ToArray();
-	// 	bool isVarArg = context.parameters()._params.Any(param => param.varArg != null);
-	// 	LLVMTypeRef functionType = LLVM.FunctionType(returnType, paramTypes, isVarArg);
-	// 	TypedValue result = new TypedValueType(functionType);
-	// 	noDerefGlobalIdentifiers.Add(name, result);
-	// 	return result;
-	// }
-	//
+	
+	public void VisitDelegateDeclaration(Parser.DelegateDeclarationContext context)
+	{
+		string name = context.FunctionName;
+		LLVMTypeRef returnType = VisitTypeIdentifier(context.ReturnType).LLVMType;
+		LLVMTypeRef[] paramTypes = context.Parameters.Select(param => param.ParameterType).Select(VisitTypeIdentifier).Select(type => type.LLVMType).ToArray();
+		bool isVarArg = context.IsVarArg;
+		LLVMTypeRef functionType = LLVM.FunctionType(returnType, paramTypes, isVarArg);
+		TypedValue result = new TypedValueType(new TypedTypeWrap(functionType));
+		noDerefGlobalIdentifiers.Add(name, result);
+	}
+	
 	// public TypedValue VisitAddition(Parser.AdditionContext context)
 	// {
 	// 	TypedValue lhs = Visit(context.lhs);

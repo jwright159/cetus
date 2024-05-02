@@ -82,6 +82,11 @@ public class Parser(Lexer lexer)
 			programStatement = externStructDeclaration;
 			return externStructDeclarationResult;
 		}
+		else if (ParseDelegateDeclaration(out DelegateDeclarationContext? delegateDeclaration) is var delegateDeclarationResult and not Result.TokenRuleFailed)
+		{
+			programStatement = delegateDeclaration;
+			return delegateDeclarationResult;
+		}
 		else
 		{
 			programStatement = null;
@@ -236,12 +241,9 @@ public class Parser(Lexer lexer)
 					parameters.Parameters.Add(parameter);
 				if (!lexer.Eat<Comma>())
 					break;
-				if (lexer.Eat<Ellipsis>())
-				{
-					parameters.IsVarArg = true;
-					break;
-				}
 			}
+			if (lexer.Eat<Ellipsis>())
+				parameters.IsVarArg = true;
 			if (!lexer.Eat<RightParenthesis>())
 			{
 				result ??= new Result.ComplexRuleFailed("Expected ')'", new Result.TokenRuleFailed("Expected ')'", lexer.Line, lexer.Column));
@@ -278,6 +280,40 @@ public class Parser(Lexer lexer)
 			lexer.Index = startIndex;
 			parameter = null;
 			return new Result.TokenRuleFailed("Expected function parameter", lexer.Line, lexer.Column);
+		}
+	}
+	
+	
+	public class DelegateDeclarationContext : IProgramStatementContext
+	{
+		public string FunctionName = null!;
+		public List<FunctionParameterContext> Parameters = null!;
+		public bool IsVarArg;
+		public TypeIdentifierContext ReturnType = null!;
+	}
+	
+	public Result ParseDelegateDeclaration(out DelegateDeclarationContext? delegateDeclaration)
+	{
+		int startIndex = lexer.Index;
+		if (
+			lexer.Eat<Tokens.Delegate>() &&
+			ParseTypeIdentifier(out TypeIdentifierContext? returnType) is var typeIdentifierResult and not Result.TokenRuleFailed &&
+			lexer.Eat(out Word? functionName) &&
+			ParseFunctionParameters(out FunctionParametersContext? parameters) is var functionParametersResult and not Result.TokenRuleFailed &&
+			lexer.Eat<Semicolon>())
+		{
+			delegateDeclaration = new DelegateDeclarationContext();
+			delegateDeclaration.FunctionName = functionName.TokenText;
+			delegateDeclaration.Parameters = parameters.Parameters;
+			delegateDeclaration.IsVarArg = parameters.IsVarArg;
+			delegateDeclaration.ReturnType = returnType;
+			return typeIdentifierResult as Result.ComplexRuleFailed as Result ?? functionParametersResult as Result.ComplexRuleFailed as Result ?? new Result.Ok();
+		}
+		else
+		{
+			lexer.Index = startIndex;
+			delegateDeclaration = null;
+			return new Result.TokenRuleFailed("Expected extern function definition", lexer.Line, lexer.Column);
 		}
 	}
 	
