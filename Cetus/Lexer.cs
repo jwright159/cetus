@@ -12,6 +12,8 @@ public class Lexer(string contents)
 	
 	public bool IsAtEnd => Index >= contents.Length;
 	
+	public string Contents => contents;
+	
 	public bool Eat<T>([NotNullWhen(true)] out T? token) where T : IToken, new()
 	{
 		return IToken.TryParse(contents, ref Index, out token);

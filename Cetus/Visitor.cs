@@ -14,6 +14,7 @@ public class Visitor
 	public static readonly TypedType BoolType = new TypedTypeBool();
 	public static readonly TypedType CharType = new TypedTypeChar();
 	public static readonly TypedType FloatType = new TypedTypeFloat();
+	public static readonly TypedType DoubleType = new TypedTypeDouble();
 	public static readonly TypedType StringType = new TypedTypePointer(CharType);
 	
 	public static readonly TypedValue TrueValue = new TypedValueValue(BoolType, LLVM.ConstInt(LLVM.Int1Type(), 1, false));
@@ -24,6 +25,7 @@ public class Visitor
 	{
 		{ "void", new TypedValueType(new TypedTypeVoid()) },
 		{ "float", new TypedValueType(FloatType) },
+		{ "double", new TypedValueType(DoubleType) },
 		{ "char", new TypedValueType(CharType) },
 		{ "int", new TypedValueType(IntType) },
 		{ "string", new TypedValueType(StringType) },
@@ -67,37 +69,66 @@ public class Visitor
 				VisitIncludeLibrary(includeLibrary);
 			else if (statement is Parser.DelegateDeclarationContext delegateDeclaration)
 				VisitDelegateDeclaration(delegateDeclaration);
+			else if (statement is Parser.ConstVariableDefinitionContext constVariableDefinition)
+				VisitConstVariableDefinition(constVariableDefinition);
 			else
 				throw new Exception("Unknown statement type: " + statement.GetType());
 	}
 	
-	// public TypedValue VisitDecimalNumber(Parser.DecimalNumberContext context)
-	// {
-	// 	return new TypedValueValue(IntType, LLVM.ConstInt(LLVM.Int32Type(), ulong.Parse(context.digits.Text), true));
-	// }
-	//
-	// public TypedValue VisitHexNumber(Parser.HexNumberContext context)
-	// {
-	// 	return new TypedValueValue(IntType, LLVM.ConstInt(LLVM.Int32Type(), ulong.Parse(context.digits.Text[2..], NumberStyles.HexNumber), true));
-	// }
-	//
-	// public TypedValue VisitFloatNumber(Parser.FloatNumberContext context)
-	// {
-	// 	return new TypedValueValue(FloatType, LLVM.ConstReal(LLVM.FloatType(), float.Parse(context.digits.Text[..^1])));
-	// }
-	//
-	// public TypedValue VisitDoubleNumber(Parser.DoubleNumberContext context)
-	// {
-	// 	return new TypedValueValue(DoubleType, LLVM.ConstReal(LLVM.DoubleType(), double.Parse(context.digits.Text)));
-	// }
-	//
-	// public TypedValue VisitString(Parser.StringContext context)
-	// {
-	// 	string str = context.STRING().GetText()[1..^1];
-	// 	str = System.Text.RegularExpressions.Regex.Unescape(str);
-	// 	string name = string.Concat(str.Where(char.IsLetter));
-	// 	return new TypedValueValue(StringType, LLVM.BuildGlobalStringPtr(builder, str, (name.Length == 0 ? "some" : name) + "String"));
-	// }
+	public TypedValue VisitValue(Parser.IValueContext context)
+	{
+		if (context is Parser.IntegerContext integer)
+			return VisitInteger(integer);
+		if (context is Parser.FloatContext @float)
+			return VisitFloat(@float);
+		if (context is Parser.DoubleContext @double)
+			return VisitDouble(@double);
+		if (context is Parser.StringContext @string)
+			return VisitString(@string);
+		if (context is Parser.ValueIdentifierContext valueIdentifier)
+			return VisitValueIdentifier(valueIdentifier);
+		throw new Exception("Unknown value type: " + context.GetType());
+	}
+	
+	public TypedValue VisitInteger(Parser.IntegerContext context)
+	{
+		return new TypedValueValue(IntType, LLVM.ConstInt(LLVM.Int32Type(), (ulong)context.Value, true));
+	}
+	
+	public TypedValue VisitFloat(Parser.FloatContext context)
+	{
+		return new TypedValueValue(FloatType, LLVM.ConstReal(LLVM.FloatType(), context.Value));
+	}
+	
+	public TypedValue VisitDouble(Parser.DoubleContext context)
+	{
+		return new TypedValueValue(DoubleType, LLVM.ConstReal(LLVM.DoubleType(), context.Value));
+	}
+	
+	public TypedValue VisitString(Parser.StringContext context)
+	{
+		string name = string.Concat(context.Value.Where(char.IsLetter));
+		return new TypedValueValue(StringType, LLVM.BuildGlobalStringPtr(builder, context.Value, (name.Length == 0 ? "some" : name) + "String"));
+	}
+	
+	public TypedValue VisitValueIdentifier(Parser.ValueIdentifierContext context)
+	{
+		string name = context.ValueName;
+		
+		if (noDerefLocalIdentifiers.TryGetValue(name, out TypedValue? result))
+			return result;
+		
+		if (autoDerefLocalIdentifiers.TryGetValue(name, out result))
+			return new TypedValueValue(((TypedTypePointer)result.Type).PointerType, LLVM.BuildLoad(builder, result.Value, "loadvartmp"));
+		
+		if (noDerefGlobalIdentifiers.TryGetValue(name, out result))
+			return result;
+		
+		if (autoDerefGlobalIdentifiers.TryGetValue(name, out result))
+			return new TypedValueValue(((TypedTypePointer)result.Type).PointerType, LLVM.BuildLoad(builder, result.Value, "loadvartmp"));
+		
+		throw new Exception($"Identifier '{name}' not found");
+	}
 	
 	public void VisitDelegateDeclaration(Parser.DelegateDeclarationContext context)
 	{
@@ -115,25 +146,6 @@ public class Visitor
 	// 	TypedValue lhs = Visit(context.lhs);
 	// 	TypedValue rhs = Visit(context.rhs);
 	// 	return lhs.Type.BuildAdd(builder, lhs, rhs);
-	// }
-	//
-	// public TypedValue VisitValueIdentifier(Parser.ValueIdentifierContext context)
-	// {
-	// 	string name = context.GetText();
-	// 	
-	// 	if (noDerefLocalIdentifiers.TryGetValue(name, out TypedValue? result))
-	// 		return result;
-	// 	
-	// 	if (autoDerefLocalIdentifiers.TryGetValue(name, out result))
-	// 		return new TypedValueValue(((TypedTypePointer)result.Type).PointerType!, LLVM.BuildLoad(builder, result.Value, "loadvartmp"));
-	// 	
-	// 	if (noDerefGlobalIdentifiers.TryGetValue(name, out result))
-	// 		return result;
-	// 	
-	// 	if (autoDerefGlobalIdentifiers.TryGetValue(name, out result))
-	// 		return new TypedValueValue(((TypedTypePointer)result.Type).PointerType!, LLVM.BuildLoad(builder, result.Value, "loadvartmp"));
-	// 	
-	// 	throw new Exception($"Identifier '{name}' not found");
 	// }
 	
 	private TypedType VisitTypeIdentifier(Parser.TypeIdentifierContext context)
@@ -308,19 +320,20 @@ public class Visitor
 	// 		throw new Exception("Cannot dereference a non-pointer type");
 	// 	return (TypedValueValue)LLVM.BuildLoad(builder, pointer.Value, "loadtmp");
 	// }
-	//
-	// public TypedValue VisitConstVariableDeclaration(Parser.ConstVariableDeclarationContext context)
-	// {
-	// 	string name = context.name.Text;
-	// 	TypedValue value = Visit(context.value());
-	// 	LLVMValueRef global = LLVM.AddGlobal(module, value.Type, name);
-	// 	global.SetLinkage(LLVMLinkage.LLVMInternalLinkage);
-	// 	global.SetInitializer(value.Value);
-	// 	TypedValue result = new TypedValueValue(value.Type, global);
-	// 	autoDerefGlobalIdentifiers.Add(name, result);
-	// 	return default!;
-	// }
-	//
+	
+	public TypedValue VisitConstVariableDefinition(Parser.ConstVariableDefinitionContext context)
+	{
+		string name = context.VariableName;
+		TypedType type = VisitTypeIdentifier(context.Type);
+		TypedValue value = VisitValue(context.Value);
+		LLVMValueRef global = LLVM.AddGlobal(module, type.LLVMType, name);
+		global.SetLinkage(LLVMLinkage.LLVMInternalLinkage);
+		global.SetInitializer(value.Value);
+		TypedValue result = new TypedValueValue(type, global);
+		autoDerefGlobalIdentifiers.Add(name, result);
+		return default!;
+	}
+	
 	// public TypedValue VisitAssignmentStatement(Parser.AssignmentStatementContext context)
 	// {
 	// 	TypedValue type = Visit(context.type);
@@ -574,4 +587,18 @@ public readonly struct TypedTypeFloat : TypedType
 	// 	: rhs.Type is not TypedTypeFloat ? throw new Exception($"Rhs is a {rhs.Type}, not a {ToString()}")
 	// 	: LLVM.BuildFCmp(builder, LLVMRealPredicate.LLVMRealONE, lhs.Value, rhs.Value, "neqtmp");
 	public override string ToString() => "float";
+}
+
+public readonly struct TypedTypeDouble : TypedType
+{
+	public LLVMTypeRef LLVMType => LLVM.DoubleType();
+	// public LLVMValueRef BuildEqual(LLVMBuilderRef builder, TypedValue lhs, TypedValue rhs) =>
+	// 	lhs.Type is not TypedTypeFloat ? throw new Exception($"Lhs is a {lhs.Type}, not a {ToString()}")
+	// 	: rhs.Type is not TypedTypeFloat ? throw new Exception($"Rhs is a {rhs.Type}, not a {ToString()}")
+	// 	: LLVM.BuildFCmp(builder, LLVMRealPredicate.LLVMRealOEQ, lhs.Value, rhs.Value, "eqtmp");
+	// public LLVMValueRef BuildInqual(LLVMBuilderRef builder, TypedValue lhs, TypedValue rhs) =>
+	// 	lhs.Type is not TypedTypeFloat ? throw new Exception($"Lhs is a {lhs.Type}, not a {ToString()}")
+	// 	: rhs.Type is not TypedTypeFloat ? throw new Exception($"Rhs is a {rhs.Type}, not a {ToString()}")
+	// 	: LLVM.BuildFCmp(builder, LLVMRealPredicate.LLVMRealONE, lhs.Value, rhs.Value, "neqtmp");
+	public override string ToString() => "double";
 }

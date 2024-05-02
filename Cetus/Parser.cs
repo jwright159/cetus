@@ -1,4 +1,5 @@
-﻿using Cetus.Tokens;
+﻿using System.Globalization;
+using Cetus.Tokens;
 
 namespace Cetus;
 
@@ -46,16 +47,9 @@ public class Parser(Lexer lexer)
 	}
 	
 	
-	// includeLibrary
-	// externFunctionDeclaration
-	// externStructDeclaration
-	// externVariableDeclaration
-	// constVariableDeclaration
-	// delegateDeclaration
-	// functionDefinition
 	public interface IProgramStatementContext : IContext;
 	
-	private Result? ParseProgramStatement(out IProgramStatementContext? programStatement)
+	public Result? ParseProgramStatement(out IProgramStatementContext? programStatement)
 	{
 		if (lexer.IsAtEnd)
 		{
@@ -86,6 +80,11 @@ public class Parser(Lexer lexer)
 		{
 			programStatement = delegateDeclaration;
 			return delegateDeclarationResult;
+		}
+		else if (ParseConstVariableDefinition(out ConstVariableDefinitionContext? constVariableDefinition) is var constVariableDefinitionResult and not Result.TokenRuleFailed)
+		{
+			programStatement = constVariableDefinition;
+			return constVariableDefinitionResult;
 		}
 		else
 		{
@@ -189,7 +188,7 @@ public class Parser(Lexer lexer)
 		{
 			lexer.Index = startIndex;
 			externFunctionDeclaration = null;
-			return new Result.TokenRuleFailed("Expected extern function definition", lexer.Line, lexer.Column);
+			return new Result.TokenRuleFailed("Expected extern function declaration", lexer.Line, lexer.Column);
 		}
 	}
 	
@@ -216,7 +215,7 @@ public class Parser(Lexer lexer)
 		{
 			lexer.Index = startIndex;
 			externFunctionDeclaration = null;
-			return new Result.TokenRuleFailed("Expected extern function definition", lexer.Line, lexer.Column);
+			return new Result.TokenRuleFailed("Expected extern struct declaration", lexer.Line, lexer.Column);
 		}
 	}
 	
@@ -313,7 +312,173 @@ public class Parser(Lexer lexer)
 		{
 			lexer.Index = startIndex;
 			delegateDeclaration = null;
-			return new Result.TokenRuleFailed("Expected extern function definition", lexer.Line, lexer.Column);
+			return new Result.TokenRuleFailed("Expected delegate declaration", lexer.Line, lexer.Column);
+		}
+	}
+	
+	
+	public class ConstVariableDefinitionContext : IProgramStatementContext
+	{
+		public string VariableName = null!;
+		public TypeIdentifierContext Type = null!;
+		public IValueContext Value = null!;
+	}
+	
+	public Result ParseConstVariableDefinition(out ConstVariableDefinitionContext? constVariableDefinition)
+	{
+		int startIndex = lexer.Index;
+		if (
+			lexer.Eat<Constant>() &&
+			ParseTypeIdentifier(out TypeIdentifierContext? type) is var typeIdentifierResult and not Result.TokenRuleFailed &&
+			lexer.Eat(out Word? variableName) &&
+			lexer.Eat<Assign>() &&
+			ParseValue(out IValueContext? value) is var valueResult and not Result.TokenRuleFailed &&
+			lexer.Eat<Semicolon>())
+		{
+			constVariableDefinition = new ConstVariableDefinitionContext();
+			constVariableDefinition.VariableName = variableName.TokenText;
+			constVariableDefinition.Type = type;
+			constVariableDefinition.Value = value;
+			return typeIdentifierResult as Result.ComplexRuleFailed as Result ?? valueResult as Result.ComplexRuleFailed as Result ?? new Result.Ok();
+		}
+		else
+		{
+			lexer.Index = startIndex;
+			constVariableDefinition = null;
+			return new Result.TokenRuleFailed("Expected const variable definition", lexer.Line, lexer.Column);
+		}
+	}
+	
+	
+	public interface IValueContext : IContext;
+	
+	public Result? ParseValue(out IValueContext? value)
+	{
+		if (lexer.IsAtEnd)
+		{
+			value = null;
+			return null;
+		}
+		else if (ParseInteger(out IntegerContext? integer) is var integerResult and not Result.TokenRuleFailed)
+		{
+			value = integer;
+			return integerResult;
+		}
+		else if (ParseFloat(out FloatContext? @float) is var floatResult and not Result.TokenRuleFailed)
+		{
+			value = @float;
+			return floatResult;
+		}
+		else if (ParseDouble(out DoubleContext? @double) is var doubleResult and not Result.TokenRuleFailed)
+		{
+			value = @double;
+			return doubleResult;
+		}
+		else if (ParseString(out StringContext? @string) is var stringResult and not Result.TokenRuleFailed)
+		{
+			value = @string;
+			return stringResult;
+		}
+		else if (ParseValueIdentifier(out ValueIdentifierContext? valueIdentifier) is var valueIdentifierResult and not Result.TokenRuleFailed)
+		{
+			value = valueIdentifier;
+			return valueIdentifierResult;
+		}
+		else
+		{
+			value = null;
+			return new Result.TokenRuleFailed("Expected value", lexer.Line, lexer.Column);
+		}
+	}
+	
+	
+	public class IntegerContext : IValueContext
+	{
+		public int Value;
+	}
+	
+	public Result ParseInteger(out IntegerContext? integer)
+	{
+		if (lexer.Eat(out HexInteger? hexIntegerToken))
+		{
+			integer = new IntegerContext();
+			integer.Value = int.Parse(hexIntegerToken.TokenText[2..], NumberStyles.HexNumber);
+			return new Result.Ok();
+		}
+		else if (lexer.Eat(out DecimalInteger? decimalIntegerToken))
+		{
+			integer = new IntegerContext();
+			integer.Value = int.Parse(decimalIntegerToken.TokenText);
+			return new Result.Ok();
+		}
+		else
+		{
+			integer = null;
+			return new Result.TokenRuleFailed("Expected integer", lexer.Line, lexer.Column);
+		}
+	}
+	
+	
+	public class FloatContext : IValueContext
+	{
+		public float Value;
+	}
+	
+	public Result ParseFloat(out FloatContext? @float)
+	{
+		if (lexer.Eat(out Float? floatToken))
+		{
+			@float = new FloatContext();
+			@float.Value = float.Parse(floatToken.TokenText[..^1]);
+			return new Result.Ok();
+		}
+		else
+		{
+			@float = null;
+			return new Result.TokenRuleFailed("Expected float", lexer.Line, lexer.Column);
+		}
+	}
+	
+	
+	public class DoubleContext : IValueContext
+	{
+		public float Value;
+	}
+	
+	public Result ParseDouble(out DoubleContext? @double)
+	{
+		if (lexer.Eat(out Tokens.Double? doubleToken))
+		{
+			@double = new DoubleContext();
+			@double.Value = float.Parse(doubleToken.TokenText);
+			return new Result.Ok();
+		}
+		else
+		{
+			@double = null;
+			return new Result.TokenRuleFailed("Expected double", lexer.Line, lexer.Column);
+		}
+	}
+	
+	
+	public class StringContext : IValueContext
+	{
+		public string Value = null!;
+	}
+	
+	public Result ParseString(out StringContext? @string)
+	{
+		if (lexer.Eat(out Tokens.String? stringToken))
+		{
+			@string = new StringContext();
+			@string.Value = stringToken.TokenText[1..^1];
+			@string.Value = System.Text.RegularExpressions.Regex.Unescape(@string.Value);
+			return new Result.Ok();
+		}
+		else
+		{
+			@string = null;
+			return new Result.TokenRuleFailed("Expected string", lexer.Line, lexer.Column);
 		}
 	}
 	
@@ -338,6 +503,27 @@ public class Parser(Lexer lexer)
 		{
 			typeIdentifier = null;
 			return new Result.TokenRuleFailed("Expected type identifier", lexer.Line, lexer.Column);
+		}
+	}
+	
+	
+	public class ValueIdentifierContext : IValueContext
+	{
+		public string ValueName = null!;
+	}
+	
+	public Result ParseValueIdentifier(out ValueIdentifierContext? valueIdentifier)
+	{
+		if (lexer.Eat(out Word? valueName))
+		{
+			valueIdentifier = new ValueIdentifierContext();
+			valueIdentifier.ValueName = valueName.TokenText;
+			return new Result.Ok();
+		}
+		else
+		{
+			valueIdentifier = null;
+			return new Result.TokenRuleFailed("Expected value identifier", lexer.Line, lexer.Column);
 		}
 	}
 }
