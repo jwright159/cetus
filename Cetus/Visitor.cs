@@ -167,50 +167,6 @@ public class Visitor
 		return wrappedType;
 	}
 	
-	// private TypedValue VisitIfStatement(Parser.IfStatementContext context)
-	// {
-	// 	LLVMBasicBlockRef functionBlock = LLVM.GetBasicBlockParent(LLVM.GetInsertBlock(builder));
-	// 	LLVMBasicBlockRef thenBlock = LLVM.AppendBasicBlock(functionBlock, "ifThen");
-	// 	LLVMBasicBlockRef elseBlock = LLVM.AppendBasicBlock(functionBlock, "ifElse");
-	// 	LLVMBasicBlockRef mergeBlock = LLVM.AppendBasicBlock(functionBlock, "ifMerge");
-	// 	
-	// 	LLVMValueRef condition = Visit(context.condition).Value;
-	// 	LLVM.BuildCondBr(builder, condition, thenBlock, elseBlock);
-	// 	
-	// 	LLVM.PositionBuilderAtEnd(builder, thenBlock);
-	// 	Visit(context.thenStatements);
-	// 	LLVM.BuildBr(builder, mergeBlock);
-	// 	
-	// 	LLVM.PositionBuilderAtEnd(builder, elseBlock);
-	// 	if (context.elseStatements != null)
-	// 		Visit(context.elseStatements);
-	// 	LLVM.BuildBr(builder, mergeBlock);
-	// 	
-	// 	LLVM.PositionBuilderAtEnd(builder, mergeBlock);
-	// 	return default!;
-	// }
-	//
-	// private TypedValue VisitWhileStatement(Parser.WhileStatementContext context)
-	// {
-	// 	LLVMBasicBlockRef functionBlock = LLVM.GetBasicBlockParent(LLVM.GetInsertBlock(builder));
-	// 	LLVMBasicBlockRef conditionBlock = LLVM.AppendBasicBlock(functionBlock, "whileCondition");
-	// 	LLVMBasicBlockRef bodyBlock = LLVM.AppendBasicBlock(functionBlock, "whileBody");
-	// 	LLVMBasicBlockRef mergeBlock = LLVM.AppendBasicBlock(functionBlock, "whileMerge");
-	// 	
-	// 	LLVM.BuildBr(builder, conditionBlock);
-	// 	
-	// 	LLVM.PositionBuilderAtEnd(builder, conditionBlock);
-	// 	LLVMValueRef condition = Visit(context.condition).Value;
-	// 	LLVM.BuildCondBr(builder, condition, bodyBlock, mergeBlock);
-	// 	
-	// 	LLVM.PositionBuilderAtEnd(builder, bodyBlock);
-	// 	Visit(context.thenStatements);
-	// 	LLVM.BuildBr(builder, conditionBlock);
-	// 	
-	// 	LLVM.PositionBuilderAtEnd(builder, mergeBlock);
-	// 	return default!;
-	// }
-	
 	private void VisitFunctionDefinition(Parser.FunctionDefinitionContext context)
 	{
 		string name = context.FunctionName;
@@ -237,8 +193,7 @@ public class Visitor
 		
 		try
 		{
-			foreach (Parser.IFunctionStatementContext? statement in context.Statements)
-				VisitFunctionStatement(statement);
+			VisitFunctionBlock(context.Statements);
 			LLVM.BuildRetVoid(builder);
 		}
 		catch (Exception)
@@ -253,6 +208,12 @@ public class Visitor
 		noDerefGlobalIdentifiers.Add(name, result);
 	}
 	
+	private void VisitFunctionBlock(IEnumerable<Parser.IFunctionStatementContext> contexts)
+	{
+		foreach (Parser.IFunctionStatementContext? statement in contexts)
+			VisitFunctionStatement(statement);
+	}
+	
 	private void VisitFunctionStatement(Parser.IFunctionStatementContext context)
 	{
 		if (context is Parser.ReturnContext @return)
@@ -261,6 +222,10 @@ public class Visitor
 			VisitFunctionCall(functionCall);
 		else if (context is Parser.AssignmentContext assignment)
 			VisitAssignment(assignment);
+		else if (context is Parser.IfContext @if)
+			VisitIf(@if);
+		else if (context is Parser.WhileContext @while)
+			VisitWhile(@while);
 		else
 			throw new Exception("Unknown function statement type: " + context.GetType());
 	}
@@ -298,25 +263,6 @@ public class Visitor
 		noDerefGlobalIdentifiers.Add(name, result);
 	}
 	
-	// private TypedValue VisitExternVariableDeclaration(Parser.ExternVariableDeclarationContext context)
-	// {
-	// 	string name = context.name.Text;
-	// 	LLVMTypeRef type = Visit(context.type).Type;
-	// 	LLVMValueRef global = LLVM.AddGlobal(module, type, name);
-	// 	global.SetLinkage(LLVMLinkage.LLVMExternalLinkage);
-	// 	TypedValue result = new TypedValueValue(type, global);
-	// 	autoDerefGlobalIdentifiers.Add(name, result);
-	// 	return default!;
-	// }
-	//
-	// private TypedValue VisitDereference(Parser.DereferenceContext context)
-	// {
-	// 	TypedValue pointer = Visit(context.operators3());
-	// 	if (pointer.Type is not TypedTypePointer)
-	// 		throw new Exception("Cannot dereference a non-pointer type");
-	// 	return (TypedValueValue)LLVM.BuildLoad(builder, pointer.Value, "loadtmp");
-	// }
-	
 	private void VisitConstVariableDefinition(Parser.ConstVariableDefinitionContext context)
 	{
 		string name = context.VariableName;
@@ -339,14 +285,51 @@ public class Visitor
 		LLVMValueRef variable = LLVM.BuildAlloca(builder, type.LLVMType, name);
 		LLVM.BuildStore(builder, value.Value, variable);
 		TypedValue result = new TypedValueValue(type, variable);
-		autoDerefLocalIdentifiers.Add(name, result);
+		noDerefLocalIdentifiers.Add(name, result);
 		return result;
 	}
 	
-	// private TypedValue VisitNegation(Parser.NegationContext context)
-	// {
-	// 	return (TypedValueValue)LLVM.BuildNot(builder, Visit(context.operators3()).Value, "negtmp");
-	// }
+	private void VisitIf(Parser.IfContext context)
+	{
+		LLVMBasicBlockRef functionBlock = LLVM.GetBasicBlockParent(LLVM.GetInsertBlock(builder));
+		LLVMBasicBlockRef thenBlock = LLVM.AppendBasicBlock(functionBlock, "ifThen");
+		LLVMBasicBlockRef elseBlock = LLVM.AppendBasicBlock(functionBlock, "ifElse");
+		LLVMBasicBlockRef mergeBlock = LLVM.AppendBasicBlock(functionBlock, "ifMerge");
+		
+		LLVMValueRef condition = VisitExpression(context.Condition).Value;
+		LLVM.BuildCondBr(builder, condition, thenBlock, elseBlock);
+		
+		LLVM.PositionBuilderAtEnd(builder, thenBlock);
+		VisitFunctionBlock(context.ThenStatements);
+		LLVM.BuildBr(builder, mergeBlock);
+		
+		LLVM.PositionBuilderAtEnd(builder, elseBlock);
+		if (context.ElseStatements.Count > 0)
+			VisitFunctionBlock(context.ElseStatements);
+		LLVM.BuildBr(builder, mergeBlock);
+		
+		LLVM.PositionBuilderAtEnd(builder, mergeBlock);
+	}
+	
+	private void VisitWhile(Parser.WhileContext context)
+	{
+		LLVMBasicBlockRef functionBlock = LLVM.GetBasicBlockParent(LLVM.GetInsertBlock(builder));
+		LLVMBasicBlockRef conditionBlock = LLVM.AppendBasicBlock(functionBlock, "whileCondition");
+		LLVMBasicBlockRef bodyBlock = LLVM.AppendBasicBlock(functionBlock, "whileBody");
+		LLVMBasicBlockRef mergeBlock = LLVM.AppendBasicBlock(functionBlock, "whileMerge");
+		
+		LLVM.BuildBr(builder, conditionBlock);
+		
+		LLVM.PositionBuilderAtEnd(builder, conditionBlock);
+		LLVMValueRef condition = VisitExpression(context.Condition).Value;
+		LLVM.BuildCondBr(builder, condition, bodyBlock, mergeBlock);
+		
+		LLVM.PositionBuilderAtEnd(builder, bodyBlock);
+		VisitFunctionBlock(context.ThenStatements);
+		LLVM.BuildBr(builder, conditionBlock);
+		
+		LLVM.PositionBuilderAtEnd(builder, mergeBlock);
+	}
 	
 	private TypedValue VisitExpression(Parser.IExpressionContext context, TypedType? typeHint = null)
 	{
@@ -366,24 +349,48 @@ public class Visitor
 	private TypedValue VisitEquivalence(Parser.EquivalenceContext context)
 	{
 		TypedValue lhs = VisitExpression(context.Lhs);
-		TypedValue rhs = VisitExpression(context.Rhs);
+		TypedValue rhs = VisitExpression(context.Rhs, lhs.Type);
 		return lhs.Type.BuildEqual(builder, lhs, rhs);
 	}
 	
 	private TypedValue VisitInequivalence(Parser.InequivalenceContext context)
 	{
 		TypedValue lhs = VisitExpression(context.Lhs);
-		TypedValue rhs = VisitExpression(context.Rhs);
+		TypedValue rhs = VisitExpression(context.Rhs, lhs.Type);
 		return lhs.Type.BuildInequal(builder, lhs, rhs);
 	}
 	
 	private TypedValue VisitAddition(Parser.AdditionContext context)
 	{
 		TypedValue lhs = VisitExpression(context.Lhs);
-		TypedValue rhs = VisitExpression(context.Rhs);
+		TypedValue rhs = VisitExpression(context.Rhs, lhs.Type);
 		LLVMValueRef result = LLVM.BuildAdd(builder, lhs.Value, rhs.Value, "addtmp");
 		return new TypedValueValue(lhs.Type, result);
 	}
+	
+	// private TypedValue VisitNegation(Parser.NegationContext context)
+	// {
+	// 	return (TypedValueValue)LLVM.BuildNot(builder, Visit(context.operators3()).Value, "negtmp");
+	// }
+	//
+	// private TypedValue VisitExternVariableDeclaration(Parser.ExternVariableDeclarationContext context)
+	// {
+	// 	string name = context.name.Text;
+	// 	LLVMTypeRef type = Visit(context.type).Type;
+	// 	LLVMValueRef global = LLVM.AddGlobal(module, type, name);
+	// 	global.SetLinkage(LLVMLinkage.LLVMExternalLinkage);
+	// 	TypedValue result = new TypedValueValue(type, global);
+	// 	autoDerefGlobalIdentifiers.Add(name, result);
+	// 	return default!;
+	// }
+	//
+	// private TypedValue VisitDereference(Parser.DereferenceContext context)
+	// {
+	// 	TypedValue pointer = Visit(context.operators3());
+	// 	if (pointer.Type is not TypedTypePointer)
+	// 		throw new Exception("Cannot dereference a non-pointer type");
+	// 	return (TypedValueValue)LLVM.BuildLoad(builder, pointer.Value, "loadtmp");
+	// }
 	
 	private TypedValue VisitFunctionCall(Parser.FunctionCallContext context)
 	{
