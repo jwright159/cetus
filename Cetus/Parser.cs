@@ -380,6 +380,11 @@ public class Parser(Lexer lexer)
 			value = @string;
 			return stringResult;
 		}
+		else if (ParseNull(out NullContext? @null) is var nullResult and not Result.TokenRuleFailed)
+		{
+			value = @null;
+			return nullResult;
+		}
 		else if (ParseValueIdentifier(out ValueIdentifierContext? valueIdentifier) is var valueIdentifierResult and not Result.TokenRuleFailed)
 		{
 			value = valueIdentifier;
@@ -868,6 +873,25 @@ public class Parser(Lexer lexer)
 			lexer.Index = startIndex;
 			assignment = null;
 			return new Result.TokenRuleFailed("Expected assignment", lexer.Line, lexer.Column);
+		}
+	}
+	
+	
+	public class NullContext : IValueContext;
+	
+	public Result ParseNull(out NullContext? @null)
+	{
+		int startIndex = lexer.Index;
+		if (lexer.Eat<Null>())
+		{
+			@null = new NullContext();
+			return new Result.Ok();
+		}
+		else
+		{
+			lexer.Index = startIndex;
+			@null = null;
+			return new Result.TokenRuleFailed("Expected null", lexer.Line, lexer.Column);
 		}
 	}
 }

@@ -52,7 +52,8 @@ public class Visitor
 	public void Generate(Parser.ProgramContext program)
 	{
 		VisitProgram(program);
-		LLVM.VerifyModule(module, LLVMVerifierFailureAction.LLVMPrintMessageAction, out string _);
+		LLVM.VerifyModule(module, LLVMVerifierFailureAction.LLVMReturnStatusAction, out string output);
+		Console.WriteLine(output);
 	}
 	
 	private void VisitProgram(Parser.ProgramContext context)
@@ -79,7 +80,7 @@ public class Visitor
 			throw new Exception("Unknown program statement type: " + context.GetType());
 	}
 	
-	private TypedValue VisitValue(Parser.IValueContext context)
+	private TypedValue VisitValue(Parser.IValueContext context, TypedType? typeHint = null)
 	{
 		if (context is Parser.IntegerContext integer)
 			return VisitInteger(integer);
@@ -89,6 +90,8 @@ public class Visitor
 			return VisitDouble(@double);
 		if (context is Parser.StringContext @string)
 			return VisitString(@string);
+		if (context is Parser.NullContext)
+			return VisitNull(typeHint);
 		if (context is Parser.ValueIdentifierContext valueIdentifier)
 			return VisitValueIdentifier(valueIdentifier);
 		throw new Exception("Unknown value type: " + context.GetType());
@@ -113,6 +116,13 @@ public class Visitor
 	{
 		string name = string.Concat(context.Value.Where(char.IsLetter));
 		return new TypedValueValue(StringType, LLVM.BuildGlobalStringPtr(builder, context.Value, (name.Length == 0 ? "some" : name) + "String"));
+	}
+	
+	private TypedValue VisitNull(TypedType? typeHint)
+	{
+		if (typeHint == null)
+			throw new Exception("Cannot infer type of null");
+		return new TypedValueValue(typeHint, LLVM.ConstNull(typeHint.LLVMType));
 	}
 	
 	private TypedValue VisitValueIdentifier(Parser.ValueIdentifierContext context)
@@ -338,7 +348,7 @@ public class Visitor
 	// 	return (TypedValueValue)LLVM.BuildNot(builder, Visit(context.operators3()).Value, "negtmp");
 	// }
 	
-	private TypedValue VisitExpression(Parser.IExpressionContext context)
+	private TypedValue VisitExpression(Parser.IExpressionContext context, TypedType? typeHint = null)
 	{
 		if (context is Parser.EquivalenceContext equivalence)
 			return VisitEquivalence(equivalence);
@@ -349,7 +359,7 @@ public class Visitor
 		if (context is Parser.FunctionCallContext functionCall)
 			return VisitFunctionCall(functionCall);
 		if (context is Parser.IValueContext value)
-			return VisitValue(value);
+			return VisitValue(value, typeHint);
 		throw new Exception("Unknown expression type: " + context.GetType());
 	}
 	
@@ -384,11 +394,16 @@ public class Visitor
 		if (functionType.TypeKind != LLVMTypeKind.LLVMFunctionTypeKind)
 			throw new Exception($"Value '{functionName}' is a {functionType.TypeKind}, not a function");
 		
-		TypedValue[] args = context.Arguments.Select(VisitExpression).ToArray();
-		
 		bool isVarArg = functionType.IsFunctionVarArg;
-		if (isVarArg ? args.Length < functionType.CountParamTypes() : args.Length != functionType.CountParamTypes())
-			throw new Exception($"Argument count mismatch in call to '{functionName}', expected {(isVarArg ? "at least " : "")}{functionType.CountParamTypes()} but got {args.Length}");
+		if (isVarArg ? context.Arguments.Count < functionType.CountParamTypes() : context.Arguments.Count != functionType.CountParamTypes())
+			throw new Exception($"Argument count mismatch in call to '{functionName}', expected {(isVarArg ? "at least " : "")}{functionType.CountParamTypes()} but got {context.Arguments.Count}");
+		
+		IEnumerable<LLVMTypeRef?> paramTypes = functionType.GetParamTypes().Select(param => (LLVMTypeRef?)param);
+		if (context.Arguments.Count > functionType.CountParamTypes())
+			paramTypes = paramTypes.Concat(Enumerable.Range(0, context.Arguments.Count - (int)functionType.CountParamTypes()).Select(_ => (LLVMTypeRef?)null));
+		TypedValue[] args = context.Arguments
+			.Zip(paramTypes, (arg, param) => VisitExpression(arg, param?.Wrap()))
+			.ToArray();
 		
 		foreach ((TypedValue arg, LLVMTypeRef type) in args.Zip(functionType.GetParamTypes()))
 			if (!TypedTypeExtensions.TypesEqual(arg.Type.LLVMType, type))

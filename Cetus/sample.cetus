@@ -42,8 +42,8 @@ void main()
     GLFWglproc* glClearColor = glfwGetProcAddress("glClearColor");
     GLFWglproc* glClear = glfwGetProcAddress("glClear");
     
-    GLFWwindow* window = glfwCreateWindow(800, 600, "LearnOpenGL", NULL, NULL);
-    if (window == NULL)
+    GLFWwindow* window = glfwCreateWindow(800, 600, "LearnOpenGL", null, null);
+    if (window == null)
     {
         printf("Failed to create GLFW window\n");
         glfwTerminate();
