@@ -151,7 +151,7 @@ public class Visitor
 		LLVMTypeRef[] paramTypes = context.Parameters.Select(param => param.ParameterType).Select(VisitTypeIdentifier).Select(type => type.LLVMType).ToArray();
 		bool isVarArg = context.IsVarArg;
 		LLVMTypeRef functionType = LLVM.FunctionType(returnType, paramTypes, isVarArg);
-		TypedValue result = new TypedValueType(new TypedTypeFunction(functionType));
+		TypedValue result = new TypedValueType(new TypedTypeFunction(functionType, name));
 		noDerefGlobalIdentifiers.Add(name, result);
 	}
 	
@@ -249,7 +249,7 @@ public class Visitor
 		
 		LLVM.VerifyFunction(function, LLVMVerifierFailureAction.LLVMPrintMessageAction);
 		
-		TypedValue result = new TypedValueValue(new TypedTypeFunction(functionType), function);
+		TypedValue result = new TypedValueValue(new TypedTypeFunction(functionType, name), function);
 		noDerefGlobalIdentifiers.Add(name, result);
 	}
 	
@@ -286,7 +286,7 @@ public class Visitor
 		bool isVarArg = context.IsVarArg;
 		LLVMTypeRef functionType = LLVM.FunctionType(returnType, paramTypes, isVarArg);
 		LLVMValueRef function = LLVM.AddFunction(module, name, functionType);
-		TypedValue result = new TypedValueValue(new TypedTypeFunction(functionType), function);
+		TypedValue result = new TypedValueValue(new TypedTypeFunction(functionType, name), function);
 		noDerefGlobalIdentifiers.Add(name, result);
 	}
 	
@@ -388,7 +388,7 @@ public class Visitor
 	private TypedValue VisitFunctionCall(Parser.FunctionCallContext context)
 	{
 		TypedValue function = VisitExpression(context.Function);
-		string functionName = function.Type.LLVMType.ToString();
+		string functionName = ((TypedTypeFunction)function.Type).FunctionName;
 		LLVMTypeRef functionType = function.Type.LLVMType.TypeKind == LLVMTypeKind.LLVMPointerTypeKind ? function.Type.LLVMType.GetElementType() : function.Type.LLVMType;
 		
 		if (functionType.TypeKind != LLVMTypeKind.LLVMFunctionTypeKind)
@@ -568,7 +568,7 @@ public static class TypedTypeExtensions
 		if (type.TypeKind == LLVMTypeKind.LLVMVoidTypeKind)
 			return new TypedTypeVoid();
 		if (type.TypeKind == LLVMTypeKind.LLVMFunctionTypeKind)
-			return new TypedTypeFunction(type);
+			return new TypedTypeFunction(type, type.ToString());
 		if (type.TypeKind == LLVMTypeKind.LLVMStructTypeKind)
 			return new TypedTypeStruct(type);
 		throw new Exception($"Unknown type to wrap {type}");
@@ -710,9 +710,10 @@ public readonly struct TypedTypeDouble : TypedType
 	public override string ToString() => "double";
 }
 
-public readonly struct TypedTypeFunction(LLVMTypeRef type) : TypedType
+public readonly struct TypedTypeFunction(LLVMTypeRef type, string name) : TypedType
 {
 	public LLVMTypeRef LLVMType => type;
+	public string FunctionName => name;
 	
 	public TypedValue BuildEqual(LLVMBuilderRef builder, TypedValue lhs, TypedValue rhs) => throw new Exception($"Cannot compare function type {LLVMType}");
 	public TypedValue BuildInequal(LLVMBuilderRef builder, TypedValue lhs, TypedValue rhs) => throw new Exception($"Cannot compare function type {LLVMType}");
