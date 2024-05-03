@@ -548,6 +548,11 @@ public class Parser(Lexer lexer)
 			functionStatement = functionCall.Call;
 			return functionCallResult;
 		}
+		else if (ParseAssignment(out AssignmentContext? assignment) is var assignmentResult and not Result.TokenRuleFailed)
+		{
+			functionStatement = assignment;
+			return assignmentResult;
+		}
 		else
 		{
 			functionStatement = null;
@@ -831,6 +836,38 @@ public class Parser(Lexer lexer)
 			lexer.Index = startIndex;
 			functionCallStatement = null;
 			return new Result.TokenRuleFailed("Expected const variable definition", lexer.Line, lexer.Column);
+		}
+	}
+	
+	
+	public class AssignmentContext : IFunctionStatementContext
+	{
+		public string VariableName = null!;
+		public TypeIdentifierContext Type = null!;
+		public IExpressionContext Value = null!;
+	}
+	
+	public Result ParseAssignment(out AssignmentContext? assignment)
+	{
+		int startIndex = lexer.Index;
+		if (
+			ParseTypeIdentifier(out TypeIdentifierContext? type) is var typeIdentifierResult and not Result.TokenRuleFailed &&
+			lexer.Eat(out Word? variableName) &&
+			lexer.Eat<Assign>() &&
+			ParseExpression(out IExpressionContext? value) is var valueResult and not Result.TokenRuleFailed &&
+			lexer.Eat<Semicolon>())
+		{
+			assignment = new AssignmentContext();
+			assignment.VariableName = variableName.TokenText;
+			assignment.Type = type;
+			assignment.Value = value;
+			return typeIdentifierResult as Result.ComplexRuleFailed as Result ?? valueResult as Result.ComplexRuleFailed as Result ?? new Result.Ok();
+		}
+		else
+		{
+			lexer.Index = startIndex;
+			assignment = null;
+			return new Result.TokenRuleFailed("Expected assignment", lexer.Line, lexer.Column);
 		}
 	}
 }

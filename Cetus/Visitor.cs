@@ -249,6 +249,8 @@ public class Visitor
 			VisitReturn(@return);
 		else if (context is Parser.FunctionCallContext functionCall)
 			VisitFunctionCall(functionCall);
+		else if (context is Parser.AssignmentContext assignment)
+			VisitAssignment(assignment);
 		else
 			throw new Exception("Unknown function statement type: " + context.GetType());
 	}
@@ -317,20 +319,20 @@ public class Visitor
 		noDerefGlobalIdentifiers.Add(name, result);
 	}
 	
-	// private TypedValue VisitAssignmentStatement(Parser.AssignmentStatementContext context)
-	// {
-	// 	TypedValue type = Visit(context.type);
-	// 	string name = context.name.Text;
-	// 	TypedValue value = Visit(context.val);
-	// 	if (type.Type != value.Type)
-	// 		throw new Exception($"Type mismatch in assignment to '{name}', expected {type.Type} but got {value.Type}");
-	// 	LLVMValueRef variable = LLVM.BuildAlloca(builder, type.Type, name);
-	// 	LLVM.BuildStore(builder, value.Value, variable);
-	// 	TypedValue result = new TypedValueValue(type.Type, variable);
-	// 	autoDerefLocalIdentifiers.Add(name, result);
-	// 	return result;
-	// }
-	//
+	private TypedValue VisitAssignment(Parser.AssignmentContext context)
+	{
+		TypedType type = VisitTypeIdentifier(context.Type);
+		string name = context.VariableName;
+		TypedValue value = VisitExpression(context.Value);
+		if (!TypedTypeExtensions.TypesEqual(type, value.Type))
+			throw new Exception($"Type mismatch in assignment to '{name}', expected {type.LLVMType} but got {value.Type.LLVMType}");
+		LLVMValueRef variable = LLVM.BuildAlloca(builder, type.LLVMType, name);
+		LLVM.BuildStore(builder, value.Value, variable);
+		TypedValue result = new TypedValueValue(type, variable);
+		autoDerefLocalIdentifiers.Add(name, result);
+		return result;
+	}
+	
 	// private TypedValue VisitNegation(Parser.NegationContext context)
 	// {
 	// 	return (TypedValueValue)LLVM.BuildNot(builder, Visit(context.operators3()).Value, "negtmp");
