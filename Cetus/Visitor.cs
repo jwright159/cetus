@@ -1,5 +1,4 @@
 ﻿using System.Diagnostics;
-using System.Globalization;
 using System.Runtime.InteropServices;
 using LLVMSharp;
 
@@ -142,16 +141,8 @@ public class Visitor
 		LLVMTypeRef[] paramTypes = context.Parameters.Select(param => param.ParameterType).Select(VisitTypeIdentifier).Select(type => type.LLVMType).ToArray();
 		bool isVarArg = context.IsVarArg;
 		LLVMTypeRef functionType = LLVM.FunctionType(returnType, paramTypes, isVarArg);
-		TypedValue result = new TypedValueType(new TypedTypeWrap(functionType));
+		TypedValue result = new TypedValueType(new TypedTypeFunction(functionType));
 		noDerefGlobalIdentifiers.Add(name, result);
-	}
-	
-	private TypedValue VisitAddition(Parser.AdditionContext context)
-	{
-		TypedValue lhs = VisitExpression(context.Lhs);
-		TypedValue rhs = VisitExpression(context.Rhs);
-		LLVMValueRef result = LLVM.BuildAdd(builder, lhs.Value, rhs.Value, "addtmp");
-		return new TypedValueValue(lhs.Type, result);
 	}
 	
 	private TypedType VisitTypeIdentifier(Parser.TypeIdentifierContext context)
@@ -160,34 +151,12 @@ public class Visitor
 		if (!noDerefGlobalIdentifiers.TryGetValue(name, out TypedValue? result))
 			throw new Exception($"Type '{name}' not found");
 		LLVMTypeRef type = result.Type.LLVMType;
+		TypedType wrappedType = type.Wrap();
 		for (int i = 0; i < context.PointerCount; ++i)
-			type = LLVM.PointerType(type, 0);
-		return new TypedTypeWrap(type);
+			wrappedType = new TypedTypePointer(wrappedType);
+		return wrappedType;
 	}
 	
-	// private TypedValue VisitFunctionCall(Parser.FunctionCallContext context)
-	// {
-	// 	TypedValue function = Visit(context.function);
-	// 	string functionName = context.function.GetText();
-	// 	LLVMTypeRef functionType = function.Type.TypeKind == LLVMTypeKind.LLVMPointerTypeKind ? function.Type.GetElementType() : function.Type;
-	// 	
-	// 	if (functionType.TypeKind != LLVMTypeKind.LLVMFunctionTypeKind)
-	// 		throw new Exception($"Value '{functionName}' is a {functionType.TypeKind}, not a function");
-	// 	
-	// 	TypedValue[] args = context.arguments().expression().Select(Visit).ToArray();
-	// 	
-	// 	bool isVarArg = functionType.IsFunctionVarArg;
-	// 	if (isVarArg ? args.Length < functionType.CountParamTypes() : args.Length != functionType.CountParamTypes())
-	// 		throw new Exception($"Argument count mismatch in call to '{functionName}', expected {(isVarArg ? "at least " : "")}{functionType.CountParamTypes()} but got {args.Length}");
-	// 	
-	// 	foreach ((TypedValue arg, LLVMTypeRef type) in args.Zip(functionType.GetParamTypes()))
-	// 		if (arg.Type.TypeKind != type.TypeKind)
-	// 			throw new Exception($"Argument type mismatch in call to '{functionName}', expected {type.TypeKind} but got {arg.Type.TypeKind}");
-	// 	
-	// 	LLVM.BuildCall(builder, function.Value, args.Select(arg => arg.Value).ToArray(), functionType.GetReturnType().TypeKind == LLVMTypeKind.LLVMVoidTypeKind ? "" : functionName + "Call");
-	// 	return default!;
-	// }
-	//
 	// private TypedValue VisitIfStatement(Parser.IfStatementContext context)
 	// {
 	// 	LLVMBasicBlockRef functionBlock = LLVM.GetBasicBlockParent(LLVM.GetInsertBlock(builder));
@@ -270,7 +239,7 @@ public class Visitor
 		
 		LLVM.VerifyFunction(function, LLVMVerifierFailureAction.LLVMPrintMessageAction);
 		
-		TypedValue result = new TypedValueValue(new TypedTypeWrap(functionType), function);
+		TypedValue result = new TypedValueValue(new TypedTypeFunction(functionType), function);
 		noDerefGlobalIdentifiers.Add(name, result);
 	}
 	
@@ -278,6 +247,8 @@ public class Visitor
 	{
 		if (context is Parser.ReturnContext @return)
 			VisitReturn(@return);
+		else if (context is Parser.FunctionCallContext functionCall)
+			VisitFunctionCall(functionCall);
 		else
 			throw new Exception("Unknown function statement type: " + context.GetType());
 	}
@@ -288,16 +259,6 @@ public class Visitor
 			LLVM.BuildRet(builder, VisitExpression(context.Value).Value);
 		else
 			LLVM.BuildRetVoid(builder);
-	}
-	
-	private TypedValue VisitExpression(Parser.IExpressionContext context)
-	{
-		if (context is Parser.AdditionContext addition)
-			return VisitAddition(addition);
-		else if (context is Parser.IValueContext value)
-			return VisitValue(value);
-		else
-			throw new Exception("Unknown expression type: " + context.GetType());
 	}
 	
 	private void VisitIncludeLibrary(Parser.IncludeLibraryContext context)
@@ -313,7 +274,7 @@ public class Visitor
 		bool isVarArg = context.IsVarArg;
 		LLVMTypeRef functionType = LLVM.FunctionType(returnType, paramTypes, isVarArg);
 		LLVMValueRef function = LLVM.AddFunction(module, name, functionType);
-		TypedValue result = new TypedValueValue(new TypedTypeWrap(functionType), function);
+		TypedValue result = new TypedValueValue(new TypedTypeFunction(functionType), function);
 		noDerefGlobalIdentifiers.Add(name, result);
 	}
 	
@@ -321,7 +282,7 @@ public class Visitor
 	{
 		string name = context.StructName;
 		LLVMTypeRef @struct = LLVM.StructCreateNamed(LLVM.GetGlobalContext(), name);
-		TypedValue result = new TypedValueType(new TypedTypeWrap(@struct));
+		TypedValue result = new TypedValueType(new TypedTypeStruct(@struct));
 		noDerefGlobalIdentifiers.Add(name, result);
 	}
 	
@@ -353,7 +314,7 @@ public class Visitor
 		global.SetLinkage(LLVMLinkage.LLVMInternalLinkage);
 		global.SetInitializer(value.Value);
 		TypedValue result = new TypedValueValue(type, global);
-		autoDerefGlobalIdentifiers.Add(name, result);
+		noDerefGlobalIdentifiers.Add(name, result);
 	}
 	
 	// private TypedValue VisitAssignmentStatement(Parser.AssignmentStatementContext context)
@@ -374,20 +335,66 @@ public class Visitor
 	// {
 	// 	return (TypedValueValue)LLVM.BuildNot(builder, Visit(context.operators3()).Value, "negtmp");
 	// }
-	//
-	// private TypedValue VisitEquivalence(Parser.EquivalenceContext context)
-	// {
-	// 	TypedValue lhs = Visit(context.lhs);
-	// 	TypedValue rhs = Visit(context.rhs);
-	// 	return new TypedValueValue(BoolType, lhs.Type.BuildEqual(builder, lhs, rhs));
-	// }
-	//
-	// private TypedValue VisitInequivalence(Parser.InequivalenceContext context)
-	// {
-	// 	TypedValue lhs = Visit(context.lhs);
-	// 	TypedValue rhs = Visit(context.rhs);
-	// 	return new TypedValueValue(BoolType, lhs.Type.BuildInqual(builder, lhs, rhs));
-	// }
+	
+	private TypedValue VisitExpression(Parser.IExpressionContext context)
+	{
+		if (context is Parser.EquivalenceContext equivalence)
+			return VisitEquivalence(equivalence);
+		if (context is Parser.InequivalenceContext inequivalence)
+			return VisitInequivalence(inequivalence);
+		if (context is Parser.AdditionContext addition)
+			return VisitAddition(addition);
+		if (context is Parser.FunctionCallContext functionCall)
+			return VisitFunctionCall(functionCall);
+		if (context is Parser.IValueContext value)
+			return VisitValue(value);
+		throw new Exception("Unknown expression type: " + context.GetType());
+	}
+	
+	private TypedValue VisitEquivalence(Parser.EquivalenceContext context)
+	{
+		TypedValue lhs = VisitExpression(context.Lhs);
+		TypedValue rhs = VisitExpression(context.Rhs);
+		return lhs.Type.BuildEqual(builder, lhs, rhs);
+	}
+	
+	private TypedValue VisitInequivalence(Parser.InequivalenceContext context)
+	{
+		TypedValue lhs = VisitExpression(context.Lhs);
+		TypedValue rhs = VisitExpression(context.Rhs);
+		return lhs.Type.BuildInequal(builder, lhs, rhs);
+	}
+	
+	private TypedValue VisitAddition(Parser.AdditionContext context)
+	{
+		TypedValue lhs = VisitExpression(context.Lhs);
+		TypedValue rhs = VisitExpression(context.Rhs);
+		LLVMValueRef result = LLVM.BuildAdd(builder, lhs.Value, rhs.Value, "addtmp");
+		return new TypedValueValue(lhs.Type, result);
+	}
+	
+	private TypedValue VisitFunctionCall(Parser.FunctionCallContext context)
+	{
+		TypedValue function = VisitExpression(context.Function);
+		string functionName = function.Type.LLVMType.ToString();
+		LLVMTypeRef functionType = function.Type.LLVMType.TypeKind == LLVMTypeKind.LLVMPointerTypeKind ? function.Type.LLVMType.GetElementType() : function.Type.LLVMType;
+		
+		if (functionType.TypeKind != LLVMTypeKind.LLVMFunctionTypeKind)
+			throw new Exception($"Value '{functionName}' is a {functionType.TypeKind}, not a function");
+		
+		TypedValue[] args = context.Arguments.Select(VisitExpression).ToArray();
+		
+		bool isVarArg = functionType.IsFunctionVarArg;
+		if (isVarArg ? args.Length < functionType.CountParamTypes() : args.Length != functionType.CountParamTypes())
+			throw new Exception($"Argument count mismatch in call to '{functionName}', expected {(isVarArg ? "at least " : "")}{functionType.CountParamTypes()} but got {args.Length}");
+		
+		foreach ((TypedValue arg, LLVMTypeRef type) in args.Zip(functionType.GetParamTypes()))
+			if (!TypedTypeExtensions.TypesEqual(arg.Type.LLVMType, type))
+				throw new Exception($"Argument type mismatch in call to '{functionName}', expected {type} but got {arg.Type.LLVMType}");
+		
+		LLVMValueRef result = LLVM.BuildCall(builder, function.Value, args.Select(arg => arg.Value).ToArray(), functionType.GetReturnType().TypeKind == LLVMTypeKind.LLVMVoidTypeKind ? "" : functionName + "Call");
+		return new TypedValueValue(functionType.GetReturnType().Wrap(), result);
+	}
 	
 	public void Optimize()
 	{
@@ -506,8 +513,8 @@ public readonly struct TypedValueType(TypedType type) : TypedValue
 public interface TypedType
 {
 	public LLVMTypeRef LLVMType { get; }
-	// public TypedValue BuildEqual(LLVMBuilderRef builder, TypedValue lhs, TypedValue rhs);
-	// public TypedValue BuildInqual(LLVMBuilderRef builder, TypedValue lhs, TypedValue rhs);
+	public TypedValue BuildEqual(LLVMBuilderRef builder, TypedValue lhs, TypedValue rhs);
+	public TypedValue BuildInequal(LLVMBuilderRef builder, TypedValue lhs, TypedValue rhs);
 }
 
 public static class TypedTypeExtensions
@@ -517,103 +524,191 @@ public static class TypedTypeExtensions
 		if (lhs.Type is not T) throw new Exception($"Lhs is a {lhs.Type}, not a {type}");
 		if (rhs.Type is not T) throw new Exception($"Rhs is a {lhs.Type}, not a {type}");
 	}
-}
-
-public readonly struct TypedTypeWrap(LLVMTypeRef type) : TypedType
-{
-	public LLVMTypeRef LLVMType => type;
+	
+	public static bool TypesEqual(TypedValue lhs, TypedValue rhs) => TypesEqual(lhs.Type.LLVMType, rhs.Type.LLVMType);
+	public static bool TypesEqual(TypedType lhs, TypedType rhs) => TypesEqual(lhs.LLVMType, rhs.LLVMType);
+	public static bool TypesEqual(LLVMTypeRef lhs, LLVMTypeRef rhs)
+	{
+		while (lhs.TypeKind == LLVMTypeKind.LLVMPointerTypeKind && rhs.TypeKind == LLVMTypeKind.LLVMPointerTypeKind)
+		{
+			lhs = lhs.GetElementType();
+			rhs = rhs.GetElementType();
+		}
+		
+		return lhs.TypeKind == rhs.TypeKind;
+	}
+	
+	public static TypedType Wrap(this LLVMTypeRef type)
+	{
+		if (type.TypeKind == LLVMTypeKind.LLVMIntegerTypeKind)
+			return new TypedTypeInt();
+		if (type.TypeKind == LLVMTypeKind.LLVMFloatTypeKind)
+			return new TypedTypeFloat();
+		if (type.TypeKind == LLVMTypeKind.LLVMDoubleTypeKind)
+			return new TypedTypeDouble();
+		if (type.TypeKind == LLVMTypeKind.LLVMPointerTypeKind)
+			return new TypedTypePointer(type.GetElementType().Wrap());
+		if (type.TypeKind == LLVMTypeKind.LLVMVoidTypeKind)
+			return new TypedTypeVoid();
+		if (type.TypeKind == LLVMTypeKind.LLVMFunctionTypeKind)
+			return new TypedTypeFunction(type);
+		if (type.TypeKind == LLVMTypeKind.LLVMStructTypeKind)
+			return new TypedTypeStruct(type);
+		throw new Exception($"Unknown type to wrap {type}");
+	}
 }
 
 public readonly struct TypedTypePointer(TypedType pointerType) : TypedType
 {
 	public LLVMTypeRef LLVMType => LLVM.PointerType(pointerType.LLVMType, 0);
 	public TypedType PointerType => pointerType;
-	// public TypedValue BuildEqual(LLVMBuilderRef builder, TypedValue lhs, TypedValue rhs) =>
-	// 	lhs.Type is not TypedTypePointer lhsPointer || lhsPointer.PointerType != pointerType ? throw new Exception($"Lhs is a {lhs.Type}, not a {ToString()}")
-	// 	: rhs.Type is not TypedTypePointer rhsPointer || rhsPointer.PointerType != pointerType ? throw new Exception($"Rhs is a {rhs.Type}, not a {ToString()}")
-	// 	: LLVM.BuildICmp(builder, LLVMIntPredicate.LLVMIntEQ, lhs.Value, rhs.Value, "eqtmp");
-	// public TypedValue BuildInqual(LLVMBuilderRef builder, TypedValue lhs, TypedValue rhs) =>
-	// 	lhs.Type is not TypedTypePointer lhsPointer || lhsPointer.PointerType != pointerType ? throw new Exception($"Lhs is a {lhs.Type}, not a {ToString()}")
-	// 	: rhs.Type is not TypedTypePointer rhsPointer || rhsPointer.PointerType != pointerType ? throw new Exception($"Rhs is a {rhs.Type}, not a {ToString()}")
-	// 	: LLVM.BuildICmp(builder, LLVMIntPredicate.LLVMIntNE, lhs.Value, rhs.Value, "neqtmp");
+	
+	public TypedValue BuildEqual(LLVMBuilderRef builder, TypedValue lhs, TypedValue rhs)
+	{
+		CheckForTypes(lhs, rhs);
+		return new TypedValueValue(Visitor.BoolType, LLVM.BuildICmp(builder, LLVMIntPredicate.LLVMIntEQ, lhs.Value, rhs.Value, "eqtmp"));
+	}
+	public TypedValue BuildInequal(LLVMBuilderRef builder, TypedValue lhs, TypedValue rhs)
+	{
+		CheckForTypes(lhs, rhs);
+		return new TypedValueValue(Visitor.BoolType, LLVM.BuildICmp(builder, LLVMIntPredicate.LLVMIntNE, lhs.Value, rhs.Value, "neqtmp"));
+	}
+	
 	public override string ToString() => pointerType + "*";
+	
+	public void CheckForTypes(TypedValue lhs, TypedValue rhs)
+	{
+		if (lhs.Type is not TypedTypePointer lhsPointer) throw new Exception($"Lhs is a {lhs.Type}, not a {typeof(TypedTypePointer)}");
+		if (!TypedTypeExtensions.TypesEqual(lhsPointer.PointerType, PointerType)) throw new Exception($"Lhs is a {lhsPointer.PointerType} pointer, not a {pointerType} pointer");
+		if (rhs.Type is not TypedTypePointer rhsPointer) throw new Exception($"Rhs is a {rhs.Type}, not a {typeof(TypedTypePointer)}");
+		if (!TypedTypeExtensions.TypesEqual(rhsPointer.PointerType, PointerType)) throw new Exception($"Rhs is a {rhsPointer.PointerType} pointer, not a {pointerType} pointer");
+	}
 }
 
 public readonly struct TypedTypeInt : TypedType
 {
 	public LLVMTypeRef LLVMType => LLVM.Int32Type();
-	// public TypedValue BuildEqual(LLVMBuilderRef builder, TypedValue lhs, TypedValue rhs)
-	// {
-	// 	this.CheckForTypes(lhs, rhs);
-	// 	return new TypedValueValue(new TypedTypeBool(), LLVM.BuildICmp(builder, LLVMIntPredicate.LLVMIntEQ, lhs.Value, rhs.Value, "eqtmp"));
-	// }
-	// public TypedType BuildInqual(LLVMBuilderRef builder, TypedValue lhs, TypedValue rhs) =>
-	// 	lhs.Type is not TypedTypeInt ? throw new Exception($"Lhs is a {lhs.Type}, not a {ToString()}")
-	// 	: rhs.Type is not TypedTypeInt ? throw new Exception($"Rhs is a {rhs.Type}, not a {ToString()}")
-	// 	: LLVM.BuildICmp(builder, LLVMIntPredicate.LLVMIntNE, lhs.Value, rhs.Value, "neqtmp");
+	
+	public TypedValue BuildEqual(LLVMBuilderRef builder, TypedValue lhs, TypedValue rhs)
+	{
+		this.CheckForTypes(lhs, rhs);
+		return new TypedValueValue(Visitor.BoolType, LLVM.BuildICmp(builder, LLVMIntPredicate.LLVMIntEQ, lhs.Value, rhs.Value, "eqtmp"));
+	}
+	public TypedValue BuildInequal(LLVMBuilderRef builder, TypedValue lhs, TypedValue rhs)
+	{
+		this.CheckForTypes(lhs, rhs);
+		return new TypedValueValue(Visitor.BoolType, LLVM.BuildICmp(builder, LLVMIntPredicate.LLVMIntNE, lhs.Value, rhs.Value, "neqtmp"));
+	}
+	
 	public override string ToString() => "int";
 }
 
 public readonly struct TypedTypeBool : TypedType
 {
 	public LLVMTypeRef LLVMType => LLVM.Int1Type();
-	// public LLVMValueRef BuildEqual(LLVMBuilderRef builder, TypedValue lhs, TypedValue rhs) =>
-	// 	lhs.Type is not TypedTypeBool ? throw new Exception($"Lhs is a {lhs.Type}, not a {ToString()}")
-	// 	: rhs.Type is not TypedTypeBool ? throw new Exception($"Rhs is a {rhs.Type}, not a {ToString()}")
-	// 	: LLVM.BuildICmp(builder, LLVMIntPredicate.LLVMIntEQ, lhs.Value, rhs.Value, "eqtmp");
-	// public LLVMValueRef BuildInqual(LLVMBuilderRef builder, TypedValue lhs, TypedValue rhs) =>
-	// 	lhs.Type is not TypedTypeBool ? throw new Exception($"Lhs is a {lhs.Type}, not a {ToString()}")
-	// 	: rhs.Type is not TypedTypeBool ? throw new Exception($"Rhs is a {rhs.Type}, not a {ToString()}")
-	// 	: LLVM.BuildICmp(builder, LLVMIntPredicate.LLVMIntNE, lhs.Value, rhs.Value, "neqtmp");
+	
+	public TypedValue BuildEqual(LLVMBuilderRef builder, TypedValue lhs, TypedValue rhs)
+	{
+		this.CheckForTypes(lhs, rhs);
+		return new TypedValueValue(Visitor.BoolType, LLVM.BuildICmp(builder, LLVMIntPredicate.LLVMIntEQ, lhs.Value, rhs.Value, "eqtmp"));
+	}
+	public TypedValue BuildInequal(LLVMBuilderRef builder, TypedValue lhs, TypedValue rhs)
+	{
+		this.CheckForTypes(lhs, rhs);
+		return new TypedValueValue(Visitor.BoolType, LLVM.BuildICmp(builder, LLVMIntPredicate.LLVMIntNE, lhs.Value, rhs.Value, "neqtmp"));
+	}
+	
 	public override string ToString() => "bool";
 }
 
 public readonly struct TypedTypeChar : TypedType
 {
 	public LLVMTypeRef LLVMType => LLVM.Int8Type();
-	// public LLVMValueRef BuildEqual(LLVMBuilderRef builder, TypedValue lhs, TypedValue rhs) =>
-	// 	lhs.Type is not TypedTypeChar ? throw new Exception($"Lhs is a {lhs.Type}, not a {ToString()}")
-	// 	: rhs.Type is not TypedTypeChar ? throw new Exception($"Rhs is a {rhs.Type}, not a {ToString()}")
-	// 	: LLVM.BuildICmp(builder, LLVMIntPredicate.LLVMIntEQ, lhs.Value, rhs.Value, "eqtmp");
-	// public LLVMValueRef BuildInqual(LLVMBuilderRef builder, TypedValue lhs, TypedValue rhs) =>
-	// 	lhs.Type is not TypedTypeChar ? throw new Exception($"Lhs is a {lhs.Type}, not a {ToString()}")
-	// 	: rhs.Type is not TypedTypeChar ? throw new Exception($"Rhs is a {rhs.Type}, not a {ToString()}")
-	// 	: LLVM.BuildICmp(builder, LLVMIntPredicate.LLVMIntNE, lhs.Value, rhs.Value, "neqtmp");
+	
+	public TypedValue BuildEqual(LLVMBuilderRef builder, TypedValue lhs, TypedValue rhs)
+	{
+		this.CheckForTypes(lhs, rhs);
+		return new TypedValueValue(Visitor.BoolType, LLVM.BuildICmp(builder, LLVMIntPredicate.LLVMIntEQ, lhs.Value, rhs.Value, "eqtmp"));
+	}
+	public TypedValue BuildInequal(LLVMBuilderRef builder, TypedValue lhs, TypedValue rhs)
+	{
+		this.CheckForTypes(lhs, rhs);
+		return new TypedValueValue(Visitor.BoolType, LLVM.BuildICmp(builder, LLVMIntPredicate.LLVMIntNE, lhs.Value, rhs.Value, "neqtmp"));
+	}
+	
 	public override string ToString() => "char";
 }
 
 public readonly struct TypedTypeVoid : TypedType
 {
 	public LLVMTypeRef LLVMType => LLVM.VoidType();
-	// public LLVMValueRef BuildEqual(LLVMBuilderRef builder, TypedValue lhs, TypedValue rhs) => throw new Exception("Cannot compare void types");
-	// public LLVMValueRef BuildInqual(LLVMBuilderRef builder, TypedValue lhs, TypedValue rhs) => throw new Exception("Cannot compare void types");
+	
+	public TypedValue BuildEqual(LLVMBuilderRef builder, TypedValue lhs, TypedValue rhs)
+	{
+		this.CheckForTypes(lhs, rhs);
+		return Visitor.TrueValue;
+	}
+	public TypedValue BuildInequal(LLVMBuilderRef builder, TypedValue lhs, TypedValue rhs)
+	{
+		this.CheckForTypes(lhs, rhs);
+		return Visitor.TrueValue;
+	}
+	
 	public override string ToString() => "void";
 }
 
 public readonly struct TypedTypeFloat : TypedType
 {
 	public LLVMTypeRef LLVMType => LLVM.FloatType();
-	// public LLVMValueRef BuildEqual(LLVMBuilderRef builder, TypedValue lhs, TypedValue rhs) =>
-	// 	lhs.Type is not TypedTypeFloat ? throw new Exception($"Lhs is a {lhs.Type}, not a {ToString()}")
-	// 	: rhs.Type is not TypedTypeFloat ? throw new Exception($"Rhs is a {rhs.Type}, not a {ToString()}")
-	// 	: LLVM.BuildFCmp(builder, LLVMRealPredicate.LLVMRealOEQ, lhs.Value, rhs.Value, "eqtmp");
-	// public LLVMValueRef BuildInqual(LLVMBuilderRef builder, TypedValue lhs, TypedValue rhs) =>
-	// 	lhs.Type is not TypedTypeFloat ? throw new Exception($"Lhs is a {lhs.Type}, not a {ToString()}")
-	// 	: rhs.Type is not TypedTypeFloat ? throw new Exception($"Rhs is a {rhs.Type}, not a {ToString()}")
-	// 	: LLVM.BuildFCmp(builder, LLVMRealPredicate.LLVMRealONE, lhs.Value, rhs.Value, "neqtmp");
+	
+	public TypedValue BuildEqual(LLVMBuilderRef builder, TypedValue lhs, TypedValue rhs)
+	{
+		this.CheckForTypes(lhs, rhs);
+		return new TypedValueValue(Visitor.BoolType, LLVM.BuildFCmp(builder, LLVMRealPredicate.LLVMRealOEQ, lhs.Value, rhs.Value, "eqtmp"));
+	}
+	public TypedValue BuildInequal(LLVMBuilderRef builder, TypedValue lhs, TypedValue rhs)
+	{
+		this.CheckForTypes(lhs, rhs);
+		return new TypedValueValue(Visitor.BoolType, LLVM.BuildFCmp(builder, LLVMRealPredicate.LLVMRealONE, lhs.Value, rhs.Value, "neqtmp"));
+	}
+	
 	public override string ToString() => "float";
 }
 
 public readonly struct TypedTypeDouble : TypedType
 {
 	public LLVMTypeRef LLVMType => LLVM.DoubleType();
-	// public LLVMValueRef BuildEqual(LLVMBuilderRef builder, TypedValue lhs, TypedValue rhs) =>
-	// 	lhs.Type is not TypedTypeFloat ? throw new Exception($"Lhs is a {lhs.Type}, not a {ToString()}")
-	// 	: rhs.Type is not TypedTypeFloat ? throw new Exception($"Rhs is a {rhs.Type}, not a {ToString()}")
-	// 	: LLVM.BuildFCmp(builder, LLVMRealPredicate.LLVMRealOEQ, lhs.Value, rhs.Value, "eqtmp");
-	// public LLVMValueRef BuildInqual(LLVMBuilderRef builder, TypedValue lhs, TypedValue rhs) =>
-	// 	lhs.Type is not TypedTypeFloat ? throw new Exception($"Lhs is a {lhs.Type}, not a {ToString()}")
-	// 	: rhs.Type is not TypedTypeFloat ? throw new Exception($"Rhs is a {rhs.Type}, not a {ToString()}")
-	// 	: LLVM.BuildFCmp(builder, LLVMRealPredicate.LLVMRealONE, lhs.Value, rhs.Value, "neqtmp");
+	
+	public TypedValue BuildEqual(LLVMBuilderRef builder, TypedValue lhs, TypedValue rhs)
+	{
+		this.CheckForTypes(lhs, rhs);
+		return new TypedValueValue(Visitor.BoolType, LLVM.BuildFCmp(builder, LLVMRealPredicate.LLVMRealOEQ, lhs.Value, rhs.Value, "eqtmp"));
+	}
+	public TypedValue BuildInequal(LLVMBuilderRef builder, TypedValue lhs, TypedValue rhs)
+	{
+		this.CheckForTypes(lhs, rhs);
+		return new TypedValueValue(Visitor.BoolType, LLVM.BuildFCmp(builder, LLVMRealPredicate.LLVMRealONE, lhs.Value, rhs.Value, "neqtmp"));
+	}
+	
 	public override string ToString() => "double";
+}
+
+public readonly struct TypedTypeFunction(LLVMTypeRef type) : TypedType
+{
+	public LLVMTypeRef LLVMType => type;
+	
+	public TypedValue BuildEqual(LLVMBuilderRef builder, TypedValue lhs, TypedValue rhs) => throw new Exception($"Cannot compare function type {LLVMType}");
+	public TypedValue BuildInequal(LLVMBuilderRef builder, TypedValue lhs, TypedValue rhs) => throw new Exception($"Cannot compare function type {LLVMType}");
+	
+	public override string ToString() => LLVMType.ToString();
+}
+
+public readonly struct TypedTypeStruct(LLVMTypeRef type) : TypedType
+{
+	public LLVMTypeRef LLVMType => type;
+	
+	public TypedValue BuildEqual(LLVMBuilderRef builder, TypedValue lhs, TypedValue rhs) => throw new Exception($"Cannot compare struct type {LLVMType}");
+	public TypedValue BuildInequal(LLVMBuilderRef builder, TypedValue lhs, TypedValue rhs) => throw new Exception($"Cannot compare struct type {LLVMType}");
+	
+	public override string ToString() => LLVMType.ToString();
 }

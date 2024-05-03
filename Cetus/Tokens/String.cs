@@ -4,12 +4,16 @@ namespace Cetus.Tokens;
 
 public class String : IToken
 {
-	public static bool Split(string contents, ref int index, [NotNullWhen(true)] out string? token)
+	static bool IToken.Split(string contents, ref int index, [NotNullWhen(true)] out string? token)
 	{
 		if (contents[index] == '"')
 		{
-			int i = index;
-			while (i < contents.Length && contents[i] != '"') i++;
+			int i;
+			for (i = index + 1; i < contents.Length && contents[i] != '"'; i++)
+			{
+				if (contents[i] == '\\')
+					i++;
+			}
 			
 			if (contents[i] == '"')
 				i++;
