@@ -59,23 +59,28 @@ public class Visitor
 	private void VisitProgram(Parser.ProgramContext context)
 	{
 		foreach (Parser.IProgramStatementContext statement in context.ProgramStatements)
-			if (statement is Parser.FunctionDefinitionContext functionDefinition)
-				VisitFunctionDefinition(functionDefinition);
-			else if (statement is Parser.ExternFunctionDeclarationContext externFunctionDeclaration)
-				VisitExternFunctionDeclaration(externFunctionDeclaration);
-			else if (statement is Parser.ExternStructDeclarationContext externStructDeclaration)
-				VisitExternStructDeclaration(externStructDeclaration);
-			else if (statement is Parser.IncludeLibraryContext includeLibrary)
-				VisitIncludeLibrary(includeLibrary);
-			else if (statement is Parser.DelegateDeclarationContext delegateDeclaration)
-				VisitDelegateDeclaration(delegateDeclaration);
-			else if (statement is Parser.ConstVariableDefinitionContext constVariableDefinition)
-				VisitConstVariableDefinition(constVariableDefinition);
-			else
-				throw new Exception("Unknown statement type: " + statement.GetType());
+			VisitProgramStatement(statement);
 	}
 	
-	public TypedValue VisitValue(Parser.IValueContext context)
+	private void VisitProgramStatement(Parser.IProgramStatementContext context)
+	{
+		if (context is Parser.FunctionDefinitionContext functionDefinition)
+			VisitFunctionDefinition(functionDefinition);
+		else if (context is Parser.ExternFunctionDeclarationContext externFunctionDeclaration)
+			VisitExternFunctionDeclaration(externFunctionDeclaration);
+		else if (context is Parser.ExternStructDeclarationContext externStructDeclaration)
+			VisitExternStructDeclaration(externStructDeclaration);
+		else if (context is Parser.IncludeLibraryContext includeLibrary)
+			VisitIncludeLibrary(includeLibrary);
+		else if (context is Parser.DelegateDeclarationContext delegateDeclaration)
+			VisitDelegateDeclaration(delegateDeclaration);
+		else if (context is Parser.ConstVariableDefinitionContext constVariableDefinition)
+			VisitConstVariableDefinition(constVariableDefinition);
+		else
+			throw new Exception("Unknown program statement type: " + context.GetType());
+	}
+	
+	private TypedValue VisitValue(Parser.IValueContext context)
 	{
 		if (context is Parser.IntegerContext integer)
 			return VisitInteger(integer);
@@ -90,28 +95,28 @@ public class Visitor
 		throw new Exception("Unknown value type: " + context.GetType());
 	}
 	
-	public TypedValue VisitInteger(Parser.IntegerContext context)
+	private TypedValue VisitInteger(Parser.IntegerContext context)
 	{
 		return new TypedValueValue(IntType, LLVM.ConstInt(LLVM.Int32Type(), (ulong)context.Value, true));
 	}
 	
-	public TypedValue VisitFloat(Parser.FloatContext context)
+	private TypedValue VisitFloat(Parser.FloatContext context)
 	{
 		return new TypedValueValue(FloatType, LLVM.ConstReal(LLVM.FloatType(), context.Value));
 	}
 	
-	public TypedValue VisitDouble(Parser.DoubleContext context)
+	private TypedValue VisitDouble(Parser.DoubleContext context)
 	{
 		return new TypedValueValue(DoubleType, LLVM.ConstReal(LLVM.DoubleType(), context.Value));
 	}
 	
-	public TypedValue VisitString(Parser.StringContext context)
+	private TypedValue VisitString(Parser.StringContext context)
 	{
 		string name = string.Concat(context.Value.Where(char.IsLetter));
 		return new TypedValueValue(StringType, LLVM.BuildGlobalStringPtr(builder, context.Value, (name.Length == 0 ? "some" : name) + "String"));
 	}
 	
-	public TypedValue VisitValueIdentifier(Parser.ValueIdentifierContext context)
+	private TypedValue VisitValueIdentifier(Parser.ValueIdentifierContext context)
 	{
 		string name = context.ValueName;
 		
@@ -130,7 +135,7 @@ public class Visitor
 		throw new Exception($"Identifier '{name}' not found");
 	}
 	
-	public void VisitDelegateDeclaration(Parser.DelegateDeclarationContext context)
+	private void VisitDelegateDeclaration(Parser.DelegateDeclarationContext context)
 	{
 		string name = context.FunctionName;
 		LLVMTypeRef returnType = VisitTypeIdentifier(context.ReturnType).LLVMType;
@@ -141,12 +146,13 @@ public class Visitor
 		noDerefGlobalIdentifiers.Add(name, result);
 	}
 	
-	// public TypedValue VisitAddition(Parser.AdditionContext context)
-	// {
-	// 	TypedValue lhs = Visit(context.lhs);
-	// 	TypedValue rhs = Visit(context.rhs);
-	// 	return lhs.Type.BuildAdd(builder, lhs, rhs);
-	// }
+	private TypedValue VisitAddition(Parser.AdditionContext context)
+	{
+		TypedValue lhs = VisitExpression(context.Lhs);
+		TypedValue rhs = VisitExpression(context.Rhs);
+		LLVMValueRef result = LLVM.BuildAdd(builder, lhs.Value, rhs.Value, "addtmp");
+		return new TypedValueValue(lhs.Type, result);
+	}
 	
 	private TypedType VisitTypeIdentifier(Parser.TypeIdentifierContext context)
 	{
@@ -159,7 +165,7 @@ public class Visitor
 		return new TypedTypeWrap(type);
 	}
 	
-	// public TypedValue VisitFunctionCall(Parser.FunctionCallContext context)
+	// private TypedValue VisitFunctionCall(Parser.FunctionCallContext context)
 	// {
 	// 	TypedValue function = Visit(context.function);
 	// 	string functionName = context.function.GetText();
@@ -182,7 +188,7 @@ public class Visitor
 	// 	return default!;
 	// }
 	//
-	// public TypedValue VisitIfStatement(Parser.IfStatementContext context)
+	// private TypedValue VisitIfStatement(Parser.IfStatementContext context)
 	// {
 	// 	LLVMBasicBlockRef functionBlock = LLVM.GetBasicBlockParent(LLVM.GetInsertBlock(builder));
 	// 	LLVMBasicBlockRef thenBlock = LLVM.AppendBasicBlock(functionBlock, "ifThen");
@@ -205,7 +211,7 @@ public class Visitor
 	// 	return default!;
 	// }
 	//
-	// public TypedValue VisitWhileStatement(Parser.WhileStatementContext context)
+	// private TypedValue VisitWhileStatement(Parser.WhileStatementContext context)
 	// {
 	// 	LLVMBasicBlockRef functionBlock = LLVM.GetBasicBlockParent(LLVM.GetInsertBlock(builder));
 	// 	LLVMBasicBlockRef conditionBlock = LLVM.AppendBasicBlock(functionBlock, "whileCondition");
@@ -252,8 +258,8 @@ public class Visitor
 		
 		try
 		{
-			// foreach (Parser.StatementContext? statement in context.statement())
-			// 	Visit(statement);
+			foreach (Parser.IFunctionStatementContext? statement in context.Statements)
+				VisitFunctionStatement(statement);
 			LLVM.BuildRetVoid(builder);
 		}
 		catch (Exception)
@@ -268,14 +274,31 @@ public class Visitor
 		noDerefGlobalIdentifiers.Add(name, result);
 	}
 	
-	// public TypedValue VisitReturnStatement(Parser.ReturnStatementContext context)
-	// {
-	// 	if (context.expression() != null)
-	// 		LLVM.BuildRet(builder, Visit(context.expression()).Value);
-	// 	else
-	// 		LLVM.BuildRetVoid(builder);
-	// 	return default!;
-	// }
+	private void VisitFunctionStatement(Parser.IFunctionStatementContext context)
+	{
+		if (context is Parser.ReturnContext @return)
+			VisitReturn(@return);
+		else
+			throw new Exception("Unknown function statement type: " + context.GetType());
+	}
+	
+	private void VisitReturn(Parser.ReturnContext context)
+	{
+		if (context.Value != null)
+			LLVM.BuildRet(builder, VisitExpression(context.Value).Value);
+		else
+			LLVM.BuildRetVoid(builder);
+	}
+	
+	private TypedValue VisitExpression(Parser.IExpressionContext context)
+	{
+		if (context is Parser.AdditionContext addition)
+			return VisitAddition(addition);
+		else if (context is Parser.IValueContext value)
+			return VisitValue(value);
+		else
+			throw new Exception("Unknown expression type: " + context.GetType());
+	}
 	
 	private void VisitIncludeLibrary(Parser.IncludeLibraryContext context)
 	{
@@ -294,7 +317,7 @@ public class Visitor
 		noDerefGlobalIdentifiers.Add(name, result);
 	}
 	
-	public void VisitExternStructDeclaration(Parser.ExternStructDeclarationContext context)
+	private void VisitExternStructDeclaration(Parser.ExternStructDeclarationContext context)
 	{
 		string name = context.StructName;
 		LLVMTypeRef @struct = LLVM.StructCreateNamed(LLVM.GetGlobalContext(), name);
@@ -302,7 +325,7 @@ public class Visitor
 		noDerefGlobalIdentifiers.Add(name, result);
 	}
 	
-	// public TypedValue VisitExternVariableDeclaration(Parser.ExternVariableDeclarationContext context)
+	// private TypedValue VisitExternVariableDeclaration(Parser.ExternVariableDeclarationContext context)
 	// {
 	// 	string name = context.name.Text;
 	// 	LLVMTypeRef type = Visit(context.type).Type;
@@ -313,7 +336,7 @@ public class Visitor
 	// 	return default!;
 	// }
 	//
-	// public TypedValue VisitDereference(Parser.DereferenceContext context)
+	// private TypedValue VisitDereference(Parser.DereferenceContext context)
 	// {
 	// 	TypedValue pointer = Visit(context.operators3());
 	// 	if (pointer.Type is not TypedTypePointer)
@@ -321,7 +344,7 @@ public class Visitor
 	// 	return (TypedValueValue)LLVM.BuildLoad(builder, pointer.Value, "loadtmp");
 	// }
 	
-	public TypedValue VisitConstVariableDefinition(Parser.ConstVariableDefinitionContext context)
+	private void VisitConstVariableDefinition(Parser.ConstVariableDefinitionContext context)
 	{
 		string name = context.VariableName;
 		TypedType type = VisitTypeIdentifier(context.Type);
@@ -331,10 +354,9 @@ public class Visitor
 		global.SetInitializer(value.Value);
 		TypedValue result = new TypedValueValue(type, global);
 		autoDerefGlobalIdentifiers.Add(name, result);
-		return default!;
 	}
 	
-	// public TypedValue VisitAssignmentStatement(Parser.AssignmentStatementContext context)
+	// private TypedValue VisitAssignmentStatement(Parser.AssignmentStatementContext context)
 	// {
 	// 	TypedValue type = Visit(context.type);
 	// 	string name = context.name.Text;
@@ -348,19 +370,19 @@ public class Visitor
 	// 	return result;
 	// }
 	//
-	// public TypedValue VisitNegation(Parser.NegationContext context)
+	// private TypedValue VisitNegation(Parser.NegationContext context)
 	// {
 	// 	return (TypedValueValue)LLVM.BuildNot(builder, Visit(context.operators3()).Value, "negtmp");
 	// }
 	//
-	// public TypedValue VisitEquivalence(Parser.EquivalenceContext context)
+	// private TypedValue VisitEquivalence(Parser.EquivalenceContext context)
 	// {
 	// 	TypedValue lhs = Visit(context.lhs);
 	// 	TypedValue rhs = Visit(context.rhs);
 	// 	return new TypedValueValue(BoolType, lhs.Type.BuildEqual(builder, lhs, rhs));
 	// }
 	//
-	// public TypedValue VisitInequivalence(Parser.InequivalenceContext context)
+	// private TypedValue VisitInequivalence(Parser.InequivalenceContext context)
 	// {
 	// 	TypedValue lhs = Visit(context.lhs);
 	// 	TypedValue rhs = Visit(context.rhs);
@@ -486,7 +508,6 @@ public interface TypedType
 	public LLVMTypeRef LLVMType { get; }
 	// public TypedValue BuildEqual(LLVMBuilderRef builder, TypedValue lhs, TypedValue rhs);
 	// public TypedValue BuildInqual(LLVMBuilderRef builder, TypedValue lhs, TypedValue rhs);
-	// public TypedValue BuildAdd(LLVMBuilderRef builder, TypedValue lhs, TypedValue rhs);
 }
 
 public static class TypedTypeExtensions
@@ -530,12 +551,6 @@ public readonly struct TypedTypeInt : TypedType
 	// 	lhs.Type is not TypedTypeInt ? throw new Exception($"Lhs is a {lhs.Type}, not a {ToString()}")
 	// 	: rhs.Type is not TypedTypeInt ? throw new Exception($"Rhs is a {rhs.Type}, not a {ToString()}")
 	// 	: LLVM.BuildICmp(builder, LLVMIntPredicate.LLVMIntNE, lhs.Value, rhs.Value, "neqtmp");
-	//
-	// public LLVMValueRef BuildAdd(LLVMBuilderRef builder, TypedValue lhs, TypedValue rhs)
-	// {
-	// 	LLVM.BuildAdd(builder, Visit(context.lhs).Value, Visit(context.rhs).Value, "addtmp")
-	// }
-	
 	public override string ToString() => "int";
 }
 
