@@ -180,7 +180,9 @@ public class Parser(Lexer lexer)
 			externFunctionDeclaration.Parameters = parameters.Parameters;
 			externFunctionDeclaration.IsVarArg = parameters.IsVarArg;
 			externFunctionDeclaration.ReturnType = returnType;
-			return typeIdentifierResult as Result.ComplexRuleFailed as Result ?? functionParametersResult as Result.ComplexRuleFailed as Result ?? new Result.Ok();
+			return typeIdentifierResult as Result.ComplexRuleFailed as Result ??
+			       functionParametersResult as Result.ComplexRuleFailed as Result ??
+			       new Result.Ok();
 		}
 		else
 		{
@@ -304,7 +306,9 @@ public class Parser(Lexer lexer)
 			delegateDeclaration.Parameters = parameters.Parameters;
 			delegateDeclaration.IsVarArg = parameters.IsVarArg;
 			delegateDeclaration.ReturnType = returnType;
-			return typeIdentifierResult as Result.ComplexRuleFailed as Result ?? functionParametersResult as Result.ComplexRuleFailed as Result ?? new Result.Ok();
+			return typeIdentifierResult as Result.ComplexRuleFailed as Result ??
+			       functionParametersResult as Result.ComplexRuleFailed as Result ??
+			       new Result.Ok();
 		}
 		else
 		{
@@ -337,7 +341,9 @@ public class Parser(Lexer lexer)
 			constVariableDefinition.VariableName = variableName.TokenText;
 			constVariableDefinition.Type = type;
 			constVariableDefinition.Value = value;
-			return typeIdentifierResult as Result.ComplexRuleFailed as Result ?? valueResult as Result.ComplexRuleFailed as Result ?? new Result.Ok();
+			return typeIdentifierResult as Result.ComplexRuleFailed as Result ??
+			       valueResult as Result.ComplexRuleFailed as Result ??
+			       new Result.Ok();
 		}
 		else
 		{
@@ -592,7 +598,8 @@ public class Parser(Lexer lexer)
 			if (!lexer.Eat<Semicolon>())
 				return new Result.ComplexRuleFailed("Expected ';'", new Result.TokenRuleFailed("Expected ';'", lexer.Line, lexer.Column));
 			
-			return expressionResult as Result.ComplexRuleFailed as Result ?? new Result.Ok();
+			return expressionResult as Result.ComplexRuleFailed as Result ??
+			       new Result.Ok();
 		}
 		else
 		{
@@ -676,7 +683,9 @@ public class Parser(Lexer lexer)
 			addition = new EquivalenceContext();
 			addition.Lhs = lhs;
 			addition.Rhs = rhs;
-			return lhsResult as Result.ComplexRuleFailed as Result ?? rhsResult as Result.ComplexRuleFailed as Result ?? new Result.Ok();
+			return lhsResult as Result.ComplexRuleFailed as Result ??
+			       rhsResult as Result.ComplexRuleFailed as Result ??
+			       new Result.Ok();
 		}
 		else
 		{
@@ -704,7 +713,9 @@ public class Parser(Lexer lexer)
 			addition = new InequivalenceContext();
 			addition.Lhs = lhs;
 			addition.Rhs = rhs;
-			return lhsResult as Result.ComplexRuleFailed as Result ?? rhsResult as Result.ComplexRuleFailed as Result ?? new Result.Ok();
+			return lhsResult as Result.ComplexRuleFailed as Result ??
+			       rhsResult as Result.ComplexRuleFailed as Result ??
+			       new Result.Ok();
 		}
 		else
 		{
@@ -732,7 +743,9 @@ public class Parser(Lexer lexer)
 			addition = new AdditionContext();
 			addition.Lhs = lhs;
 			addition.Rhs = rhs;
-			return lhsResult as Result.ComplexRuleFailed as Result ?? rhsResult as Result.ComplexRuleFailed as Result ?? new Result.Ok();
+			return lhsResult as Result.ComplexRuleFailed as Result ??
+			       rhsResult as Result.ComplexRuleFailed as Result ??
+			       new Result.Ok();
 		}
 		else
 		{
@@ -759,7 +772,9 @@ public class Parser(Lexer lexer)
 			functionCall = new FunctionCallContext();
 			functionCall.Function = function;
 			functionCall.Arguments = arguments.Arguments;
-			return functionResult as Result.ComplexRuleFailed as Result ?? functionArgumentsResult as Result.ComplexRuleFailed as Result ?? new Result.Ok();
+			return functionResult as Result.ComplexRuleFailed as Result ??
+			       functionArgumentsResult as Result.ComplexRuleFailed as Result ??
+			       new Result.Ok();
 		}
 		else
 		{
@@ -841,7 +856,8 @@ public class Parser(Lexer lexer)
 		{
 			functionCallStatement = new FunctionCallStatementContext();
 			functionCallStatement.Call = functionCall;
-			return functionCallResult as Result.ComplexRuleFailed as Result ?? new Result.Ok();
+			return functionCallResult as Result.ComplexRuleFailed as Result ??
+			       new Result.Ok();
 		}
 		else
 		{
@@ -873,7 +889,9 @@ public class Parser(Lexer lexer)
 			assignment.VariableName = variableName.TokenText;
 			assignment.Type = type;
 			assignment.Value = value;
-			return typeIdentifierResult as Result.ComplexRuleFailed as Result ?? valueResult as Result.ComplexRuleFailed as Result ?? new Result.Ok();
+			return typeIdentifierResult as Result.ComplexRuleFailed as Result ??
+			       valueResult as Result.ComplexRuleFailed as Result ??
+			       new Result.Ok();
 		}
 		else
 		{
