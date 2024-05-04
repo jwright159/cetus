@@ -13,6 +13,6 @@ Console.WriteLine();
 // visitor.Dump();
 // Console.WriteLine();
 
-visitor.CompileAndRun();
+visitor.Compile();
 
 visitor.Dispose();

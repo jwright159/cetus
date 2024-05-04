@@ -442,7 +442,7 @@ public class Visitor
 		LLVM.DumpModule(module);
 	}
 	
-	public void CompileAndRun(string filename = "main")
+	public void Compile(string filename = "main")
 	{
 		const string targetTriple = "x86_64-pc-windows-msvc";
 		if (LLVM.GetTargetFromTriple(targetTriple, out LLVMTargetRef target, out string error))
@@ -458,7 +458,6 @@ public class Visitor
 		Marshal.FreeHGlobal(asmFilename);
 		
 		CompileSFileToExe(filename + ".s", filename + ".exe");
-		RunExe(filename + ".exe");
 	}
 	
 	private void CompileSFileToExe(string sFilePath, string exeFilePath)
@@ -486,30 +485,6 @@ public class Visitor
 		
 		if (process.ExitCode != 0)
 			throw new Exception($"Compilation failed with exit code {process.ExitCode}");
-	}
-	
-	private static void RunExe(string exeFilePath)
-	{
-		ProcessStartInfo startInfo = new()
-		{
-			FileName = exeFilePath,
-			RedirectStandardOutput = true,
-			RedirectStandardError = true,
-			UseShellExecute = false,
-			CreateNoWindow = true,
-		};
-		startInfo.EnvironmentVariables["PATH"] += ";lib";
-		
-		using Process? process = Process.Start(startInfo);
-		if (process == null)
-			throw new Exception("Failed to start the execution process");
-		
-		process.WaitForExit();
-		
-		string output = process.StandardOutput.ReadToEnd();
-		Console.Write(output);
-		string error = process.StandardError.ReadToEnd();
-		Console.Write(error);
 	}
 }
 
