@@ -51,6 +51,14 @@ void main()
     }
     glfwMakeContextCurrent(window);
     
+    printf("glClearColor %i\n", glClearColor);
+    printf("glClear %i\n", glClear);
+    
+    int someInt = 5;
+    int* someIntPtr = &someInt;
+    printf("someInt %i\n", someInt);
+    printf("someIntPtr %i\n", someIntPtr);
+    
     printf("Starting loop\n");
     while (!glfwWindowShouldCloseBool(window))
     {

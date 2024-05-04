@@ -333,6 +333,8 @@ public class Visitor
 			return VisitAddition(addition);
 		if (context is Parser.NotContext not)
 			return VisitNot(not);
+		if (context is Parser.ReferenceContext reference)
+			return VisitReference(reference);
 		if (context is Parser.DereferenceContext dereference)
 			return VisitDereference(dereference);
 		if (context is Parser.FunctionCallContext functionCall)
@@ -369,6 +371,14 @@ public class Visitor
 		TypedValue value = VisitExpression(context.Value);
 		LLVMValueRef result = LLVM.BuildNot(builder, value.Value, "nottmp");
 		return new TypedValueValue(value.Type, result);
+	}
+	
+	private TypedValue VisitReference(Parser.ReferenceContext context)
+	{
+		TypedValue value = VisitExpression(context.Value);
+		LLVMValueRef variable = LLVM.BuildAlloca(builder, value.Type.LLVMType, "reftmp");
+		LLVM.BuildStore(builder, value.Value, variable);
+		return new TypedValueValue(new TypedTypePointer(value.Type), variable);
 	}
 	
 	private TypedValue VisitDereference(Parser.DereferenceContext context)

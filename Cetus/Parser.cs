@@ -664,6 +664,11 @@ public class Parser(Lexer lexer)
 				expression = not;
 				return notResult;
 			}
+			if (ParseReference(out ReferenceContext? reference) is var referenceResult and not Result.TokenRuleFailed)
+			{
+				expression = reference;
+				return referenceResult;
+			}
 			if (ParseDereference(out DereferenceContext? dereference) is var dereferenceResult and not Result.TokenRuleFailed)
 			{
 				expression = dereference;
@@ -806,6 +811,32 @@ public class Parser(Lexer lexer)
 			lexer.Index = startIndex;
 			not = null;
 			return new Result.TokenRuleFailed("Expected not", lexer.Line, lexer.Column);
+		}
+	}
+	
+	
+	public class ReferenceContext : IExpressionContext
+	{
+		public IExpressionContext Value = null!;
+	}
+	
+	public Result ParseReference(out ReferenceContext? reference)
+	{
+		int startIndex = lexer.Index;
+		if (
+			lexer.Eat<Reference>() &&
+			ParseExpression(out IExpressionContext? value, 3) is var valueResult and not Result.TokenRuleFailed)
+		{
+			reference = new ReferenceContext();
+			reference.Value = value;
+			return valueResult as Result.ComplexRuleFailed as Result ??
+			       new Result.Ok();
+		}
+		else
+		{
+			lexer.Index = startIndex;
+			reference = null;
+			return new Result.TokenRuleFailed("Expected dereference", lexer.Line, lexer.Column);
 		}
 	}
 	
