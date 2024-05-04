@@ -564,7 +564,14 @@ public static class TypedTypeExtensions
 	public static TypedType Wrap(this LLVMTypeRef type)
 	{
 		if (type.TypeKind == LLVMTypeKind.LLVMIntegerTypeKind)
-			return new TypedTypeInt();
+			if (type.GetIntTypeWidth() == 1)
+				return new TypedTypeBool();
+			else if (type.GetIntTypeWidth() == 8)
+				return new TypedTypeChar();
+			else if (type.GetIntTypeWidth() == 32)
+				return new TypedTypeInt();
+			else
+				throw new Exception($"Unknown integer type width {type.GetIntTypeWidth()}");
 		if (type.TypeKind == LLVMTypeKind.LLVMFloatTypeKind)
 			return new TypedTypeFloat();
 		if (type.TypeKind == LLVMTypeKind.LLVMDoubleTypeKind)
