@@ -20,7 +20,7 @@ public class DecimalInteger : IToken
 			return false;
 		}
 	}
-		
+	
 	public string TokenText { get; init; } = null!;
 }
 
@@ -28,7 +28,7 @@ public class HexInteger : IToken
 {
 	public static bool Split(string contents, ref int index, [NotNullWhen(true)] out string? token)
 	{
-		if (contents[index..(index+2)] == "0x")
+		if (contents.Length > index + 2 && contents[index..(index+2)] == "0x")
 		{
 			int i = index + 2;
 			while (i < contents.Length && char.IsDigit(contents[i])) i++;
@@ -42,6 +42,6 @@ public class HexInteger : IToken
 			return false;
 		}
 	}
-		
+	
 	public string TokenText { get; init; } = null!;
 }

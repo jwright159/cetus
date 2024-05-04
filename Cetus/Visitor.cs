@@ -114,8 +114,8 @@ public class Visitor
 	
 	private TypedValue VisitString(Parser.StringContext context)
 	{
-		string name = string.Concat(context.Value.Where(char.IsLetter));
-		return new TypedValueValue(StringType, LLVM.BuildGlobalStringPtr(builder, context.Value, (name.Length == 0 ? "some" : name) + "String"));
+		string name = context.Value;
+		return new TypedValueValue(StringType, LLVM.BuildGlobalStringPtr(builder, context.Value, name.Length == 0 ? "emptyString" : name));
 	}
 	
 	private TypedValue VisitNull(TypedType? typeHint)
@@ -191,16 +191,8 @@ public class Visitor
 		
 		LLVM.PositionBuilderAtEnd(builder, function.AppendBasicBlock("entry"));
 		
-		try
-		{
-			VisitFunctionBlock(context.Statements);
-			LLVM.BuildRetVoid(builder);
-		}
-		catch (Exception)
-		{
-			LLVM.DeleteFunction(function);
-			throw;
-		}
+		VisitFunctionBlock(context.Statements);
+		LLVM.BuildRetVoid(builder);
 		
 		LLVM.VerifyFunction(function, LLVMVerifierFailureAction.LLVMPrintMessageAction);
 		
@@ -271,8 +263,8 @@ public class Visitor
 		LLVMValueRef global = LLVM.AddGlobal(module, type.LLVMType, name);
 		global.SetLinkage(LLVMLinkage.LLVMInternalLinkage);
 		global.SetInitializer(value.Value);
-		TypedValue result = new TypedValueValue(type, global);
-		noDerefGlobalIdentifiers.Add(name, result);
+		TypedValue result = new TypedValueValue(new TypedTypePointer(type), global);
+		autoDerefGlobalIdentifiers.Add(name, result);
 	}
 	
 	private TypedValue VisitAssignment(Parser.AssignmentContext context)
@@ -284,8 +276,8 @@ public class Visitor
 			throw new Exception($"Type mismatch in assignment to '{name}', expected {type.LLVMType} but got {value.Type.LLVMType}");
 		LLVMValueRef variable = LLVM.BuildAlloca(builder, type.LLVMType, name);
 		LLVM.BuildStore(builder, value.Value, variable);
-		TypedValue result = new TypedValueValue(type, variable);
-		noDerefLocalIdentifiers.Add(name, result);
+		TypedValue result = new TypedValueValue(new TypedTypePointer(type), variable);
+		autoDerefLocalIdentifiers.Add(name, result);
 		return result;
 	}
 	
@@ -339,6 +331,10 @@ public class Visitor
 			return VisitInequivalence(inequivalence);
 		if (context is Parser.AdditionContext addition)
 			return VisitAddition(addition);
+		if (context is Parser.NotContext not)
+			return VisitNot(not);
+		if (context is Parser.DereferenceContext dereference)
+			return VisitDereference(dereference);
 		if (context is Parser.FunctionCallContext functionCall)
 			return VisitFunctionCall(functionCall);
 		if (context is Parser.IValueContext value)
@@ -368,12 +364,23 @@ public class Visitor
 		return new TypedValueValue(lhs.Type, result);
 	}
 	
-	// private TypedValue VisitNegation(Parser.NegationContext context)
-	// {
-	// 	return (TypedValueValue)LLVM.BuildNot(builder, Visit(context.operators3()).Value, "negtmp");
-	// }
-	//
-	// private TypedValue VisitExternVariableDeclaration(Parser.ExternVariableDeclarationContext context)
+	private TypedValue VisitNot(Parser.NotContext context)
+	{
+		TypedValue value = VisitExpression(context.Value);
+		LLVMValueRef result = LLVM.BuildNot(builder, value.Value, "nottmp");
+		return new TypedValueValue(value.Type, result);
+	}
+	
+	private TypedValue VisitDereference(Parser.DereferenceContext context)
+	{
+		TypedValue pointer = VisitExpression(context.Value);
+		if (pointer.Type is not TypedTypePointer typePointer)
+			throw new Exception("Cannot dereference a non-pointer type");
+		LLVMValueRef result = LLVM.BuildLoad(builder, pointer.Value, "loadtmp");
+		return new TypedValueValue(typePointer.PointerType, result);
+	}
+	
+	// private void VisitExternVariableDeclaration(Parser.ExternVariableDeclarationContext context)
 	// {
 	// 	string name = context.name.Text;
 	// 	LLVMTypeRef type = Visit(context.type).Type;
@@ -381,43 +388,35 @@ public class Visitor
 	// 	global.SetLinkage(LLVMLinkage.LLVMExternalLinkage);
 	// 	TypedValue result = new TypedValueValue(type, global);
 	// 	autoDerefGlobalIdentifiers.Add(name, result);
-	// 	return default!;
-	// }
-	//
-	// private TypedValue VisitDereference(Parser.DereferenceContext context)
-	// {
-	// 	TypedValue pointer = Visit(context.operators3());
-	// 	if (pointer.Type is not TypedTypePointer)
-	// 		throw new Exception("Cannot dereference a non-pointer type");
-	// 	return (TypedValueValue)LLVM.BuildLoad(builder, pointer.Value, "loadtmp");
 	// }
 	
 	private TypedValue VisitFunctionCall(Parser.FunctionCallContext context)
 	{
 		TypedValue function = VisitExpression(context.Function);
-		string functionName = ((TypedTypeFunction)function.Type).FunctionName;
-		LLVMTypeRef functionType = function.Type.LLVMType.TypeKind == LLVMTypeKind.LLVMPointerTypeKind ? function.Type.LLVMType.GetElementType() : function.Type.LLVMType;
+		TypedTypeFunction functionType = function.Type is TypedTypePointer functionPointerType ? (TypedTypeFunction)functionPointerType.PointerType : (TypedTypeFunction)function.Type;
+		string functionName = functionType.FunctionName;
+		LLVMTypeRef functionLLVMType = functionType.LLVMType;
 		
-		if (functionType.TypeKind != LLVMTypeKind.LLVMFunctionTypeKind)
-			throw new Exception($"Value '{functionName}' is a {functionType.TypeKind}, not a function");
+		if (functionLLVMType.TypeKind != LLVMTypeKind.LLVMFunctionTypeKind)
+			throw new Exception($"Value '{functionName}' is a {functionLLVMType.TypeKind}, not a function");
 		
-		bool isVarArg = functionType.IsFunctionVarArg;
-		if (isVarArg ? context.Arguments.Count < functionType.CountParamTypes() : context.Arguments.Count != functionType.CountParamTypes())
-			throw new Exception($"Argument count mismatch in call to '{functionName}', expected {(isVarArg ? "at least " : "")}{functionType.CountParamTypes()} but got {context.Arguments.Count}");
+		bool isVarArg = functionLLVMType.IsFunctionVarArg;
+		if (isVarArg ? context.Arguments.Count < functionLLVMType.CountParamTypes() : context.Arguments.Count != functionLLVMType.CountParamTypes())
+			throw new Exception($"Argument count mismatch in call to '{functionName}', expected {(isVarArg ? "at least " : "")}{functionLLVMType.CountParamTypes()} but got {context.Arguments.Count}");
 		
-		IEnumerable<LLVMTypeRef?> paramTypes = functionType.GetParamTypes().Select(param => (LLVMTypeRef?)param);
-		if (context.Arguments.Count > functionType.CountParamTypes())
-			paramTypes = paramTypes.Concat(Enumerable.Range(0, context.Arguments.Count - (int)functionType.CountParamTypes()).Select(_ => (LLVMTypeRef?)null));
+		IEnumerable<LLVMTypeRef?> paramTypes = functionLLVMType.GetParamTypes().Select(param => (LLVMTypeRef?)param);
+		if (context.Arguments.Count > functionLLVMType.CountParamTypes())
+			paramTypes = paramTypes.Concat(Enumerable.Range(0, context.Arguments.Count - (int)functionLLVMType.CountParamTypes()).Select(_ => (LLVMTypeRef?)null));
 		TypedValue[] args = context.Arguments
 			.Zip(paramTypes, (arg, param) => VisitExpression(arg, param?.Wrap()))
 			.ToArray();
 		
-		foreach ((TypedValue arg, LLVMTypeRef type) in args.Zip(functionType.GetParamTypes()))
+		foreach ((TypedValue arg, LLVMTypeRef type) in args.Zip(functionLLVMType.GetParamTypes()))
 			if (!TypedTypeExtensions.TypesEqual(arg.Type.LLVMType, type))
 				throw new Exception($"Argument type mismatch in call to '{functionName}', expected {type} but got {arg.Type.LLVMType}");
 		
-		LLVMValueRef result = LLVM.BuildCall(builder, function.Value, args.Select(arg => arg.Value).ToArray(), functionType.GetReturnType().TypeKind == LLVMTypeKind.LLVMVoidTypeKind ? "" : functionName + "Call");
-		return new TypedValueValue(functionType.GetReturnType().Wrap(), result);
+		LLVMValueRef result = LLVM.BuildCall(builder, function.Value, args.Select(arg => arg.Value).ToArray(), functionLLVMType.GetReturnType().TypeKind == LLVMTypeKind.LLVMVoidTypeKind ? "" : functionName + "Call");
+		return new TypedValueValue(functionLLVMType.GetReturnType().Wrap(), result);
 	}
 	
 	public void Optimize()
@@ -546,7 +545,7 @@ public static class TypedTypeExtensions
 	public static void CheckForTypes<T>(this T type, TypedValue lhs, TypedValue rhs) where T : TypedType
 	{
 		if (lhs.Type is not T) throw new Exception($"Lhs is a {lhs.Type}, not a {type}");
-		if (rhs.Type is not T) throw new Exception($"Rhs is a {lhs.Type}, not a {type}");
+		if (rhs.Type is not T) throw new Exception($"Rhs is a {rhs.Type}, not a {type}");
 	}
 	
 	public static bool TypesEqual(TypedValue lhs, TypedValue rhs) => TypesEqual(lhs.Type.LLVMType, rhs.Type.LLVMType);

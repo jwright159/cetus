@@ -8,9 +8,21 @@ public class Float : IToken
 	{
 		if (char.IsDigit(contents[index]))
 		{
-			int i = index;
+			int i;
 			bool dot = false;
-			while (i < contents.Length && (char.IsDigit(contents[i]) || (!dot ^ (dot |= contents[i] == '.')))) i++;
+			for (i = index; i < contents.Length && (char.IsDigit(contents[i]) || contents[i] == '.'); i++)
+			{
+				if (contents[i] == '.')
+				{
+					if (dot)
+					{
+						i--;
+						break;
+					}
+					else
+						dot = true;
+				}
+			}
 			
 			if (contents[i] == 'f')
 				i++;

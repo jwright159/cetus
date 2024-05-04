@@ -363,10 +363,10 @@ public class Parser(Lexer lexer)
 			value = null;
 			return null;
 		}
-		else if (ParseInteger(out IntegerContext? integer) is var integerResult and not Result.TokenRuleFailed)
+		else if (ParseHexInteger(out IntegerContext? hexInteger) is var hexIntegerResult and not Result.TokenRuleFailed)
 		{
-			value = integer;
-			return integerResult;
+			value = hexInteger;
+			return hexIntegerResult;
 		}
 		else if (ParseFloat(out FloatContext? @float) is var floatResult and not Result.TokenRuleFailed)
 		{
@@ -377,6 +377,11 @@ public class Parser(Lexer lexer)
 		{
 			value = @double;
 			return doubleResult;
+		}
+		else if (ParseDecimalInteger(out IntegerContext? decimalInteger) is var decimalIntegerResult and not Result.TokenRuleFailed)
+		{
+			value = decimalInteger;
+			return decimalIntegerResult;
 		}
 		else if (ParseString(out StringContext? @string) is var stringResult and not Result.TokenRuleFailed)
 		{
@@ -406,7 +411,7 @@ public class Parser(Lexer lexer)
 		public int Value;
 	}
 	
-	public Result ParseInteger(out IntegerContext? integer)
+	public Result ParseHexInteger(out IntegerContext? integer)
 	{
 		if (lexer.Eat(out HexInteger? hexIntegerToken))
 		{
@@ -414,7 +419,16 @@ public class Parser(Lexer lexer)
 			integer.Value = int.Parse(hexIntegerToken.TokenText[2..], NumberStyles.HexNumber);
 			return new Result.Ok();
 		}
-		else if (lexer.Eat(out DecimalInteger? decimalIntegerToken))
+		else
+		{
+			integer = null;
+			return new Result.TokenRuleFailed("Expected integer", lexer.Line, lexer.Column);
+		}
+	}
+	
+	public Result ParseDecimalInteger(out IntegerContext? integer)
+	{
+		if (lexer.Eat(out DecimalInteger? decimalIntegerToken))
 		{
 			integer = new IntegerContext();
 			integer.Value = int.Parse(decimalIntegerToken.TokenText);
@@ -643,6 +657,20 @@ public class Parser(Lexer lexer)
 			}
 		}
 		
+		if (order <= 2)
+		{
+			if (ParseNot(out NotContext? not) is var notResult and not Result.TokenRuleFailed)
+			{
+				expression = not;
+				return notResult;
+			}
+			if (ParseDereference(out DereferenceContext? dereference) is var dereferenceResult and not Result.TokenRuleFailed)
+			{
+				expression = dereference;
+				return dereferenceResult;
+			}
+		}
+		
 		if (order <= 3)
 		{
 			if (ParseFunctionCall(out FunctionCallContext? functionCall) is var functionCallResult and not Result.TokenRuleFailed)
@@ -752,6 +780,58 @@ public class Parser(Lexer lexer)
 			lexer.Index = startIndex;
 			addition = null;
 			return new Result.TokenRuleFailed("Expected addition", lexer.Line, lexer.Column);
+		}
+	}
+	
+	
+	public class NotContext : IExpressionContext
+	{
+		public IExpressionContext Value = null!;
+	}
+	
+	public Result ParseNot(out NotContext? not)
+	{
+		int startIndex = lexer.Index;
+		if (
+			lexer.Eat<Not>() &&
+		    ParseExpression(out IExpressionContext? value, 3) is var valueResult and not Result.TokenRuleFailed)
+		{
+			not = new NotContext();
+			not.Value = value;
+			return valueResult as Result.ComplexRuleFailed as Result ??
+			       new Result.Ok();
+		}
+		else
+		{
+			lexer.Index = startIndex;
+			not = null;
+			return new Result.TokenRuleFailed("Expected not", lexer.Line, lexer.Column);
+		}
+	}
+	
+	
+	public class DereferenceContext : IExpressionContext
+	{
+		public IExpressionContext Value = null!;
+	}
+	
+	public Result ParseDereference(out DereferenceContext? dereference)
+	{
+		int startIndex = lexer.Index;
+		if (
+			lexer.Eat<Dereference>() &&
+			ParseExpression(out IExpressionContext? value, 3) is var valueResult and not Result.TokenRuleFailed)
+		{
+			dereference = new DereferenceContext();
+			dereference.Value = value;
+			return valueResult as Result.ComplexRuleFailed as Result ??
+			       new Result.Ok();
+		}
+		else
+		{
+			lexer.Index = startIndex;
+			dereference = null;
+			return new Result.TokenRuleFailed("Expected dereference", lexer.Line, lexer.Column);
 		}
 	}
 	
@@ -957,7 +1037,7 @@ public class Parser(Lexer lexer)
 		public IExpressionContext Condition = null!;
 		public List<IFunctionStatementContext> ThenStatements = null!;
 	}
-
+	
 	public Result ParseWhile(out WhileContext? @while)
 	{
 		int startIndex = lexer.Index;

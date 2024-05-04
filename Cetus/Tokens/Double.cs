@@ -8,9 +8,28 @@ public class Double : IToken
 	{
 		if (char.IsDigit(contents[index]))
 		{
-			int i = index;
+			int i;
 			bool dot = false;
-			while (i < contents.Length && (char.IsDigit(contents[i]) || (!dot ^ (dot |= contents[i] == '.')))) i++;
+			for (i = index; i < contents.Length && (char.IsDigit(contents[i]) || contents[i] == '.'); i++)
+			{
+				if (contents[i] == '.')
+				{
+					if (dot)
+					{
+						i--;
+						break;
+					}
+					else
+						dot = true;
+				}
+			}
+			
+			if (!dot)
+			{
+				token = null;
+				return false;
+			}
+			
 			token = contents[index..i];
 			index = i;
 			return true;
