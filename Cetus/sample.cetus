@@ -14,6 +14,7 @@ extern void glfwSwapBuffers(GLFWwindow* window);
 extern void glfwPollEvents();
 extern void glfwTerminate();
 extern GLFWglproc* glfwGetProcAddress(string procname);
+extern int glfwGetError(string* description);
 const int GLFW_CONTEXT_VERSION_MAJOR = 0x00022002;
 const int GLFW_CONTEXT_VERSION_MINOR = 0x00022003;
 const int GLFW_OPENGL_PROFILE = 0x00022008;
@@ -39,9 +40,6 @@ void main()
     glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
     printf("%i\n", Foo(2, 2));
     
-    GLFWglproc* glClearColor = glfwGetProcAddress("glClearColor");
-    GLFWglproc* glClear = glfwGetProcAddress("glClear");
-    
     GLFWwindow* window = glfwCreateWindow(800, 600, "LearnOpenGL", null, null);
     if (window == null)
     {
@@ -51,13 +49,8 @@ void main()
     }
     glfwMakeContextCurrent(window);
     
-    printf("glClearColor %i\n", glClearColor);
-    printf("glClear %i\n", glClear);
-    
-    int someInt = 5;
-    int* someIntPtr = &someInt;
-    printf("someInt %i\n", someInt);
-    printf("someIntPtr %i\n", someIntPtr);
+    GLFWglproc* glClearColor = glfwGetProcAddress("glClearColor");
+    GLFWglproc* glClear = glfwGetProcAddress("glClear");
     
     printf("Starting loop\n");
     while (!glfwWindowShouldCloseBool(window))
