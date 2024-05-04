@@ -404,11 +404,11 @@ public class Visitor
 		if (isVarArg ? context.Arguments.Count < functionLLVMType.CountParamTypes() : context.Arguments.Count != functionLLVMType.CountParamTypes())
 			throw new Exception($"Argument count mismatch in call to '{functionName}', expected {(isVarArg ? "at least " : "")}{functionLLVMType.CountParamTypes()} but got {context.Arguments.Count}");
 		
-		IEnumerable<LLVMTypeRef?> paramTypes = functionLLVMType.GetParamTypes().Select(param => (LLVMTypeRef?)param);
+		IEnumerable<LLVMTypeRef?> paramTypeHints = functionLLVMType.GetParamTypes().Select(param => (LLVMTypeRef?)param);
 		if (context.Arguments.Count > functionLLVMType.CountParamTypes())
-			paramTypes = paramTypes.Concat(Enumerable.Range(0, context.Arguments.Count - (int)functionLLVMType.CountParamTypes()).Select(_ => (LLVMTypeRef?)null));
+			paramTypeHints = paramTypeHints.Concat(Enumerable.Range(0, context.Arguments.Count - (int)functionLLVMType.CountParamTypes()).Select(_ => (LLVMTypeRef?)null));
 		TypedValue[] args = context.Arguments
-			.Zip(paramTypes, (arg, param) => VisitExpression(arg, param?.Wrap()))
+			.Zip(paramTypeHints, (arg, param) => VisitExpression(arg, param?.Wrap()))
 			.ToArray();
 		
 		foreach ((TypedValue arg, LLVMTypeRef type) in args.Zip(functionLLVMType.GetParamTypes()))
@@ -558,7 +558,13 @@ public static class TypedTypeExtensions
 			rhs = rhs.GetElementType();
 		}
 		
-		return lhs.TypeKind == rhs.TypeKind;
+		if (lhs.TypeKind != rhs.TypeKind)
+			return false;
+		
+		if (lhs.TypeKind == LLVMTypeKind.LLVMIntegerTypeKind)
+			return lhs.GetIntTypeWidth() == rhs.GetIntTypeWidth();
+		
+		return true;
 	}
 	
 	public static TypedType Wrap(this LLVMTypeRef type)
