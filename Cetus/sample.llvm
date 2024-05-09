@@ -1,0 +1,123 @@
+﻿; ModuleID = 'mainModule'
+source_filename = "mainModule"
+
+%GLFWmonitor = type opaque
+%GLFWwindow = type opaque
+
+@GLFW_CONTEXT_VERSION_MAJOR = internal global i32 139266
+@GLFW_CONTEXT_VERSION_MINOR = internal global i32 139267
+@GLFW_OPENGL_PROFILE = internal global i32 139272
+@GLFW_OPENGL_CORE_PROFILE = internal global i32 204801
+@GL_COLOR_BUFFER_BIT = internal global i32 16384
+@"%i\0A" = private unnamed_addr constant [4 x i8] c"%i\0A\00"
+@"%i\0A.1" = private unnamed_addr constant [4 x i8] c"%i\0A\00"
+@LearnOpenGL = private unnamed_addr constant [12 x i8] c"LearnOpenGL\00"
+@"Failed to create GLFW window\0A" = private unnamed_addr constant [30 x i8] c"Failed to create GLFW window\0A\00"
+@glClearColor = private unnamed_addr constant [13 x i8] c"glClearColor\00"
+@glClear = private unnamed_addr constant [8 x i8] c"glClear\00"
+@"Starting loop\0A" = private unnamed_addr constant [15 x i8] c"Starting loop\0A\00"
+@"Looping\0A" = private unnamed_addr constant [9 x i8] c"Looping\0A\00"
+@"Exiting loop\0A" = private unnamed_addr constant [14 x i8] c"Exiting loop\0A\00"
+
+declare void @printf(i8*, ...)
+
+declare i32 @glfwInit()
+
+declare i32 @glfwWindowHint(i32, i32)
+
+declare %GLFWwindow* @glfwCreateWindow(i32, i32, i8*, %GLFWmonitor*, %GLFWwindow*)
+
+declare void @glfwMakeContextCurrent(%GLFWwindow*)
+
+declare i32 @glfwWindowShouldClose(%GLFWwindow*)
+
+declare void @glfwSwapBuffers(%GLFWwindow*)
+
+declare void @glfwPollEvents()
+
+declare void @glfwTerminate()
+
+declare i32 (...)* @glfwGetProcAddress(i8*)
+
+declare i32 @glfwGetError(i8**)
+
+define i32 @Foo(i32 %a, i32 %b) {
+entry:
+  %addtmp = add i32 %a, %b
+  ret i32 %addtmp
+  ret void
+}
+
+define i1 @glfwWindowShouldCloseBool(%GLFWwindow* %window) {
+entry:
+  %glfwWindowShouldCloseCall = call i32 @glfwWindowShouldClose(%GLFWwindow* %window)
+  %neqtmp = icmp ne i32 %glfwWindowShouldCloseCall, 0
+  ret i1 %neqtmp
+  ret void
+}
+
+define void @main() {
+entry:
+  %FooCall = call i32 @Foo(i32 1, i32 2)
+  call void (i8*, ...) @printf(i8* getelementptr inbounds ([4 x i8], [4 x i8]* @"%i\0A", i32 0, i32 0), i32 %FooCall)
+  %glfwInitCall = call i32 @glfwInit()
+  %loadvartmp = load i32, i32* @GLFW_CONTEXT_VERSION_MAJOR
+  %glfwWindowHintCall = call i32 @glfwWindowHint(i32 %loadvartmp, i32 3)
+  %loadvartmp1 = load i32, i32* @GLFW_CONTEXT_VERSION_MINOR
+  %glfwWindowHintCall2 = call i32 @glfwWindowHint(i32 %loadvartmp1, i32 3)
+  %loadvartmp3 = load i32, i32* @GLFW_OPENGL_PROFILE
+  %loadvartmp4 = load i32, i32* @GLFW_OPENGL_CORE_PROFILE
+  %glfwWindowHintCall5 = call i32 @glfwWindowHint(i32 %loadvartmp3, i32 %loadvartmp4)
+  %FooCall6 = call i32 @Foo(i32 2, i32 2)
+  call void (i8*, ...) @printf(i8* getelementptr inbounds ([4 x i8], [4 x i8]* @"%i\0A.1", i32 0, i32 0), i32 %FooCall6)
+  %glfwCreateWindowCall = call %GLFWwindow* @glfwCreateWindow(i32 800, i32 600, i8* getelementptr inbounds ([12 x i8], [12 x i8]* @LearnOpenGL, i32 0, i32 0), %GLFWmonitor* null, %GLFWwindow* null)
+  %window = alloca %GLFWwindow*
+  store %GLFWwindow* %glfwCreateWindowCall, %GLFWwindow** %window
+  %loadvartmp7 = load %GLFWwindow*, %GLFWwindow** %window
+  %eqtmp = icmp eq %GLFWwindow* %loadvartmp7, null
+  br i1 %eqtmp, label %ifThen, label %ifElse
+
+ifThen:                                           ; preds = %entry
+  call void (i8*, ...) @printf(i8* getelementptr inbounds ([30 x i8], [30 x i8]* @"Failed to create GLFW window\0A", i32 0, i32 0))
+  call void @glfwTerminate()
+  ret void
+  br label %ifMerge
+
+ifElse:                                           ; preds = %entry
+  br label %ifMerge
+
+ifMerge:                                          ; preds = %ifElse, %ifThen
+  %loadvartmp8 = load %GLFWwindow*, %GLFWwindow** %window
+  call void @glfwMakeContextCurrent(%GLFWwindow* %loadvartmp8)
+  %glfwGetProcAddressCall = call i32 (...)* @glfwGetProcAddress(i8* getelementptr inbounds ([13 x i8], [13 x i8]* @glClearColor, i32 0, i32 0))
+  %glClearColor = alloca i32 (...)*
+  store i32 (...)* %glfwGetProcAddressCall, i32 (...)** %glClearColor
+  %glfwGetProcAddressCall9 = call i32 (...)* @glfwGetProcAddress(i8* getelementptr inbounds ([8 x i8], [8 x i8]* @glClear, i32 0, i32 0))
+  %glClear = alloca i32 (...)*
+  store i32 (...)* %glfwGetProcAddressCall9, i32 (...)** %glClear
+  call void (i8*, ...) @printf(i8* getelementptr inbounds ([15 x i8], [15 x i8]* @"Starting loop\0A", i32 0, i32 0))
+  br label %whileCondition
+
+whileCondition:                                   ; preds = %whileBody, %ifMerge
+  %loadvartmp10 = load %GLFWwindow*, %GLFWwindow** %window
+  %glfwWindowShouldCloseBoolCall = call i1 @glfwWindowShouldCloseBool(%GLFWwindow* %loadvartmp10)
+  %nottmp = xor i1 %glfwWindowShouldCloseBoolCall, true
+  br i1 %nottmp, label %whileBody, label %whileMerge
+
+whileBody:                                        ; preds = %whileCondition
+  call void (i8*, ...) @printf(i8* getelementptr inbounds ([9 x i8], [9 x i8]* @"Looping\0A", i32 0, i32 0))
+  %loadvartmp11 = load i32 (...)*, i32 (...)** %glClearColor
+  %"i32 (...)Call" = call i32 (...) %loadvartmp11(float 0x3FC99999A0000000, float 0x3FD3333340000000, float 0x3FD3333340000000, float 1.000000e+00)
+  %loadvartmp12 = load i32 (...)*, i32 (...)** %glClear
+  %loadvartmp13 = load i32, i32* @GL_COLOR_BUFFER_BIT
+  %"i32 (...)Call14" = call i32 (...) %loadvartmp12(i32 %loadvartmp13)
+  %loadvartmp15 = load %GLFWwindow*, %GLFWwindow** %window
+  call void @glfwSwapBuffers(%GLFWwindow* %loadvartmp15)
+  call void @glfwPollEvents()
+  br label %whileCondition
+
+whileMerge:                                       ; preds = %whileCondition
+  call void (i8*, ...) @printf(i8* getelementptr inbounds ([14 x i8], [14 x i8]* @"Exiting loop\0A", i32 0, i32 0))
+  call void @glfwTerminate()
+  ret void
+}

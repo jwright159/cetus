@@ -14,18 +14,61 @@ public class Lexer(string contents)
 	
 	public string Contents => contents;
 	
+	public bool TryParse<T>([NotNullWhen(true)] out T? token) where T : IToken, new()
+	{
+		if (Index == 0)
+			EatWhitespace();
+		
+		if (T.Split(contents, ref Index, out string? tokenText))
+		{
+			token = new T { TokenText = tokenText };
+			EatWhitespace();
+			return true;
+		}
+		else
+		{
+			token = default;
+			return false;
+		}
+	}
+	
+	private void EatWhitespace()
+	{
+		while (true)
+		{
+			if (IsAtEnd)
+				break;
+			
+			if (char.IsWhiteSpace(contents[Index]))
+			{
+				Index++;
+				continue;
+			}
+			
+			if (contents[Index] == '/' && contents[Index + 1] == '/')
+			{
+				while (!IsAtEnd && contents[Index] != '\n') Index++;
+				continue;
+			}
+			
+			break;
+		}
+	}
+	
 	public bool Eat<T>([NotNullWhen(true)] out T? token) where T : IToken, new()
 	{
-		return IToken.TryParse(contents, ref Index, out token);
+		return TryParse(out token);
 	}
 	
 	public bool Eat<T>() where T : IToken, new()
 	{
-		return IToken.TryParse(contents, ref Index, out T? _);
+		return TryParse(out T? _);
 	}
 	
-	public void EatTo<T>() where T : IToken, new()
+	public string EatTo<T>() where T : IToken, new()
 	{
+		int start = Index;
 		while (!IsAtEnd && !Eat<T>()) Index++;
+		return contents[start..Index];
 	}
 }

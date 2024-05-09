@@ -1,6 +1,7 @@
 ﻿using System.Diagnostics;
 using System.Runtime.InteropServices;
-using LLVMSharp;
+using LLVMSharp.Interop;
+using Identifiers = System.Collections.Generic.Dictionary<string, Cetus.TypedValue>;
 
 namespace Cetus;
 
@@ -9,6 +10,7 @@ public class Visitor
 	private LLVMModuleRef module;
 	private LLVMBuilderRef builder;
 	
+	public static readonly TypedType VoidType = new TypedTypeVoid();
 	public static readonly TypedType IntType = new TypedTypeInt();
 	public static readonly TypedType BoolType = new TypedTypeBool();
 	public static readonly TypedType CharType = new TypedTypeChar();
@@ -16,13 +18,12 @@ public class Visitor
 	public static readonly TypedType DoubleType = new TypedTypeDouble();
 	public static readonly TypedType StringType = new TypedTypePointer(CharType);
 	
-	public static readonly TypedValue TrueValue = new TypedValueValue(BoolType, LLVM.ConstInt(LLVM.Int1Type(), 1, false));
-	public static readonly TypedValue FalseValue = new TypedValueValue(BoolType, LLVM.ConstInt(LLVM.Int1Type(), 0, false));
+	public static readonly TypedValue TrueValue = new TypedValueValue(BoolType, LLVMValueRef.CreateConstInt(LLVMTypeRef.Int1, 1, false));
+	public static readonly TypedValue FalseValue = new TypedValueValue(BoolType, LLVMValueRef.CreateConstInt(LLVMTypeRef.Int1, 0, false));
 	
-	private Dictionary<string, TypedValue> autoDerefGlobalIdentifiers = new();
-	private Dictionary<string, TypedValue> noDerefGlobalIdentifiers = new()
+	private Identifiers globalIdentifiers = new()
 	{
-		{ "void", new TypedValueType(new TypedTypeVoid()) },
+		{ "void", new TypedValueType(VoidType) },
 		{ "float", new TypedValueType(FloatType) },
 		{ "double", new TypedValueType(DoubleType) },
 		{ "char", new TypedValueType(CharType) },
@@ -32,8 +33,6 @@ public class Visitor
 		{ "true", TrueValue },
 		{ "false", FalseValue },
 	};
-	private Dictionary<string, TypedValue> autoDerefLocalIdentifiers = new();
-	private Dictionary<string, TypedValue> noDerefLocalIdentifiers = new();
 	
 	private List<string> referencedLibs = [];
 	
@@ -45,42 +44,42 @@ public class Visitor
 		LLVM.InitializeX86TargetMC();
 		LLVM.InitializeX86AsmPrinter();
 		
-		module = LLVM.ModuleCreateWithName("mainModule");
-		builder = LLVM.CreateBuilder();
+		module = LLVMModuleRef.CreateWithName("mainModule");
+		builder = LLVMBuilderRef.Create(module.Context);
 	}
 	
 	public void Generate(Parser.ProgramContext program)
 	{
-		VisitProgram(program);
-		LLVM.VerifyModule(module, LLVMVerifierFailureAction.LLVMReturnStatusAction, out string output);
+		VisitProgram(program, globalIdentifiers);
+		module.TryVerify(LLVMVerifierFailureAction.LLVMReturnStatusAction, out string output);
 		Console.WriteLine(output);
 	}
 	
-	private void VisitProgram(Parser.ProgramContext context)
+	private void VisitProgram(Parser.ProgramContext context, Identifiers identifiers)
 	{
 		foreach (Parser.IProgramStatementContext statement in context.ProgramStatements)
-			VisitProgramStatement(statement);
+			VisitProgramStatement(statement, identifiers);
 	}
 	
-	private void VisitProgramStatement(Parser.IProgramStatementContext context)
+	private void VisitProgramStatement(Parser.IProgramStatementContext context, Identifiers identifiers)
 	{
 		if (context is Parser.FunctionDefinitionContext functionDefinition)
-			VisitFunctionDefinition(functionDefinition);
+			VisitFunctionDefinition(functionDefinition, identifiers);
 		else if (context is Parser.ExternFunctionDeclarationContext externFunctionDeclaration)
-			VisitExternFunctionDeclaration(externFunctionDeclaration);
+			VisitExternFunctionDeclaration(externFunctionDeclaration, identifiers);
 		else if (context is Parser.ExternStructDeclarationContext externStructDeclaration)
-			VisitExternStructDeclaration(externStructDeclaration);
+			VisitExternStructDeclaration(externStructDeclaration, identifiers);
 		else if (context is Parser.IncludeLibraryContext includeLibrary)
 			VisitIncludeLibrary(includeLibrary);
 		else if (context is Parser.DelegateDeclarationContext delegateDeclaration)
-			VisitDelegateDeclaration(delegateDeclaration);
+			VisitDelegateDeclaration(delegateDeclaration, identifiers);
 		else if (context is Parser.ConstVariableDefinitionContext constVariableDefinition)
-			VisitConstVariableDefinition(constVariableDefinition);
+			VisitConstVariableDefinition(constVariableDefinition, identifiers);
 		else
 			throw new Exception("Unknown program statement type: " + context.GetType());
 	}
 	
-	private TypedValue VisitValue(Parser.IValueContext context, TypedType? typeHint = null)
+	private TypedValue VisitValue(Parser.IValueContext context, Identifiers identifiers, TypedType? typeHint)
 	{
 		if (context is Parser.IntegerContext integer)
 			return VisitInteger(integer);
@@ -90,144 +89,213 @@ public class Visitor
 			return VisitDouble(@double);
 		if (context is Parser.StringContext @string)
 			return VisitString(@string);
+		if (context is Parser.FunctionBlockContext functionBlock)
+			return VisitClosure(functionBlock, identifiers);
 		if (context is Parser.NullContext)
 			return VisitNull(typeHint);
 		if (context is Parser.ValueIdentifierContext valueIdentifier)
-			return VisitValueIdentifier(valueIdentifier);
+			return VisitValueIdentifier(valueIdentifier, identifiers, typeHint);
+		if (context is LiteralContext closureEnvironment)
+			return closureEnvironment.Value;
 		throw new Exception("Unknown value type: " + context.GetType());
 	}
 	
 	private TypedValue VisitInteger(Parser.IntegerContext context)
 	{
-		return new TypedValueValue(IntType, LLVM.ConstInt(LLVM.Int32Type(), (ulong)context.Value, true));
+		return new TypedValueValue(IntType, LLVMValueRef.CreateConstInt(LLVMTypeRef.Int32, (ulong)context.Value, true));
 	}
 	
 	private TypedValue VisitFloat(Parser.FloatContext context)
 	{
-		return new TypedValueValue(FloatType, LLVM.ConstReal(LLVM.FloatType(), context.Value));
+		return new TypedValueValue(FloatType, LLVMValueRef.CreateConstReal(LLVMTypeRef.Float, context.Value));
 	}
 	
 	private TypedValue VisitDouble(Parser.DoubleContext context)
 	{
-		return new TypedValueValue(DoubleType, LLVM.ConstReal(LLVM.DoubleType(), context.Value));
+		return new TypedValueValue(DoubleType, LLVMValueRef.CreateConstReal(LLVMTypeRef.Double, context.Value));
 	}
 	
 	private TypedValue VisitString(Parser.StringContext context)
 	{
-		string name = context.Value;
-		return new TypedValueValue(StringType, LLVM.BuildGlobalStringPtr(builder, context.Value, name.Length == 0 ? "emptyString" : name));
+		return new TypedValueValue(StringType, builder.BuildGlobalStringPtr(context.Value, context.Value.Length == 0 ? "emptyString" : context.Value));
+	}
+	
+	private TypedValue VisitClosure(Parser.FunctionBlockContext context, Identifiers identifiers)
+	{
+		Identifiers uniqueClosureIdentifiers = identifiers.Except(globalIdentifiers).ToDictionary();
+		TypedTypeStruct closureEnvType = new(LLVMContextRef.Global.CreateNamedStruct("closure_env"));
+		closureEnvType.LLVMType.StructSetBody(uniqueClosureIdentifiers.Values.Select(type => LLVMTypeRef.CreatePointer(type.Type.LLVMType, 0)).ToArray(), false);
+		
+		TypedTypeFunction functionType = new("closure_block", VoidType, [new TypedTypePointer(new TypedTypeChar())], null);
+		LLVMValueRef function = module.AddFunction("closure_block", functionType.LLVMType);
+		function.Linkage = LLVMLinkage.LLVMInternalLinkage;
+		
+		LLVMBasicBlockRef originalBlock = builder.InsertBlock;
+		builder.PositionAtEnd(function.AppendBasicBlock("entry"));
+		
+		// Unpack the closure environment in the function
+		{
+			Identifiers closureIdentifiers = new(globalIdentifiers);
+			LLVMValueRef closureEnvPtr = function.GetParam(0);
+			int paramIndex = 0;
+			foreach ((string name, TypedValue value) in uniqueClosureIdentifiers)
+			{
+				LLVMValueRef elementPtr = builder.BuildStructGEP2(closureEnvType.LLVMType, closureEnvPtr, (uint)paramIndex++, name);
+				LLVMValueRef element = builder.BuildLoad2(value.Type.LLVMType, elementPtr, name);
+				closureIdentifiers.Add(name, new TypedValueValue(value.Type, element));
+			}
+			
+			VisitFunctionBlock(context.Statements, closureIdentifiers, new Dictionary<string, LLVMBasicBlockRef>());
+			builder.BuildRetVoid();
+			
+			function.VerifyFunction(LLVMVerifierFailureAction.LLVMPrintMessageAction);
+		}
+		
+		TypedTypeClosurePointer closureType = AddOrGetClosureType(functionType);
+		
+		builder.PositionAtEnd(originalBlock);
+		LLVMValueRef closurePtr = builder.BuildAlloca(closureType.Type.LLVMType, "closure");
+		
+		// Pack the closure for the function
+		{
+			LLVMValueRef functionPtr = builder.BuildStructGEP2(closureType.Type.LLVMType, closurePtr, 0, "function");
+			builder.BuildStore(function, functionPtr);
+			
+			LLVMValueRef closureEnvPtr = builder.BuildStructGEP2(closureType.Type.LLVMType, closurePtr, 1, "closure_env");
+			LLVMValueRef closureEnv = builder.BuildAlloca(closureEnvType.LLVMType, "closure_env");
+			int paramIndex = 0;
+			foreach ((string name, TypedValue value) in uniqueClosureIdentifiers)
+			{
+				LLVMValueRef elementPtr = builder.BuildStructGEP2(closureEnvType.LLVMType, closureEnv, (uint)paramIndex++, name);
+				builder.BuildStore(value.Value, elementPtr);
+			}
+			builder.BuildStore(closureEnv, closureEnvPtr);
+		}
+		
+		TypedValue result = new TypedValueValue(closureType, closurePtr);
+		return result;
+	}
+	
+	private TypedTypeClosurePointer AddOrGetClosureType(TypedTypeFunction functionType)
+	{
+		if (globalIdentifiers.Values.FirstOrDefault(type => type.Type is TypedTypeClosurePointer closureType && TypedTypeExtensions.TypesEqual(closureType.BlockType, functionType))?.Type is TypedTypeClosurePointer existingClosureType)
+			return existingClosureType;
+		else
+		{
+			TypedTypeStruct closureStructType = new(LLVMContextRef.Global.CreateNamedStruct($"closure_{functionType.ReturnType}"));
+			closureStructType.LLVMType.StructSetBody([LLVMTypeRef.CreatePointer(functionType.LLVMType, 0), LLVMTypeRef.CreatePointer(LLVMTypeRef.Int8, 0)], false);
+			TypedTypeClosurePointer closureType = new(closureStructType, functionType);
+			globalIdentifiers.Add($"closure_{functionType.ReturnType}", new TypedValueType(closureType));
+			return closureType;
+		}
 	}
 	
 	private TypedValue VisitNull(TypedType? typeHint)
 	{
 		if (typeHint == null)
 			throw new Exception("Cannot infer type of null");
-		return new TypedValueValue(typeHint, LLVM.ConstNull(typeHint.LLVMType));
+		return new TypedValueValue(typeHint, LLVMValueRef.CreateConstNull(typeHint.LLVMType));
 	}
 	
-	private TypedValue VisitValueIdentifier(Parser.ValueIdentifierContext context)
+	private TypedValue VisitValueIdentifier(Parser.ValueIdentifierContext context, Identifiers identifiers, TypedType? typeHint)
 	{
 		string name = context.ValueName;
+		if (!identifiers.TryGetValue(name, out TypedValue? result))
+			throw new Exception($"Identifier '{name}' not found");
 		
-		if (noDerefLocalIdentifiers.TryGetValue(name, out TypedValue? result))
-			return result;
+		if (typeHint is not null and not TypedTypePointer && result.Type is TypedTypePointer resultTypePointer)
+		{
+			LLVMValueRef value = builder.BuildLoad2(resultTypePointer.PointerType.LLVMType, result.Value, name);
+			result = new TypedValueValue(resultTypePointer.PointerType, value);
+		}
 		
-		if (autoDerefLocalIdentifiers.TryGetValue(name, out result))
-			return new TypedValueValue(((TypedTypePointer)result.Type).PointerType, LLVM.BuildLoad(builder, result.Value, "loadvartmp"));
+		if (typeHint is not null && !TypedTypeExtensions.TypesEqual(result.Type, typeHint))
+			throw new Exception($"Type mismatch in value of '{name}', expected {typeHint.LLVMType} but got {result.Type.LLVMType}");
 		
-		if (noDerefGlobalIdentifiers.TryGetValue(name, out result))
-			return result;
-		
-		if (autoDerefGlobalIdentifiers.TryGetValue(name, out result))
-			return new TypedValueValue(((TypedTypePointer)result.Type).PointerType, LLVM.BuildLoad(builder, result.Value, "loadvartmp"));
-		
-		throw new Exception($"Identifier '{name}' not found");
+		return result;
 	}
 	
-	private void VisitDelegateDeclaration(Parser.DelegateDeclarationContext context)
+	private void VisitDelegateDeclaration(Parser.DelegateDeclarationContext context, Identifiers identifiers)
 	{
 		string name = context.FunctionName;
-		LLVMTypeRef returnType = VisitTypeIdentifier(context.ReturnType).LLVMType;
-		LLVMTypeRef[] paramTypes = context.Parameters.Select(param => param.ParameterType).Select(VisitTypeIdentifier).Select(type => type.LLVMType).ToArray();
-		bool isVarArg = context.IsVarArg;
-		LLVMTypeRef functionType = LLVM.FunctionType(returnType, paramTypes, isVarArg);
-		TypedValue result = new TypedValueType(new TypedTypeFunction(functionType, name));
-		noDerefGlobalIdentifiers.Add(name, result);
+		TypedType returnType = VisitTypeIdentifier(context.ReturnType, identifiers);
+		TypedType[] paramTypes = context.Parameters.Select(param => param.ParameterType)
+			.Select(paramType => VisitTypeIdentifier(paramType, identifiers))
+			.ToArray();
+		bool isVarArg = context.VarArg is not null;
+		TypedType varArgType = isVarArg ? VisitTypeIdentifier(context.VarArg.ParameterType, identifiers) : null;
+		TypedTypeFunction functionType = new(name, returnType, paramTypes, varArgType);
+		TypedValue result = new TypedValueType(functionType);
+		identifiers.Add(name, result);
 	}
 	
-	private TypedType VisitTypeIdentifier(Parser.TypeIdentifierContext context)
+	private TypedType VisitTypeIdentifier(Parser.TypeIdentifierContext context, Identifiers identifiers)
 	{
 		string name = context.TypeName;
-		if (!noDerefGlobalIdentifiers.TryGetValue(name, out TypedValue? result))
-			throw new Exception($"Type '{name}' not found");
-		LLVMTypeRef type = result.Type.LLVMType;
-		TypedType wrappedType = type.Wrap();
-		for (int i = 0; i < context.PointerCount; ++i)
-			wrappedType = new TypedTypePointer(wrappedType);
-		return wrappedType;
+		if (name == "Closure")
+		{
+			return AddOrGetClosureType(new TypedTypeFunction("block", context.InnerType is not null ? VisitTypeIdentifier(context.InnerType, identifiers) : VoidType, [new TypedTypePointer(new TypedTypeChar())], null));
+		}
+		else
+		{
+			if (!identifiers.TryGetValue(name, out TypedValue? result))
+				throw new Exception($"Type '{name}' not found");
+			TypedType type = result.Type;
+			for (int i = 0; i < context.PointerCount; ++i)
+				type = new TypedTypePointer(type);
+			return type;
+		}
 	}
 	
-	private void VisitFunctionDefinition(Parser.FunctionDefinitionContext context)
+	private void VisitFunctionDefinition(Parser.FunctionDefinitionContext context, Identifiers identifiers)
 	{
 		string name = context.FunctionName;
-		LLVMTypeRef returnType = VisitTypeIdentifier(context.ReturnType).LLVMType;
-		LLVMTypeRef[] paramTypes = context.Parameters.Select(param => param.ParameterType).Select(VisitTypeIdentifier).Select(type => type.LLVMType).ToArray();
-		bool isVarArg = context.IsVarArg;
-		LLVMTypeRef functionType = LLVM.FunctionType(returnType, paramTypes, isVarArg);
-		LLVMValueRef function = LLVM.AddFunction(module, name, functionType);
-		LLVM.SetLinkage(function, LLVMLinkage.LLVMExternalLinkage);
+		TypedType returnType = VisitTypeIdentifier(context.ReturnType, identifiers);
+		TypedType[] paramTypes = context.Parameters.Select(param => param.ParameterType)
+			.Select(paramType => VisitTypeIdentifier(paramType, identifiers))
+			.ToArray();
+		bool isVarArg = context.VarArg is not null;
+		TypedType varArgType = isVarArg ? VisitTypeIdentifier(context.VarArg.ParameterType, identifiers) : null;
+		TypedTypeFunction functionType = new(name, returnType, paramTypes, varArgType);
+		LLVMValueRef function = module.AddFunction(name, functionType.LLVMType);
+		function.Linkage = LLVMLinkage.LLVMExternalLinkage;
 		
-		noDerefLocalIdentifiers.Clear();
-		autoDerefLocalIdentifiers.Clear();
+		Identifiers newIdentifiers = new(identifiers);
 		
 		for (int i = 0; i < context.Parameters.Count; ++i)
 		{
 			string parameterName = context.Parameters[i].ParameterName;
-			TypedType parameterType = VisitTypeIdentifier(context.Parameters[i].ParameterType);
+			TypedType parameterType = VisitTypeIdentifier(context.Parameters[i].ParameterType, identifiers);
 			LLVMValueRef param = function.GetParam((uint)i);
-			LLVM.SetValueName(param, parameterName);
-			noDerefLocalIdentifiers.Add(parameterName, new TypedValueValue(parameterType, param));
+			param.Name = parameterName;
+			newIdentifiers.Add(parameterName, new TypedValueValue(parameterType, param));
 		}
 		
-		LLVM.PositionBuilderAtEnd(builder, function.AppendBasicBlock("entry"));
+		builder.PositionAtEnd(function.AppendBasicBlock("entry"));
 		
-		VisitFunctionBlock(context.Statements);
-		LLVM.BuildRetVoid(builder);
+		VisitFunctionBlock(context.Statements, newIdentifiers, new Dictionary<string, LLVMBasicBlockRef>());
+		builder.BuildRetVoid();
 		
-		LLVM.VerifyFunction(function, LLVMVerifierFailureAction.LLVMPrintMessageAction);
+		function.VerifyFunction(LLVMVerifierFailureAction.LLVMPrintMessageAction);
 		
-		TypedValue result = new TypedValueValue(new TypedTypeFunction(functionType, name), function);
-		noDerefGlobalIdentifiers.Add(name, result);
+		TypedValue result = new TypedValueValue(functionType, function);
+		identifiers.Add(name, result);
 	}
 	
-	private void VisitFunctionBlock(IEnumerable<Parser.IFunctionStatementContext> contexts)
+	private void VisitFunctionBlock(IEnumerable<Parser.IFunctionStatementContext> contexts, Identifiers identifiers, Dictionary<string, LLVMBasicBlockRef> blocks)
 	{
 		foreach (Parser.IFunctionStatementContext? statement in contexts)
-			VisitFunctionStatement(statement);
+			VisitFunctionStatement(statement, identifiers, blocks);
 	}
 	
-	private void VisitFunctionStatement(Parser.IFunctionStatementContext context)
+	private void VisitFunctionStatement(Parser.IFunctionStatementContext context, Identifiers identifiers, Dictionary<string, LLVMBasicBlockRef> blocks)
 	{
-		if (context is Parser.ReturnContext @return)
-			VisitReturn(@return);
-		else if (context is Parser.FunctionCallContext functionCall)
-			VisitFunctionCall(functionCall);
-		else if (context is Parser.AssignmentContext assignment)
-			VisitAssignment(assignment);
-		else if (context is Parser.IfContext @if)
-			VisitIf(@if);
-		else if (context is Parser.WhileContext @while)
-			VisitWhile(@while);
+		if (context is Parser.FunctionCallContext functionCall)
+			VisitFunctionCall(functionCall, identifiers);
+		else if (context is Parser.CompilerStatementContext compilerStatement)
+			VisitCompilerStatement(compilerStatement, identifiers, blocks);
 		else
 			throw new Exception("Unknown function statement type: " + context.GetType());
-	}
-	
-	private void VisitReturn(Parser.ReturnContext context)
-	{
-		if (context.Value != null)
-			LLVM.BuildRet(builder, VisitExpression(context.Value).Value);
-		else
-			LLVM.BuildRetVoid(builder);
 	}
 	
 	private void VisitIncludeLibrary(Parser.IncludeLibraryContext context)
@@ -235,237 +303,192 @@ public class Visitor
 		referencedLibs.Add(context.LibraryName);
 	}
 	
-	private void VisitExternFunctionDeclaration(Parser.ExternFunctionDeclarationContext context)
+	private void VisitExternFunctionDeclaration(Parser.ExternFunctionDeclarationContext context, Identifiers identifiers)
 	{
 		string name = context.FunctionName;
-		LLVMTypeRef returnType = VisitTypeIdentifier(context.ReturnType).LLVMType;
-		LLVMTypeRef[] paramTypes = context.Parameters.Select(param => param.ParameterType).Select(VisitTypeIdentifier).Select(type => type.LLVMType).ToArray();
-		bool isVarArg = context.IsVarArg;
-		LLVMTypeRef functionType = LLVM.FunctionType(returnType, paramTypes, isVarArg);
-		LLVMValueRef function = LLVM.AddFunction(module, name, functionType);
-		TypedValue result = new TypedValueValue(new TypedTypeFunction(functionType, name), function);
-		noDerefGlobalIdentifiers.Add(name, result);
+		TypedType returnType = VisitTypeIdentifier(context.ReturnType, identifiers);
+		TypedType[] paramTypes = context.Parameters.Select(param => param.ParameterType)
+			.Select(paramType => VisitTypeIdentifier(paramType, identifiers))
+			.ToArray();
+		bool isVarArg = context.VarArg is not null;
+		TypedType varArgType = isVarArg ? VisitTypeIdentifier(context.VarArg.ParameterType, identifiers) : null;
+		TypedTypeFunction functionType = new(name, returnType, paramTypes, varArgType);
+		LLVMValueRef function = module.AddFunction(name, functionType.LLVMType);
+		TypedValue result = new TypedValueValue(functionType, function);
+		identifiers.Add(name, result);
 	}
 	
-	private void VisitExternStructDeclaration(Parser.ExternStructDeclarationContext context)
+	private void VisitExternStructDeclaration(Parser.ExternStructDeclarationContext context, Identifiers identifiers)
 	{
 		string name = context.StructName;
-		LLVMTypeRef @struct = LLVM.StructCreateNamed(LLVM.GetGlobalContext(), name);
+		LLVMTypeRef @struct = LLVMContextRef.Global.CreateNamedStruct(name);
 		TypedValue result = new TypedValueType(new TypedTypeStruct(@struct));
-		noDerefGlobalIdentifiers.Add(name, result);
+		identifiers.Add(name, result);
 	}
 	
-	private void VisitConstVariableDefinition(Parser.ConstVariableDefinitionContext context)
+	private void VisitConstVariableDefinition(Parser.ConstVariableDefinitionContext context, Identifiers identifiers)
 	{
 		string name = context.VariableName;
-		TypedType type = VisitTypeIdentifier(context.Type);
-		TypedValue value = VisitValue(context.Value);
-		LLVMValueRef global = LLVM.AddGlobal(module, type.LLVMType, name);
-		global.SetLinkage(LLVMLinkage.LLVMInternalLinkage);
-		global.SetInitializer(value.Value);
+		TypedType type = VisitTypeIdentifier(context.Type, identifiers);
+		TypedValue value = VisitValue(context.Value, identifiers, type);
+		LLVMValueRef global = module.AddGlobal(type.LLVMType, name);
+		global.Linkage = LLVMLinkage.LLVMInternalLinkage;
+		global.Initializer = value.Value;
 		TypedValue result = new TypedValueValue(new TypedTypePointer(type), global);
-		autoDerefGlobalIdentifiers.Add(name, result);
+		identifiers.Add(name, result);
 	}
 	
-	private TypedValue VisitAssignment(Parser.AssignmentContext context)
+	private TypedValue VisitExpression(Parser.IExpressionContext context, Identifiers identifiers, TypedType? typeHint)
 	{
-		TypedType type = VisitTypeIdentifier(context.Type);
-		string name = context.VariableName;
-		TypedValue value = VisitExpression(context.Value);
-		if (!TypedTypeExtensions.TypesEqual(type, value.Type))
-			throw new Exception($"Type mismatch in assignment to '{name}', expected {type.LLVMType} but got {value.Type.LLVMType}");
-		LLVMValueRef variable = LLVM.BuildAlloca(builder, type.LLVMType, name);
-		LLVM.BuildStore(builder, value.Value, variable);
-		TypedValue result = new TypedValueValue(new TypedTypePointer(type), variable);
-		autoDerefLocalIdentifiers.Add(name, result);
-		return result;
-	}
-	
-	private void VisitIf(Parser.IfContext context)
-	{
-		LLVMBasicBlockRef functionBlock = LLVM.GetBasicBlockParent(LLVM.GetInsertBlock(builder));
-		LLVMBasicBlockRef thenBlock = LLVM.AppendBasicBlock(functionBlock, "ifThen");
-		LLVMBasicBlockRef elseBlock = LLVM.AppendBasicBlock(functionBlock, "ifElse");
-		LLVMBasicBlockRef mergeBlock = LLVM.AppendBasicBlock(functionBlock, "ifMerge");
-		
-		LLVMValueRef condition = VisitExpression(context.Condition).Value;
-		LLVM.BuildCondBr(builder, condition, thenBlock, elseBlock);
-		
-		LLVM.PositionBuilderAtEnd(builder, thenBlock);
-		VisitFunctionBlock(context.ThenStatements);
-		LLVM.BuildBr(builder, mergeBlock);
-		
-		LLVM.PositionBuilderAtEnd(builder, elseBlock);
-		if (context.ElseStatements.Count > 0)
-			VisitFunctionBlock(context.ElseStatements);
-		LLVM.BuildBr(builder, mergeBlock);
-		
-		LLVM.PositionBuilderAtEnd(builder, mergeBlock);
-	}
-	
-	private void VisitWhile(Parser.WhileContext context)
-	{
-		LLVMBasicBlockRef functionBlock = LLVM.GetBasicBlockParent(LLVM.GetInsertBlock(builder));
-		LLVMBasicBlockRef conditionBlock = LLVM.AppendBasicBlock(functionBlock, "whileCondition");
-		LLVMBasicBlockRef bodyBlock = LLVM.AppendBasicBlock(functionBlock, "whileBody");
-		LLVMBasicBlockRef mergeBlock = LLVM.AppendBasicBlock(functionBlock, "whileMerge");
-		
-		LLVM.BuildBr(builder, conditionBlock);
-		
-		LLVM.PositionBuilderAtEnd(builder, conditionBlock);
-		LLVMValueRef condition = VisitExpression(context.Condition).Value;
-		LLVM.BuildCondBr(builder, condition, bodyBlock, mergeBlock);
-		
-		LLVM.PositionBuilderAtEnd(builder, bodyBlock);
-		VisitFunctionBlock(context.ThenStatements);
-		LLVM.BuildBr(builder, conditionBlock);
-		
-		LLVM.PositionBuilderAtEnd(builder, mergeBlock);
-	}
-	
-	private TypedValue VisitExpression(Parser.IExpressionContext context, TypedType? typeHint = null)
-	{
-		if (context is Parser.EquivalenceContext equivalence)
-			return VisitEquivalence(equivalence);
-		if (context is Parser.InequivalenceContext inequivalence)
-			return VisitInequivalence(inequivalence);
-		if (context is Parser.AdditionContext addition)
-			return VisitAddition(addition);
-		if (context is Parser.NotContext not)
-			return VisitNot(not);
-		if (context is Parser.ReferenceContext reference)
-			return VisitReference(reference);
-		if (context is Parser.DereferenceContext dereference)
-			return VisitDereference(dereference);
 		if (context is Parser.FunctionCallContext functionCall)
-			return VisitFunctionCall(functionCall);
+			return VisitFunctionCall(functionCall, identifiers);
 		if (context is Parser.IValueContext value)
-			return VisitValue(value, typeHint);
+			return VisitValue(value, identifiers, typeHint);
 		throw new Exception("Unknown expression type: " + context.GetType());
 	}
 	
-	private TypedValue VisitEquivalence(Parser.EquivalenceContext context)
+	public class LiteralContext(TypedValue value) : Parser.IValueContext
 	{
-		TypedValue lhs = VisitExpression(context.Lhs);
-		TypedValue rhs = VisitExpression(context.Rhs, lhs.Type);
-		return lhs.Type.BuildEqual(builder, lhs, rhs);
+		public TypedValue Value => value;
 	}
 	
-	private TypedValue VisitInequivalence(Parser.InequivalenceContext context)
+	private TypedValue VisitFunctionCall(Parser.FunctionCallContext context, Identifiers identifiers)
 	{
-		TypedValue lhs = VisitExpression(context.Lhs);
-		TypedValue rhs = VisitExpression(context.Rhs, lhs.Type);
-		return lhs.Type.BuildInequal(builder, lhs, rhs);
-	}
-	
-	private TypedValue VisitAddition(Parser.AdditionContext context)
-	{
-		TypedValue lhs = VisitExpression(context.Lhs);
-		TypedValue rhs = VisitExpression(context.Rhs, lhs.Type);
-		LLVMValueRef result = LLVM.BuildAdd(builder, lhs.Value, rhs.Value, "addtmp");
-		return new TypedValueValue(lhs.Type, result);
-	}
-	
-	private TypedValue VisitNot(Parser.NotContext context)
-	{
-		TypedValue value = VisitExpression(context.Value);
-		LLVMValueRef result = LLVM.BuildNot(builder, value.Value, "nottmp");
-		return new TypedValueValue(value.Type, result);
-	}
-	
-	private TypedValue VisitReference(Parser.ReferenceContext context)
-	{
-		TypedValue value = VisitExpression(context.Value);
-		LLVMValueRef variable = LLVM.BuildAlloca(builder, value.Type.LLVMType, "reftmp");
-		LLVM.BuildStore(builder, value.Value, variable);
-		return new TypedValueValue(new TypedTypePointer(value.Type), variable);
-	}
-	
-	private TypedValue VisitDereference(Parser.DereferenceContext context)
-	{
-		TypedValue pointer = VisitExpression(context.Value);
-		if (pointer.Type is not TypedTypePointer typePointer)
-			throw new Exception("Cannot dereference a non-pointer type");
-		LLVMValueRef result = LLVM.BuildLoad(builder, pointer.Value, "loadtmp");
-		return new TypedValueValue(typePointer.PointerType, result);
-	}
-	
-	// private void VisitExternVariableDeclaration(Parser.ExternVariableDeclarationContext context)
-	// {
-	// 	string name = context.name.Text;
-	// 	LLVMTypeRef type = Visit(context.type).Type;
-	// 	LLVMValueRef global = LLVM.AddGlobal(module, type, name);
-	// 	global.SetLinkage(LLVMLinkage.LLVMExternalLinkage);
-	// 	TypedValue result = new TypedValueValue(type, global);
-	// 	autoDerefGlobalIdentifiers.Add(name, result);
-	// }
-	
-	private TypedValue VisitFunctionCall(Parser.FunctionCallContext context)
-	{
-		TypedValue function = VisitExpression(context.Function);
-		TypedTypeFunction functionType = function.Type is TypedTypePointer functionPointerType ? (TypedTypeFunction)functionPointerType.PointerType : (TypedTypeFunction)function.Type;
+		TypedValue function = VisitExpression(context.Function, identifiers, null);
+		List<Parser.IExpressionContext> arguments = context.Arguments;
+		TypedTypeFunction functionType;
+		if (function.Type is TypedTypeClosurePointer closurePtr)
+		{
+			functionType = closurePtr.BlockType;
+			
+			LLVMValueRef closure = builder.BuildLoad2(closurePtr.Type.LLVMType, function.Value, "actual_closure");
+			LLVMValueRef functionPtrPtr = builder.BuildStructGEP2(closurePtr.Type.LLVMType, closure, 0, "functionPtrPtr");
+			LLVMValueRef functionPtr = builder.BuildLoad2(LLVMTypeRef.CreatePointer(functionType.LLVMType, 0), functionPtrPtr, "functionPtr");
+			//LLVMValueRef functionValue = builder.BuildLoad2(functionType.LLVMType, functionPtr, "functionValue");
+			LLVMValueRef environmentPtr = builder.BuildStructGEP2(closurePtr.Type.LLVMType, closure, 1, "environment");
+			
+			function = new TypedValueValue(functionType, functionPtr);
+			arguments = arguments.Prepend(new LiteralContext(new TypedValueValue(CharType.Pointer(), environmentPtr))).ToList();
+		}
+		else if (function.Type is TypedTypePointer functionPointer)
+		{
+			functionType = (TypedTypeFunction)functionPointer.PointerType;
+			function = new TypedValueValue(functionType, builder.BuildLoad2(functionType.LLVMType, function.Value, "functionValue"));
+		}
+		else
+			functionType = (TypedTypeFunction)function.Type;
 		string functionName = functionType.FunctionName;
-		LLVMTypeRef functionLLVMType = functionType.LLVMType;
 		
-		if (functionLLVMType.TypeKind != LLVMTypeKind.LLVMFunctionTypeKind)
-			throw new Exception($"Value '{functionName}' is a {functionLLVMType.TypeKind}, not a function");
+		if (functionType.IsVarArg ? arguments.Count < functionType.NumParams : arguments.Count != functionType.NumParams)
+			throw new Exception($"Argument count mismatch in call to '{functionName}', expected {(functionType.IsVarArg ? "at least " : "")}{functionType.NumParams} but got {arguments.Count}");
 		
-		bool isVarArg = functionLLVMType.IsFunctionVarArg;
-		if (isVarArg ? context.Arguments.Count < functionLLVMType.CountParamTypes() : context.Arguments.Count != functionLLVMType.CountParamTypes())
-			throw new Exception($"Argument count mismatch in call to '{functionName}', expected {(isVarArg ? "at least " : "")}{functionLLVMType.CountParamTypes()} but got {context.Arguments.Count}");
-		
-		IEnumerable<LLVMTypeRef?> paramTypeHints = functionLLVMType.GetParamTypes().Select(param => (LLVMTypeRef?)param);
-		if (context.Arguments.Count > functionLLVMType.CountParamTypes())
-			paramTypeHints = paramTypeHints.Concat(Enumerable.Range(0, context.Arguments.Count - (int)functionLLVMType.CountParamTypes()).Select(_ => (LLVMTypeRef?)null));
-		TypedValue[] args = context.Arguments
-			.Zip(paramTypeHints, (arg, param) => VisitExpression(arg, param?.Wrap()))
+		IEnumerable<TypedType> paramTypeHints = functionType.ParamTypes;
+		if (arguments.Count > functionType.NumParams)
+			paramTypeHints = paramTypeHints.Concat(Enumerable.Range(0, arguments.Count - functionType.NumParams).Select(_ => functionType.VarArgType!));
+		TypedValue[] args = arguments
+			.Zip(paramTypeHints, (arg, param) => VisitExpression(arg, identifiers, param))
 			.ToArray();
 		
-		foreach ((TypedValue arg, LLVMTypeRef type) in args.Zip(functionLLVMType.GetParamTypes()))
-			if (!TypedTypeExtensions.TypesEqual(arg.Type.LLVMType, type))
+		foreach ((TypedValue arg, TypedType type) in args.Zip(functionType.ParamTypes))
+			if (!TypedTypeExtensions.TypesEqual(arg.Type, type))
 				throw new Exception($"Argument type mismatch in call to '{functionName}', expected {type} but got {arg.Type.LLVMType}");
 		
-		LLVMValueRef result = LLVM.BuildCall(builder, function.Value, args.Select(arg => arg.Value).ToArray(), functionLLVMType.GetReturnType().TypeKind == LLVMTypeKind.LLVMVoidTypeKind ? "" : functionName + "Call");
-		return new TypedValueValue(functionLLVMType.GetReturnType().Wrap(), result);
+		LLVMValueRef result = builder.BuildCall2(functionType.LLVMType, function.Value, args.Select(arg => arg.Value).ToArray(), functionType.ReturnType is TypedTypeVoid ? "" : functionName + "Call");
+		return new TypedValueValue(functionType.ReturnType, result);
+	}
+	
+	private void VisitCompilerStatement(Parser.CompilerStatementContext context, Identifiers identifiers, Dictionary<string, LLVMBasicBlockRef> blocks)
+	{
+		if (context.Tokens[0] == "decl")
+		{
+			TypedType type = IntType;
+			string name = context.Tokens[1];
+			TypedValue value = VisitInteger(new Parser.IntegerContext { Value = int.Parse(context.Tokens[2]) });
+			if (!TypedTypeExtensions.TypesEqual(type, value.Type))
+				throw new Exception($"Type mismatch in assignment to '{name}', expected {type.LLVMType} but got {value.Type.LLVMType}");
+			LLVMValueRef variable = builder.BuildAlloca(type.LLVMType, name);
+			builder.BuildStore(value.Value, variable);
+			TypedValue result = new TypedValueValue(new TypedTypePointer(type), variable);
+			identifiers.Add(name, result);
+		}
+		else if (context.Tokens[0] == "asgn")
+		{
+			TypedValue variable = VisitValueIdentifier(new Parser.ValueIdentifierContext { ValueName = context.Tokens[1] }, identifiers, IntType.Pointer());
+			TypedValue value = VisitValueIdentifier(new Parser.ValueIdentifierContext { ValueName = context.Tokens[2] }, identifiers, IntType);
+			builder.BuildStore(value.Value, variable.Value);
+		}
+		else if (context.Tokens[0] == "rtn")
+		{
+			builder.BuildRet(VisitValueIdentifier(new Parser.ValueIdentifierContext { ValueName = context.Tokens[1] }, identifiers, null).Value);
+		}
+		else if (context.Tokens[0] == "br")
+		{
+			builder.BuildBr(blocks[context.Tokens[1]]);
+		}
+		else if (context.Tokens[0] == "decllabel")
+		{
+			blocks.Add(context.Tokens[1], builder.InsertBlock.Parent.AppendBasicBlock(context.Tokens[1]));
+		}
+		else if (context.Tokens[0] == "uselabel")
+		{
+			builder.PositionAtEnd(blocks[context.Tokens[1]]);
+		}
+		else if (context.Tokens[0] == "brif")
+		{
+			builder.BuildCondBr(VisitValueIdentifier(new Parser.ValueIdentifierContext { ValueName = context.Tokens[1] }, identifiers, IntType).Value, blocks[context.Tokens[2]], blocks[context.Tokens[3]]);
+		}
+		else if (context.Tokens[0] == "add")
+		{
+			TypedValue lhs = VisitValueIdentifier(new Parser.ValueIdentifierContext { ValueName = context.Tokens[1] }, identifiers, IntType);
+			TypedValue rhs = VisitValueIdentifier(new Parser.ValueIdentifierContext { ValueName = context.Tokens[2] }, identifiers, IntType);
+			LLVMValueRef variable = builder.BuildAlloca(IntType.LLVMType, context.Tokens[3]);
+			builder.BuildStore(builder.BuildAdd(lhs.Value, rhs.Value, "addtmp"), variable);
+			TypedValue result = new TypedValueValue(IntType.Pointer(), variable);
+			identifiers.Add(context.Tokens[3], result);
+		}
+		else if (context.Tokens[0] == "lt")
+		{
+			TypedValue lhs = VisitValueIdentifier(new Parser.ValueIdentifierContext { ValueName = context.Tokens[1] }, identifiers, IntType);
+			TypedValue rhs = VisitValueIdentifier(new Parser.ValueIdentifierContext { ValueName = context.Tokens[2] }, identifiers, IntType);
+			LLVMValueRef variable = builder.BuildAlloca(IntType.LLVMType, context.Tokens[3]);
+			builder.BuildStore(builder.BuildICmp(LLVMIntPredicate.LLVMIntSLT, lhs.Value, rhs.Value, "lttmp"), variable);
+			TypedValue result = new TypedValueValue(IntType.Pointer(), variable);
+			identifiers.Add(context.Tokens[3], result);
+		}
+		else
+			throw new Exception("Unknown compiler statement type: " + context.Tokens[0]);
 	}
 	
 	public void Optimize()
 	{
-		LLVMPassManagerRef passManager = LLVM.CreatePassManager();
-		LLVM.AddConstantPropagationPass(passManager);
-		LLVM.AddInstructionCombiningPass(passManager);
-		LLVM.AddPromoteMemoryToRegisterPass(passManager);
-		LLVM.AddGVNPass(passManager);
-		LLVM.AddCFGSimplificationPass(passManager);
-		LLVM.RunPassManager(passManager, module);
-		LLVM.DisposePassManager(passManager);
+		LLVMPassManagerRef passManager = LLVMPassManagerRef.Create();
+		passManager.AddConstantMergePass();
+		passManager.AddInstructionCombiningPass();
+		passManager.AddPromoteMemoryToRegisterPass();
+		passManager.AddGVNPass();
+		passManager.AddCFGSimplificationPass();
+		passManager.Run(module);
+		passManager.Dispose();
 	}
 	
 	public void Dispose()
 	{
-		LLVM.DisposeModule(module);
-		LLVM.DisposeBuilder(builder);
+		module.Dispose();
+		builder.Dispose();
 	}
 	
 	public void Dump()
 	{
-		LLVM.DumpModule(module);
+		module.Dump();
 	}
 	
 	public void Compile(string filename = "main")
 	{
 		const string targetTriple = "x86_64-pc-windows-msvc";
-		if (LLVM.GetTargetFromTriple(targetTriple, out LLVMTargetRef target, out string error))
-			throw new Exception(error);
-		LLVMTargetMachineRef targetMachine = LLVM.CreateTargetMachine(target, targetTriple, "generic", "", LLVMCodeGenOptLevel.LLVMCodeGenLevelDefault, LLVMRelocMode.LLVMRelocDefault, LLVMCodeModel.LLVMCodeModelDefault);
+		LLVMTargetRef target = LLVMTargetRef.GetTargetFromTriple(targetTriple);
+		LLVMTargetMachineRef targetMachine = target.CreateTargetMachine(targetTriple, "generic", "", LLVMCodeGenOptLevel.LLVMCodeGenLevelDefault, LLVMRelocMode.LLVMRelocDefault, LLVMCodeModel.LLVMCodeModelDefault);
 		
-		LLVM.SetModuleDataLayout(module, LLVM.CreateTargetDataLayout(targetMachine));
-		LLVM.SetTarget(module, targetTriple);
-		
-		IntPtr asmFilename = Marshal.StringToHGlobalAnsi(filename + ".s");
-		if (LLVM.TargetMachineEmitToFile(targetMachine, module, asmFilename, LLVMCodeGenFileType.LLVMAssemblyFile, out error))
-			throw new Exception(error);
-		Marshal.FreeHGlobal(asmFilename);
+		targetMachine.EmitToFile(module, filename + ".s", LLVMCodeGenFileType.LLVMAssemblyFile);
 		
 		CompileSFileToExe(filename + ".s", filename + ".exe");
 	}
@@ -504,14 +527,14 @@ public interface TypedValue
 	public LLVMValueRef Value { get; }
 }
 
-public readonly struct TypedValueValue(TypedType type, LLVMValueRef value) : TypedValue
+public class TypedValueValue(TypedType type, LLVMValueRef value) : TypedValue
 {
 	public TypedType Type => type;
 	public LLVMValueRef Value => value;
 	public override string ToString() => value.ToString();
 }
 
-public readonly struct TypedValueType(TypedType type) : TypedValue
+public class TypedValueType(TypedType type) : TypedValue
 {
 	public TypedType Type => type;
 	public LLVMValueRef Value => throw new Exception("Cannot get the value of a type");
@@ -521,8 +544,6 @@ public readonly struct TypedValueType(TypedType type) : TypedValue
 public interface TypedType
 {
 	public LLVMTypeRef LLVMType { get; }
-	public TypedValue BuildEqual(LLVMBuilderRef builder, TypedValue lhs, TypedValue rhs);
-	public TypedValue BuildInequal(LLVMBuilderRef builder, TypedValue lhs, TypedValue rhs);
 }
 
 public static class TypedTypeExtensions
@@ -537,63 +558,28 @@ public static class TypedTypeExtensions
 	public static bool TypesEqual(TypedType lhs, TypedType rhs) => TypesEqual(lhs.LLVMType, rhs.LLVMType);
 	public static bool TypesEqual(LLVMTypeRef lhs, LLVMTypeRef rhs)
 	{
-		while (lhs.TypeKind == LLVMTypeKind.LLVMPointerTypeKind && rhs.TypeKind == LLVMTypeKind.LLVMPointerTypeKind)
+		while (lhs.Kind == LLVMTypeKind.LLVMPointerTypeKind && rhs.Kind == LLVMTypeKind.LLVMPointerTypeKind)
 		{
-			lhs = lhs.GetElementType();
-			rhs = rhs.GetElementType();
+			lhs = lhs.ElementType;
+			rhs = rhs.ElementType;
 		}
 		
-		if (lhs.TypeKind != rhs.TypeKind)
+		if (lhs.Kind != rhs.Kind)
 			return false;
 		
-		if (lhs.TypeKind == LLVMTypeKind.LLVMIntegerTypeKind)
-			return lhs.GetIntTypeWidth() == rhs.GetIntTypeWidth();
+		if (lhs.Kind == LLVMTypeKind.LLVMIntegerTypeKind)
+			return lhs.IntWidth == rhs.IntWidth;
 		
 		return true;
 	}
 	
-	public static TypedType Wrap(this LLVMTypeRef type)
-	{
-		if (type.TypeKind == LLVMTypeKind.LLVMIntegerTypeKind)
-			if (type.GetIntTypeWidth() == 1)
-				return new TypedTypeBool();
-			else if (type.GetIntTypeWidth() == 8)
-				return new TypedTypeChar();
-			else if (type.GetIntTypeWidth() == 32)
-				return new TypedTypeInt();
-			else
-				throw new Exception($"Unknown integer type width {type.GetIntTypeWidth()}");
-		if (type.TypeKind == LLVMTypeKind.LLVMFloatTypeKind)
-			return new TypedTypeFloat();
-		if (type.TypeKind == LLVMTypeKind.LLVMDoubleTypeKind)
-			return new TypedTypeDouble();
-		if (type.TypeKind == LLVMTypeKind.LLVMPointerTypeKind)
-			return new TypedTypePointer(type.GetElementType().Wrap());
-		if (type.TypeKind == LLVMTypeKind.LLVMVoidTypeKind)
-			return new TypedTypeVoid();
-		if (type.TypeKind == LLVMTypeKind.LLVMFunctionTypeKind)
-			return new TypedTypeFunction(type, type.ToString());
-		if (type.TypeKind == LLVMTypeKind.LLVMStructTypeKind)
-			return new TypedTypeStruct(type);
-		throw new Exception($"Unknown type to wrap {type}");
-	}
+	public static TypedTypePointer Pointer(this TypedType type) => new(type);
 }
 
-public readonly struct TypedTypePointer(TypedType pointerType) : TypedType
+public class TypedTypePointer(TypedType pointerType) : TypedType
 {
-	public LLVMTypeRef LLVMType => LLVM.PointerType(pointerType.LLVMType, 0);
+	public LLVMTypeRef LLVMType => LLVMTypeRef.CreatePointer(pointerType.LLVMType, 0);
 	public TypedType PointerType => pointerType;
-	
-	public TypedValue BuildEqual(LLVMBuilderRef builder, TypedValue lhs, TypedValue rhs)
-	{
-		CheckForTypes(lhs, rhs);
-		return new TypedValueValue(Visitor.BoolType, LLVM.BuildICmp(builder, LLVMIntPredicate.LLVMIntEQ, lhs.Value, rhs.Value, "eqtmp"));
-	}
-	public TypedValue BuildInequal(LLVMBuilderRef builder, TypedValue lhs, TypedValue rhs)
-	{
-		CheckForTypes(lhs, rhs);
-		return new TypedValueValue(Visitor.BoolType, LLVM.BuildICmp(builder, LLVMIntPredicate.LLVMIntNE, lhs.Value, rhs.Value, "neqtmp"));
-	}
 	
 	public override string ToString() => pointerType + "*";
 	
@@ -606,131 +592,64 @@ public readonly struct TypedTypePointer(TypedType pointerType) : TypedType
 	}
 }
 
-public readonly struct TypedTypeInt : TypedType
+public class TypedTypeInt : TypedType
 {
-	public LLVMTypeRef LLVMType => LLVM.Int32Type();
-	
-	public TypedValue BuildEqual(LLVMBuilderRef builder, TypedValue lhs, TypedValue rhs)
-	{
-		this.CheckForTypes(lhs, rhs);
-		return new TypedValueValue(Visitor.BoolType, LLVM.BuildICmp(builder, LLVMIntPredicate.LLVMIntEQ, lhs.Value, rhs.Value, "eqtmp"));
-	}
-	public TypedValue BuildInequal(LLVMBuilderRef builder, TypedValue lhs, TypedValue rhs)
-	{
-		this.CheckForTypes(lhs, rhs);
-		return new TypedValueValue(Visitor.BoolType, LLVM.BuildICmp(builder, LLVMIntPredicate.LLVMIntNE, lhs.Value, rhs.Value, "neqtmp"));
-	}
-	
+	public LLVMTypeRef LLVMType => LLVMTypeRef.Int32;
 	public override string ToString() => "int";
 }
 
-public readonly struct TypedTypeBool : TypedType
+public class TypedTypeBool : TypedType
 {
-	public LLVMTypeRef LLVMType => LLVM.Int1Type();
-	
-	public TypedValue BuildEqual(LLVMBuilderRef builder, TypedValue lhs, TypedValue rhs)
-	{
-		this.CheckForTypes(lhs, rhs);
-		return new TypedValueValue(Visitor.BoolType, LLVM.BuildICmp(builder, LLVMIntPredicate.LLVMIntEQ, lhs.Value, rhs.Value, "eqtmp"));
-	}
-	public TypedValue BuildInequal(LLVMBuilderRef builder, TypedValue lhs, TypedValue rhs)
-	{
-		this.CheckForTypes(lhs, rhs);
-		return new TypedValueValue(Visitor.BoolType, LLVM.BuildICmp(builder, LLVMIntPredicate.LLVMIntNE, lhs.Value, rhs.Value, "neqtmp"));
-	}
-	
+	public LLVMTypeRef LLVMType => LLVMTypeRef.Int1;
 	public override string ToString() => "bool";
 }
 
-public readonly struct TypedTypeChar : TypedType
+public class TypedTypeChar : TypedType
 {
-	public LLVMTypeRef LLVMType => LLVM.Int8Type();
-	
-	public TypedValue BuildEqual(LLVMBuilderRef builder, TypedValue lhs, TypedValue rhs)
-	{
-		this.CheckForTypes(lhs, rhs);
-		return new TypedValueValue(Visitor.BoolType, LLVM.BuildICmp(builder, LLVMIntPredicate.LLVMIntEQ, lhs.Value, rhs.Value, "eqtmp"));
-	}
-	public TypedValue BuildInequal(LLVMBuilderRef builder, TypedValue lhs, TypedValue rhs)
-	{
-		this.CheckForTypes(lhs, rhs);
-		return new TypedValueValue(Visitor.BoolType, LLVM.BuildICmp(builder, LLVMIntPredicate.LLVMIntNE, lhs.Value, rhs.Value, "neqtmp"));
-	}
-	
+	public LLVMTypeRef LLVMType => LLVMTypeRef.Int8;
 	public override string ToString() => "char";
 }
 
-public readonly struct TypedTypeVoid : TypedType
+public class TypedTypeVoid : TypedType
 {
-	public LLVMTypeRef LLVMType => LLVM.VoidType();
-	
-	public TypedValue BuildEqual(LLVMBuilderRef builder, TypedValue lhs, TypedValue rhs)
-	{
-		this.CheckForTypes(lhs, rhs);
-		return Visitor.TrueValue;
-	}
-	public TypedValue BuildInequal(LLVMBuilderRef builder, TypedValue lhs, TypedValue rhs)
-	{
-		this.CheckForTypes(lhs, rhs);
-		return Visitor.TrueValue;
-	}
-	
+	public LLVMTypeRef LLVMType => LLVMTypeRef.Void;
 	public override string ToString() => "void";
 }
 
-public readonly struct TypedTypeFloat : TypedType
+public class TypedTypeFloat : TypedType
 {
-	public LLVMTypeRef LLVMType => LLVM.FloatType();
-	
-	public TypedValue BuildEqual(LLVMBuilderRef builder, TypedValue lhs, TypedValue rhs)
-	{
-		this.CheckForTypes(lhs, rhs);
-		return new TypedValueValue(Visitor.BoolType, LLVM.BuildFCmp(builder, LLVMRealPredicate.LLVMRealOEQ, lhs.Value, rhs.Value, "eqtmp"));
-	}
-	public TypedValue BuildInequal(LLVMBuilderRef builder, TypedValue lhs, TypedValue rhs)
-	{
-		this.CheckForTypes(lhs, rhs);
-		return new TypedValueValue(Visitor.BoolType, LLVM.BuildFCmp(builder, LLVMRealPredicate.LLVMRealONE, lhs.Value, rhs.Value, "neqtmp"));
-	}
-	
+	public LLVMTypeRef LLVMType => LLVMTypeRef.Float;
 	public override string ToString() => "float";
 }
 
-public readonly struct TypedTypeDouble : TypedType
+public class TypedTypeDouble : TypedType
 {
-	public LLVMTypeRef LLVMType => LLVM.DoubleType();
-	
-	public TypedValue BuildEqual(LLVMBuilderRef builder, TypedValue lhs, TypedValue rhs)
-	{
-		this.CheckForTypes(lhs, rhs);
-		return new TypedValueValue(Visitor.BoolType, LLVM.BuildFCmp(builder, LLVMRealPredicate.LLVMRealOEQ, lhs.Value, rhs.Value, "eqtmp"));
-	}
-	public TypedValue BuildInequal(LLVMBuilderRef builder, TypedValue lhs, TypedValue rhs)
-	{
-		this.CheckForTypes(lhs, rhs);
-		return new TypedValueValue(Visitor.BoolType, LLVM.BuildFCmp(builder, LLVMRealPredicate.LLVMRealONE, lhs.Value, rhs.Value, "neqtmp"));
-	}
-	
+	public LLVMTypeRef LLVMType => LLVMTypeRef.Double;
 	public override string ToString() => "double";
 }
 
-public readonly struct TypedTypeFunction(LLVMTypeRef type, string name) : TypedType
+public class TypedTypeFunction(string name, TypedType returnType, IReadOnlyCollection<TypedType> paramTypes, TypedType? varArgType) : TypedType
 {
-	public LLVMTypeRef LLVMType => type;
+	public LLVMTypeRef LLVMType => LLVMTypeRef.CreateFunction(returnType.LLVMType, paramTypes.Select(paramType => paramType.LLVMType).ToArray(), IsVarArg);
 	public string FunctionName => name;
-	
-	public TypedValue BuildEqual(LLVMBuilderRef builder, TypedValue lhs, TypedValue rhs) => throw new Exception($"Cannot compare function type {LLVMType}");
-	public TypedValue BuildInequal(LLVMBuilderRef builder, TypedValue lhs, TypedValue rhs) => throw new Exception($"Cannot compare function type {LLVMType}");
-	
+	public TypedType ReturnType => returnType;
+	public IEnumerable<TypedType> ParamTypes => paramTypes;
+	public int NumParams => paramTypes.Count;
+	public TypedType? VarArgType => varArgType;
+	public bool IsVarArg => varArgType is not null;
 	public override string ToString() => LLVMType.ToString();
 }
 
-public readonly struct TypedTypeStruct(LLVMTypeRef type) : TypedType
+public class TypedTypeClosurePointer(TypedTypeStruct type, TypedTypeFunction blockType) : TypedType
+{
+	public LLVMTypeRef LLVMType => LLVMTypeRef.CreatePointer(type.LLVMType, 0);
+	public TypedTypeStruct Type => type;
+	public TypedTypeFunction BlockType => blockType;
+	public override string ToString() => LLVMType.ToString();
+}
+
+public class TypedTypeStruct(LLVMTypeRef type) : TypedType
 {
 	public LLVMTypeRef LLVMType => type;
-	
-	public TypedValue BuildEqual(LLVMBuilderRef builder, TypedValue lhs, TypedValue rhs) => throw new Exception($"Cannot compare struct type {LLVMType}");
-	public TypedValue BuildInequal(LLVMBuilderRef builder, TypedValue lhs, TypedValue rhs) => throw new Exception($"Cannot compare struct type {LLVMType}");
-	
 	public override string ToString() => LLVMType.ToString();
 }

@@ -1,0 +1,59 @@
+﻿extern void printf(string format, int... values);
+
+// void Declare(const string name, int value)
+// {
+//    #decl name value
+// }
+
+void Assign(int* variable, int value)
+{
+    #asgn variable value
+}
+
+int LessThan(int a, int b)
+{
+    #lt a b lt
+    #rtn lt
+}
+
+void While(Closure<int> condition, Closure functionBlock)
+{
+    #decllabel whileCondition
+    #decllabel whileBody
+    #decllabel whileMerge
+    
+    #decl conditionResult 0
+    #br whileCondition
+    
+    #uselabel whileCondition
+    Assign(conditionResult, condition());
+    #brif conditionResult whileBody whileMerge
+    
+    #uselabel whileBody
+    functionBlock();
+    #br whileCondition
+    
+    #uselabel whileMerge
+}
+
+int Add(int a, int b)
+{
+    #add a b sum
+    #rtn sum
+}
+
+void main()
+{
+    #decl a 0
+    printf("%i\n", a);
+    
+    While({
+        #decl conditionResult 0
+        Assign(conditionResult, LessThan(a, 10));
+        printf("True? %i\n", conditionResult);
+        #rtn conditionResult
+    }, {
+        Assign(a, Add(a, 1));
+        printf("Loop %i\n", a);
+    });
+}

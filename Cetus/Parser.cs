@@ -121,9 +121,9 @@ public class Parser(Lexer lexer)
 	public class FunctionDefinitionContext : IProgramStatementContext
 	{
 		public string FunctionName = null!;
-		public List<FunctionParameterContext> Parameters = null!;
-		public bool IsVarArg;
 		public TypeIdentifierContext ReturnType = null!;
+		public List<FunctionParameterContext> Parameters = null!;
+		public FunctionParameterContext? VarArg = null;
 		public List<IFunctionStatementContext> Statements = null!;
 	}
 	
@@ -139,9 +139,9 @@ public class Parser(Lexer lexer)
 			Result? result = null;
 			functionDefinition = new FunctionDefinitionContext();
 			functionDefinition.FunctionName = functionName.TokenText;
-			functionDefinition.Parameters = parameters.Parameters;
-			functionDefinition.IsVarArg = parameters.IsVarArg;
 			functionDefinition.ReturnType = returnType;
+			functionDefinition.Parameters = parameters.Parameters;
+			functionDefinition.VarArg = parameters.VarArg;
 			functionDefinition.Statements = functionBlock.Statements;
 			return returnTypeResult as Result.ComplexRuleFailed as Result ??
 			       parametersResult as Result.ComplexRuleFailed as Result ??
@@ -161,7 +161,7 @@ public class Parser(Lexer lexer)
 	{
 		public string FunctionName = null!;
 		public List<FunctionParameterContext> Parameters = null!;
-		public bool IsVarArg;
+		public FunctionParameterContext? VarArg = null;
 		public TypeIdentifierContext ReturnType = null!;
 	}
 	
@@ -178,7 +178,7 @@ public class Parser(Lexer lexer)
 			externFunctionDeclaration = new ExternFunctionDeclarationContext();
 			externFunctionDeclaration.FunctionName = functionName.TokenText;
 			externFunctionDeclaration.Parameters = parameters.Parameters;
-			externFunctionDeclaration.IsVarArg = parameters.IsVarArg;
+			externFunctionDeclaration.VarArg = parameters.VarArg;
 			externFunctionDeclaration.ReturnType = returnType;
 			return typeIdentifierResult as Result.ComplexRuleFailed as Result ??
 			       functionParametersResult as Result.ComplexRuleFailed as Result ??
@@ -223,7 +223,7 @@ public class Parser(Lexer lexer)
 	public class FunctionParametersContext : IContext
 	{
 		public List<FunctionParameterContext> Parameters = [];
-		public bool IsVarArg;
+		public FunctionParameterContext? VarArg = null;
 	}
 	
 	public Result ParseFunctionParameters(out FunctionParametersContext? parameters)
@@ -241,8 +241,16 @@ public class Parser(Lexer lexer)
 				if (!lexer.Eat<Comma>())
 					break;
 			}
-			if (lexer.Eat<Ellipsis>())
-				parameters.IsVarArg = true;
+			
+			if (ParseTypeIdentifier(out TypeIdentifierContext? varArgType) is not Result.TokenRuleFailed &&
+			    lexer.Eat<Ellipsis>() &&
+			    lexer.Eat(out Word? varArgName))
+			{
+				parameters.VarArg = new FunctionParameterContext();
+				parameters.VarArg.ParameterName = varArgName.TokenText;
+				parameters.VarArg.ParameterType = varArgType;
+			}
+			
 			if (!lexer.Eat<RightParenthesis>())
 			{
 				result ??= new Result.ComplexRuleFailed("Expected ')'", new Result.TokenRuleFailed("Expected ')'", lexer.Line, lexer.Column));
@@ -267,7 +275,8 @@ public class Parser(Lexer lexer)
 	public Result ParseFunctionParameter(out FunctionParameterContext? parameter)
 	{
 		int startIndex = lexer.Index;
-		if (ParseTypeIdentifier(out TypeIdentifierContext? parameterType) is not Result.TokenRuleFailed && lexer.Eat(out Word? parameterName))
+		if (ParseTypeIdentifier(out TypeIdentifierContext? parameterType) is not Result.TokenRuleFailed &&
+		    lexer.Eat(out Word? parameterName))
 		{
 			parameter = new FunctionParameterContext();
 			parameter.ParameterType = parameterType;
@@ -287,7 +296,7 @@ public class Parser(Lexer lexer)
 	{
 		public string FunctionName = null!;
 		public List<FunctionParameterContext> Parameters = null!;
-		public bool IsVarArg;
+		public FunctionParameterContext? VarArg = null;
 		public TypeIdentifierContext ReturnType = null!;
 	}
 	
@@ -304,7 +313,7 @@ public class Parser(Lexer lexer)
 			delegateDeclaration = new DelegateDeclarationContext();
 			delegateDeclaration.FunctionName = functionName.TokenText;
 			delegateDeclaration.Parameters = parameters.Parameters;
-			delegateDeclaration.IsVarArg = parameters.IsVarArg;
+			delegateDeclaration.VarArg = parameters.VarArg;
 			delegateDeclaration.ReturnType = returnType;
 			return typeIdentifierResult as Result.ComplexRuleFailed as Result ??
 			       functionParametersResult as Result.ComplexRuleFailed as Result ??
@@ -387,6 +396,11 @@ public class Parser(Lexer lexer)
 		{
 			value = @string;
 			return stringResult;
+		}
+		else if (ParseFunctionBlock(out FunctionBlockContext? functionBlock) is var functionBlockResult and not Result.TokenRuleFailed)
+		{
+			value = functionBlock;
+			return functionBlockResult;
 		}
 		else if (ParseNull(out NullContext? @null) is var nullResult and not Result.TokenRuleFailed)
 		{
@@ -509,6 +523,7 @@ public class Parser(Lexer lexer)
 	public class TypeIdentifierContext : IContext
 	{
 		public string TypeName = null!;
+		public TypeIdentifierContext? InnerType;
 		public int PointerCount;
 	}
 	
@@ -518,6 +533,22 @@ public class Parser(Lexer lexer)
 		{
 			typeIdentifier = new TypeIdentifierContext();
 			typeIdentifier.TypeName = typeName.TokenText;
+			
+			if (lexer.Eat<LeftTriangle>())
+			{
+				if (ParseTypeIdentifier(out TypeIdentifierContext? innerType) is not Result.TokenRuleFailed)
+				{
+					typeIdentifier.InnerType = innerType;
+					if (!lexer.Eat<RightTriangle>())
+					{
+						lexer.EatTo<RightTriangle>();
+						return new Result.TokenRuleFailed("Expected '>'", lexer.Line, lexer.Column);
+					}
+				}
+				else
+					return new Result.ComplexRuleFailed("Expected inner type identifier", new Result.TokenRuleFailed("Expected inner type identifier", lexer.Line, lexer.Column));
+			}
+			
 			while (lexer.Eat<Dereference>())
 				typeIdentifier.PointerCount++;
 			return new Result.Ok();
@@ -560,66 +591,20 @@ public class Parser(Lexer lexer)
 			functionStatement = null;
 			return null;
 		}
-		else if (ParseReturn(out ReturnContext? @return) is var returnResult and not Result.TokenRuleFailed)
-		{
-			functionStatement = @return;
-			return returnResult;
-		}
 		else if (ParseFunctionCallStatement(out FunctionCallStatementContext? functionCall) is var functionCallResult and not Result.TokenRuleFailed)
 		{
 			functionStatement = functionCall.Call;
 			return functionCallResult;
 		}
-		else if (ParseAssignment(out AssignmentContext? assignment) is var assignmentResult and not Result.TokenRuleFailed)
+		else if (ParseCompilerStatement(out CompilerStatementContext? compilerStatement) is var compilerStatementResult and not Result.TokenRuleFailed)
 		{
-			functionStatement = assignment;
-			return assignmentResult;
-		}
-		else if (ParseIf(out IfContext? @if) is var ifResult and not Result.TokenRuleFailed)
-		{
-			functionStatement = @if;
-			return ifResult;
-		}
-		else if (ParseWhile(out WhileContext? @while) is var whileResult and not Result.TokenRuleFailed)
-		{
-			functionStatement = @while;
-			return whileResult;
+			functionStatement = compilerStatement;
+			return compilerStatementResult;
 		}
 		else
 		{
 			functionStatement = null;
 			return new Result.TokenRuleFailed("Expected function statement", lexer.Line, lexer.Column);
-		}
-	}
-	
-	
-	public class ReturnContext : IFunctionStatementContext
-	{
-		public IExpressionContext? Value = null!;
-	}
-	
-	public Result ParseReturn(out ReturnContext? @return)
-	{
-		int startIndex = lexer.Index;
-		if (lexer.Eat<Return>())
-		{
-			@return = new ReturnContext();
-			
-			Result? expressionResult = ParseExpression(out IExpressionContext? value);
-			if (expressionResult is not Result.TokenRuleFailed)
-				@return.Value = value;
-			
-			if (!lexer.Eat<Semicolon>())
-				return new Result.ComplexRuleFailed("Expected ';'", new Result.TokenRuleFailed("Expected ';'", lexer.Line, lexer.Column));
-			
-			return expressionResult as Result.ComplexRuleFailed as Result ??
-			       new Result.Ok();
-		}
-		else
-		{
-			lexer.Index = startIndex;
-			@return = null;
-			return new Result.TokenRuleFailed("Expected const variable definition", lexer.Line, lexer.Column);
 		}
 	}
 	
@@ -632,48 +617,6 @@ public class Parser(Lexer lexer)
 		{
 			expression = null;
 			return null;
-		}
-		
-		if (order <= 0)
-		{
-			if (ParseEquivalence(out EquivalenceContext? equivalence) is var equivalenceResult and not Result.TokenRuleFailed)
-			{
-				expression = equivalence;
-				return equivalenceResult;
-			}
-			if (ParseInequivalence(out InequivalenceContext? inequivalence) is var inequivalenceResult and not Result.TokenRuleFailed)
-			{
-				expression = inequivalence;
-				return inequivalenceResult;
-			}
-		}
-		
-		if (order <= 1)
-		{
-			if (ParseAddition(out AdditionContext? addition) is var additionResult and not Result.TokenRuleFailed)
-			{
-				expression = addition;
-				return additionResult;
-			}
-		}
-		
-		if (order <= 2)
-		{
-			if (ParseNot(out NotContext? not) is var notResult and not Result.TokenRuleFailed)
-			{
-				expression = not;
-				return notResult;
-			}
-			if (ParseReference(out ReferenceContext? reference) is var referenceResult and not Result.TokenRuleFailed)
-			{
-				expression = reference;
-				return referenceResult;
-			}
-			if (ParseDereference(out DereferenceContext? dereference) is var dereferenceResult and not Result.TokenRuleFailed)
-			{
-				expression = dereference;
-				return dereferenceResult;
-			}
 		}
 		
 		if (order <= 3)
@@ -696,174 +639,6 @@ public class Parser(Lexer lexer)
 		
 		expression = null;
 		return new Result.TokenRuleFailed("Expected function statement", lexer.Line, lexer.Column);
-	}
-	
-	
-	public class EquivalenceContext : IExpressionContext
-	{
-		public IExpressionContext Lhs = null!;
-		public IExpressionContext Rhs = null!;
-	}
-	
-	public Result ParseEquivalence(out EquivalenceContext? addition)
-	{
-		int startIndex = lexer.Index;
-		if (
-			ParseExpression(out IExpressionContext? lhs, 1) is var lhsResult and not Result.TokenRuleFailed &&
-			lexer.Eat<Equivalence>() &&
-			ParseExpression(out IExpressionContext? rhs, 1) is var rhsResult and not Result.TokenRuleFailed)
-		{
-			addition = new EquivalenceContext();
-			addition.Lhs = lhs;
-			addition.Rhs = rhs;
-			return lhsResult as Result.ComplexRuleFailed as Result ??
-			       rhsResult as Result.ComplexRuleFailed as Result ??
-			       new Result.Ok();
-		}
-		else
-		{
-			lexer.Index = startIndex;
-			addition = null;
-			return new Result.TokenRuleFailed("Expected equivalence", lexer.Line, lexer.Column);
-		}
-	}
-	
-	
-	public class InequivalenceContext : IExpressionContext
-	{
-		public IExpressionContext Lhs = null!;
-		public IExpressionContext Rhs = null!;
-	}
-	
-	public Result ParseInequivalence(out InequivalenceContext? addition)
-	{
-		int startIndex = lexer.Index;
-		if (
-			ParseExpression(out IExpressionContext? lhs, 1) is var lhsResult and not Result.TokenRuleFailed &&
-			lexer.Eat<Inequivalence>() &&
-			ParseExpression(out IExpressionContext? rhs, 1) is var rhsResult and not Result.TokenRuleFailed)
-		{
-			addition = new InequivalenceContext();
-			addition.Lhs = lhs;
-			addition.Rhs = rhs;
-			return lhsResult as Result.ComplexRuleFailed as Result ??
-			       rhsResult as Result.ComplexRuleFailed as Result ??
-			       new Result.Ok();
-		}
-		else
-		{
-			lexer.Index = startIndex;
-			addition = null;
-			return new Result.TokenRuleFailed("Expected inequivalence", lexer.Line, lexer.Column);
-		}
-	}
-	
-	
-	public class AdditionContext : IExpressionContext
-	{
-		public IExpressionContext Lhs = null!;
-		public IExpressionContext Rhs = null!;
-	}
-	
-	public Result ParseAddition(out AdditionContext? addition)
-	{
-		int startIndex = lexer.Index;
-		if (
-			ParseExpression(out IExpressionContext? lhs, 2) is var lhsResult and not Result.TokenRuleFailed &&
-			lexer.Eat<Add>() &&
-			ParseExpression(out IExpressionContext? rhs, 2) is var rhsResult and not Result.TokenRuleFailed)
-		{
-			addition = new AdditionContext();
-			addition.Lhs = lhs;
-			addition.Rhs = rhs;
-			return lhsResult as Result.ComplexRuleFailed as Result ??
-			       rhsResult as Result.ComplexRuleFailed as Result ??
-			       new Result.Ok();
-		}
-		else
-		{
-			lexer.Index = startIndex;
-			addition = null;
-			return new Result.TokenRuleFailed("Expected addition", lexer.Line, lexer.Column);
-		}
-	}
-	
-	
-	public class NotContext : IExpressionContext
-	{
-		public IExpressionContext Value = null!;
-	}
-	
-	public Result ParseNot(out NotContext? not)
-	{
-		int startIndex = lexer.Index;
-		if (
-			lexer.Eat<Not>() &&
-		    ParseExpression(out IExpressionContext? value, 3) is var valueResult and not Result.TokenRuleFailed)
-		{
-			not = new NotContext();
-			not.Value = value;
-			return valueResult as Result.ComplexRuleFailed as Result ??
-			       new Result.Ok();
-		}
-		else
-		{
-			lexer.Index = startIndex;
-			not = null;
-			return new Result.TokenRuleFailed("Expected not", lexer.Line, lexer.Column);
-		}
-	}
-	
-	
-	public class ReferenceContext : IExpressionContext
-	{
-		public IExpressionContext Value = null!;
-	}
-	
-	public Result ParseReference(out ReferenceContext? reference)
-	{
-		int startIndex = lexer.Index;
-		if (
-			lexer.Eat<Reference>() &&
-			ParseExpression(out IExpressionContext? value, 3) is var valueResult and not Result.TokenRuleFailed)
-		{
-			reference = new ReferenceContext();
-			reference.Value = value;
-			return valueResult as Result.ComplexRuleFailed as Result ??
-			       new Result.Ok();
-		}
-		else
-		{
-			lexer.Index = startIndex;
-			reference = null;
-			return new Result.TokenRuleFailed("Expected dereference", lexer.Line, lexer.Column);
-		}
-	}
-	
-	
-	public class DereferenceContext : IExpressionContext
-	{
-		public IExpressionContext Value = null!;
-	}
-	
-	public Result ParseDereference(out DereferenceContext? dereference)
-	{
-		int startIndex = lexer.Index;
-		if (
-			lexer.Eat<Dereference>() &&
-			ParseExpression(out IExpressionContext? value, 3) is var valueResult and not Result.TokenRuleFailed)
-		{
-			dereference = new DereferenceContext();
-			dereference.Value = value;
-			return valueResult as Result.ComplexRuleFailed as Result ??
-			       new Result.Ok();
-		}
-		else
-		{
-			lexer.Index = startIndex;
-			dereference = null;
-			return new Result.TokenRuleFailed("Expected dereference", lexer.Line, lexer.Column);
-		}
 	}
 	
 	
@@ -979,123 +754,30 @@ public class Parser(Lexer lexer)
 	}
 	
 	
-	public class AssignmentContext : IFunctionStatementContext
+	public class CompilerStatementContext : IFunctionStatementContext
 	{
-		public string VariableName = null!;
-		public TypeIdentifierContext Type = null!;
-		public IExpressionContext Value = null!;
+		public string[] Tokens = null!;
 	}
 	
-	public Result ParseAssignment(out AssignmentContext? assignment)
+	public Result ParseCompilerStatement(out CompilerStatementContext? compilerStatement)
 	{
 		int startIndex = lexer.Index;
-		if (
-			ParseTypeIdentifier(out TypeIdentifierContext? type) is var typeIdentifierResult and not Result.TokenRuleFailed &&
-			lexer.Eat(out Word? variableName) &&
-			lexer.Eat<Assign>() &&
-			ParseExpression(out IExpressionContext? value) is var valueResult and not Result.TokenRuleFailed &&
-			lexer.Eat<Semicolon>())
+		if (lexer.Eat<Pound>())
 		{
-			assignment = new AssignmentContext();
-			assignment.VariableName = variableName.TokenText;
-			assignment.Type = type;
-			assignment.Value = value;
-			return typeIdentifierResult as Result.ComplexRuleFailed as Result ??
-			       valueResult as Result.ComplexRuleFailed as Result ??
-			       new Result.Ok();
+			compilerStatement = new CompilerStatementContext();
+			compilerStatement.Tokens = lexer.EatTo<Newline>().Split();
+			return new Result.Ok();
 		}
 		else
 		{
 			lexer.Index = startIndex;
-			assignment = null;
-			return new Result.TokenRuleFailed("Expected assignment", lexer.Line, lexer.Column);
+			compilerStatement = null;
+			return new Result.TokenRuleFailed("Expected const variable definition", lexer.Line, lexer.Column);
 		}
 	}
 	
 	
-	public class IfContext : IFunctionStatementContext
-	{
-		public IExpressionContext Condition = null!;
-		public List<IFunctionStatementContext> ThenStatements = null!;
-		public List<IFunctionStatementContext> ElseStatements = null!;
-	}
-	
-	public Result ParseIf(out IfContext? @if)
-	{
-		int startIndex = lexer.Index;
-		if (
-			lexer.Eat<If>() &&
-			lexer.Eat<LeftParenthesis>() &&
-			ParseExpression(out IExpressionContext? expression) is var expressionResult and not Result.TokenRuleFailed &&
-			lexer.Eat<RightParenthesis>() &&
-			ParseFunctionBlock(out FunctionBlockContext? trueBlock) is var trueBlockResult and not Result.TokenRuleFailed &&
-			lexer.Eat<Else>() &&
-			ParseFunctionBlock(out FunctionBlockContext? falseBlock) is var falseBlockResult and not Result.TokenRuleFailed)
-		{
-			@if = new IfContext();
-			@if.Condition = expression;
-			@if.ThenStatements = trueBlock.Statements;
-			@if.ElseStatements = falseBlock.Statements;
-			return expressionResult as Result.ComplexRuleFailed as Result ??
-			       trueBlockResult as Result.ComplexRuleFailed as Result ??
-			       falseBlockResult as Result.ComplexRuleFailed as Result ??
-			       new Result.Ok();
-		}
-		lexer.Index = startIndex;
-		if (
-			lexer.Eat<If>() &&
-			lexer.Eat<LeftParenthesis>() &&
-			ParseExpression(out IExpressionContext? expression2) is var expression2Result and not Result.TokenRuleFailed &&
-			lexer.Eat<RightParenthesis>() &&
-			ParseFunctionBlock(out FunctionBlockContext? block) is var blockResult and not Result.TokenRuleFailed)
-		{
-			@if = new IfContext();
-			@if.Condition = expression2;
-			@if.ThenStatements = block.Statements;
-			@if.ElseStatements = [];
-			return expression2Result as Result.ComplexRuleFailed as Result ??
-			       blockResult as Result.ComplexRuleFailed as Result ??
-			       new Result.Ok();
-		}
-		lexer.Index = startIndex;
-		@if = null;
-		return new Result.TokenRuleFailed("Expected assignment", lexer.Line, lexer.Column);
-	}
-	
-	
-	public class WhileContext : IFunctionStatementContext
-	{
-		public IExpressionContext Condition = null!;
-		public List<IFunctionStatementContext> ThenStatements = null!;
-	}
-	
-	public Result ParseWhile(out WhileContext? @while)
-	{
-		int startIndex = lexer.Index;
-		if (
-			lexer.Eat<While>() &&
-			lexer.Eat<LeftParenthesis>() &&
-			ParseExpression(out IExpressionContext? expression) is var expressionResult and not Result.TokenRuleFailed &&
-			lexer.Eat<RightParenthesis>() &&
-			ParseFunctionBlock(out FunctionBlockContext? block) is var blockResult and not Result.TokenRuleFailed)
-		{
-			@while = new WhileContext();
-			@while.Condition = expression;
-			@while.ThenStatements = block.Statements;
-			return expressionResult as Result.ComplexRuleFailed as Result ??
-			       blockResult as Result.ComplexRuleFailed as Result ??
-			       new Result.Ok();
-		}
-		else
-		{
-			lexer.Index = startIndex;
-			@while = null;
-			return new Result.TokenRuleFailed("Expected while statement", lexer.Line, lexer.Column);
-		}
-	}
-	
-	
-	public class FunctionBlockContext : IContext
+	public class FunctionBlockContext : IValueContext
 	{
 		public List<IFunctionStatementContext> Statements = null!;
 	}
@@ -1124,7 +806,7 @@ public class Parser(Lexer lexer)
 		{
 			lexer.Index = startIndex;
 			block = null;
-			return new Result.TokenRuleFailed("Expected if statement", lexer.Line, lexer.Column);
+			return new Result.TokenRuleFailed("Expected function block", lexer.Line, lexer.Column);
 		}
 	}
 	

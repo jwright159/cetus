@@ -8,8 +8,16 @@
         <RootNamespace>Cetus</RootNamespace>
     </PropertyGroup>
 
+    <PropertyGroup Condition=" '$(Configuration)' == 'Debug' ">
+      <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    </PropertyGroup>
+
+    <PropertyGroup Condition=" '$(Configuration)' == 'Release' ">
+      <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    </PropertyGroup>
+
     <ItemGroup>
-      <PackageReference Include="LLVMSharp" Version="5.0.0" />
+      <PackageReference Include="LLVMSharp" Version="16.0.0" />
     </ItemGroup>
 
     <ItemGroup>
@@ -20,6 +28,10 @@
         <Content Include="lib/**">
             <CopyToOutputDirectory>Always</CopyToOutputDirectory>
         </Content>
+        
+        <None Update="recursive.cetus">
+          <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+        </None>
     </ItemGroup>
 
 </Project>

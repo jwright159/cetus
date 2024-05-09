@@ -1,6 +1,6 @@
 ﻿using Cetus;
 
-Lexer lexer = new(File.ReadAllText("sample.cetus"));
+Lexer lexer = new(File.ReadAllText("recursive.cetus"));
 Parser parser = new(lexer);
 
 Parser.ProgramContext program = parser.Parse();
