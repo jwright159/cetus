@@ -2,6 +2,8 @@
 Microsoft Visual Studio Solution File, Format Version 12.00
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Cetus", "Cetus\Cetus.csproj", "{00E17E46-36A1-4EC2-9371-6CCEDD417F49}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Debugging", "Debugging\Debugging.csproj", "{FD6E7E06-3178-449C-AC12-6E874B8E1A81}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -12,5 +14,9 @@ Global
 		{00E17E46-36A1-4EC2-9371-6CCEDD417F49}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{00E17E46-36A1-4EC2-9371-6CCEDD417F49}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{00E17E46-36A1-4EC2-9371-6CCEDD417F49}.Release|Any CPU.Build.0 = Release|Any CPU
+		{FD6E7E06-3178-449C-AC12-6E874B8E1A81}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{FD6E7E06-3178-449C-AC12-6E874B8E1A81}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{FD6E7E06-3178-449C-AC12-6E874B8E1A81}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{FD6E7E06-3178-449C-AC12-6E874B8E1A81}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 EndGlobal

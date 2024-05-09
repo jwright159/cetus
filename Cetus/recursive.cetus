@@ -44,16 +44,18 @@ int Add(int a, int b)
 
 void main()
 {
-    #decl a 0
-    printf("%i\n", a);
+    #decl a 3
+    printf("Starting at %i\n", a);
     
     While({
         #decl conditionResult 0
-        Assign(conditionResult, LessThan(a, 10));
-        printf("True? %i\n", conditionResult);
+        Assign(conditionResult, LessThan(a, 6));
         #rtn conditionResult
-    }, {
+    },
+    {
         Assign(a, Add(a, 1));
         printf("Loop %i\n", a);
     });
+    
+    printf("Ending at %i\n", a);
 }

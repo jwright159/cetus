@@ -1,5 +1,5 @@
 ﻿using System.Diagnostics;
-using System.Runtime.InteropServices;
+using JetBrains.Annotations;
 using LLVMSharp.Interop;
 using Identifiers = System.Collections.Generic.Dictionary<string, Cetus.TypedValue>;
 
@@ -51,8 +51,8 @@ public class Visitor
 	public void Generate(Parser.ProgramContext program)
 	{
 		VisitProgram(program, globalIdentifiers);
-		module.TryVerify(LLVMVerifierFailureAction.LLVMReturnStatusAction, out string output);
-		Console.WriteLine(output);
+		Dump();
+		module.TryVerify(LLVMVerifierFailureAction.LLVMPrintMessageAction, out string _);
 	}
 	
 	private void VisitProgram(Parser.ProgramContext context, Identifiers identifiers)
@@ -89,8 +89,8 @@ public class Visitor
 			return VisitDouble(@double);
 		if (context is Parser.StringContext @string)
 			return VisitString(@string);
-		if (context is Parser.FunctionBlockContext functionBlock)
-			return VisitClosure(functionBlock, identifiers);
+		if (context is Parser.ClosureContext closure)
+			return VisitClosure(closure, identifiers, typeHint);
 		if (context is Parser.NullContext)
 			return VisitNull(typeHint);
 		if (context is Parser.ValueIdentifierContext valueIdentifier)
@@ -120,13 +120,12 @@ public class Visitor
 		return new TypedValueValue(StringType, builder.BuildGlobalStringPtr(context.Value, context.Value.Length == 0 ? "emptyString" : context.Value));
 	}
 	
-	private TypedValue VisitClosure(Parser.FunctionBlockContext context, Identifiers identifiers)
+	private TypedValue VisitClosure(Parser.ClosureContext context, Identifiers identifiers, TypedType? typeHint)
 	{
 		Identifiers uniqueClosureIdentifiers = identifiers.Except(globalIdentifiers).ToDictionary();
-		TypedTypeStruct closureEnvType = new(LLVMContextRef.Global.CreateNamedStruct("closure_env"));
-		closureEnvType.LLVMType.StructSetBody(uniqueClosureIdentifiers.Values.Select(type => LLVMTypeRef.CreatePointer(type.Type.LLVMType, 0)).ToArray(), false);
+		TypedTypeStruct closureEnvType = new(LLVMTypeRef.CreateStruct(uniqueClosureIdentifiers.Values.Select(type => type.Type.LLVMType).ToArray(), false));
 		
-		TypedTypeFunction functionType = new("closure_block", VoidType, [new TypedTypePointer(new TypedTypeChar())], null);
+		TypedTypeFunction functionType = (typeHint as TypedTypeClosurePointer)?.BlockType ?? new TypedTypeFunction("closure_block", VoidType, [new TypedTypePointer(new TypedTypeChar())], null);
 		LLVMValueRef function = module.AddFunction("closure_block", functionType.LLVMType);
 		function.Linkage = LLVMLinkage.LLVMInternalLinkage;
 		
@@ -148,10 +147,11 @@ public class Visitor
 			VisitFunctionBlock(context.Statements, closureIdentifiers, new Dictionary<string, LLVMBasicBlockRef>());
 			builder.BuildRetVoid();
 			
-			function.VerifyFunction(LLVMVerifierFailureAction.LLVMPrintMessageAction);
+			// function.VerifyFunction(LLVMVerifierFailureAction.LLVMPrintMessageAction);
 		}
 		
-		TypedTypeClosurePointer closureType = AddOrGetClosureType(functionType);
+		TypedTypeStruct closureStructType = new(LLVMTypeRef.CreateStruct([LLVMTypeRef.CreatePointer(functionType.LLVMType, 0), LLVMTypeRef.CreatePointer(LLVMTypeRef.Int8, 0)], false));
+		TypedTypeClosurePointer closureType = new(closureStructType, functionType);
 		
 		builder.PositionAtEnd(originalBlock);
 		LLVMValueRef closurePtr = builder.BuildAlloca(closureType.Type.LLVMType, "closure");
@@ -161,7 +161,7 @@ public class Visitor
 			LLVMValueRef functionPtr = builder.BuildStructGEP2(closureType.Type.LLVMType, closurePtr, 0, "function");
 			builder.BuildStore(function, functionPtr);
 			
-			LLVMValueRef closureEnvPtr = builder.BuildStructGEP2(closureType.Type.LLVMType, closurePtr, 1, "closure_env");
+			LLVMValueRef closureEnvPtr = builder.BuildStructGEP2(closureType.Type.LLVMType, closurePtr, 1, "closure_env_ptr");
 			LLVMValueRef closureEnv = builder.BuildAlloca(closureEnvType.LLVMType, "closure_env");
 			int paramIndex = 0;
 			foreach ((string name, TypedValue value) in uniqueClosureIdentifiers)
@@ -169,25 +169,12 @@ public class Visitor
 				LLVMValueRef elementPtr = builder.BuildStructGEP2(closureEnvType.LLVMType, closureEnv, (uint)paramIndex++, name);
 				builder.BuildStore(value.Value, elementPtr);
 			}
-			builder.BuildStore(closureEnv, closureEnvPtr);
+			LLVMValueRef closureEnvCasted = builder.BuildBitCast(closureEnv, LLVMTypeRef.CreatePointer(LLVMTypeRef.Int8, 0), "closure_env_casted");
+			builder.BuildStore(closureEnvCasted, closureEnvPtr);
 		}
 		
 		TypedValue result = new TypedValueValue(closureType, closurePtr);
 		return result;
-	}
-	
-	private TypedTypeClosurePointer AddOrGetClosureType(TypedTypeFunction functionType)
-	{
-		if (globalIdentifiers.Values.FirstOrDefault(type => type.Type is TypedTypeClosurePointer closureType && TypedTypeExtensions.TypesEqual(closureType.BlockType, functionType))?.Type is TypedTypeClosurePointer existingClosureType)
-			return existingClosureType;
-		else
-		{
-			TypedTypeStruct closureStructType = new(LLVMContextRef.Global.CreateNamedStruct($"closure_{functionType.ReturnType}"));
-			closureStructType.LLVMType.StructSetBody([LLVMTypeRef.CreatePointer(functionType.LLVMType, 0), LLVMTypeRef.CreatePointer(LLVMTypeRef.Int8, 0)], false);
-			TypedTypeClosurePointer closureType = new(closureStructType, functionType);
-			globalIdentifiers.Add($"closure_{functionType.ReturnType}", new TypedValueType(closureType));
-			return closureType;
-		}
 	}
 	
 	private TypedValue VisitNull(TypedType? typeHint)
@@ -234,7 +221,9 @@ public class Visitor
 		string name = context.TypeName;
 		if (name == "Closure")
 		{
-			return AddOrGetClosureType(new TypedTypeFunction("block", context.InnerType is not null ? VisitTypeIdentifier(context.InnerType, identifiers) : VoidType, [new TypedTypePointer(new TypedTypeChar())], null));
+			TypedTypeFunction functionType = new("block", context.InnerType is not null ? VisitTypeIdentifier(context.InnerType, identifiers) : VoidType, [new TypedTypePointer(new TypedTypeChar())], null);
+			TypedTypeStruct closureStructType = new(LLVMTypeRef.CreateStruct([LLVMTypeRef.CreatePointer(functionType.LLVMType, 0), LLVMTypeRef.CreatePointer(LLVMTypeRef.Int8, 0)], false));
+			return new TypedTypeClosurePointer(closureStructType, functionType);
 		}
 		else
 		{
@@ -361,11 +350,10 @@ public class Visitor
 		{
 			functionType = closurePtr.BlockType;
 			
-			LLVMValueRef closure = builder.BuildLoad2(closurePtr.Type.LLVMType, function.Value, "actual_closure");
-			LLVMValueRef functionPtrPtr = builder.BuildStructGEP2(closurePtr.Type.LLVMType, closure, 0, "functionPtrPtr");
-			LLVMValueRef functionPtr = builder.BuildLoad2(LLVMTypeRef.CreatePointer(functionType.LLVMType, 0), functionPtrPtr, "functionPtr");
-			//LLVMValueRef functionValue = builder.BuildLoad2(functionType.LLVMType, functionPtr, "functionValue");
-			LLVMValueRef environmentPtr = builder.BuildStructGEP2(closurePtr.Type.LLVMType, closure, 1, "environment");
+			LLVMValueRef functionPtrPtr = builder.BuildStructGEP2(closurePtr.Type.LLVMType, function.Value, 0, "functionPtrPtr");
+			LLVMValueRef functionPtr = builder.BuildLoad2(functionType.Pointer().LLVMType, functionPtrPtr, "functionPtr");
+			LLVMValueRef environmentPtrPtr = builder.BuildStructGEP2(closurePtr.Type.LLVMType, function.Value, 1, "environmentPtrPtr");
+			LLVMValueRef environmentPtr = builder.BuildLoad2(CharType.Pointer().LLVMType, environmentPtrPtr, "environmentPtr");
 			
 			function = new TypedValueValue(functionType, functionPtr);
 			arguments = arguments.Prepend(new LiteralContext(new TypedValueValue(CharType.Pointer(), environmentPtr))).ToList();
@@ -397,6 +385,16 @@ public class Visitor
 		return new TypedValueValue(functionType.ReturnType, result);
 	}
 	
+	[UsedImplicitly]
+	private void Printf(string message, Identifiers identifiers, params TypedValue[] args)
+	{
+		VisitFunctionCall(new Parser.FunctionCallContext
+		{
+			Function = new Parser.ValueIdentifierContext { ValueName = "printf" },
+			Arguments = args.Select(arg => new LiteralContext(arg) as Parser.IExpressionContext).Prepend(new Parser.StringContext { Value = message }).ToList()
+		}, identifiers);
+	}
+	
 	private void VisitCompilerStatement(Parser.CompilerStatementContext context, Identifiers identifiers, Dictionary<string, LLVMBasicBlockRef> blocks)
 	{
 		if (context.Tokens[0] == "decl")
@@ -419,7 +417,7 @@ public class Visitor
 		}
 		else if (context.Tokens[0] == "rtn")
 		{
-			builder.BuildRet(VisitValueIdentifier(new Parser.ValueIdentifierContext { ValueName = context.Tokens[1] }, identifiers, null).Value);
+			builder.BuildRet(VisitValueIdentifier(new Parser.ValueIdentifierContext { ValueName = context.Tokens[1] }, identifiers, IntType).Value);
 		}
 		else if (context.Tokens[0] == "br")
 		{
@@ -435,14 +433,17 @@ public class Visitor
 		}
 		else if (context.Tokens[0] == "brif")
 		{
-			builder.BuildCondBr(VisitValueIdentifier(new Parser.ValueIdentifierContext { ValueName = context.Tokens[1] }, identifiers, IntType).Value, blocks[context.Tokens[2]], blocks[context.Tokens[3]]);
+			LLVMValueRef condition = VisitValueIdentifier(new Parser.ValueIdentifierContext { ValueName = context.Tokens[1] }, identifiers, IntType).Value;
+			LLVMValueRef conditionBool = builder.BuildTrunc(condition, LLVMTypeRef.Int1, "brifbool");
+			builder.BuildCondBr(conditionBool, blocks[context.Tokens[2]], blocks[context.Tokens[3]]);
 		}
 		else if (context.Tokens[0] == "add")
 		{
 			TypedValue lhs = VisitValueIdentifier(new Parser.ValueIdentifierContext { ValueName = context.Tokens[1] }, identifiers, IntType);
 			TypedValue rhs = VisitValueIdentifier(new Parser.ValueIdentifierContext { ValueName = context.Tokens[2] }, identifiers, IntType);
 			LLVMValueRef variable = builder.BuildAlloca(IntType.LLVMType, context.Tokens[3]);
-			builder.BuildStore(builder.BuildAdd(lhs.Value, rhs.Value, "addtmp"), variable);
+			LLVMValueRef sum = builder.BuildAdd(lhs.Value, rhs.Value, "addtmp");
+			builder.BuildStore(sum, variable);
 			TypedValue result = new TypedValueValue(IntType.Pointer(), variable);
 			identifiers.Add(context.Tokens[3], result);
 		}
@@ -451,7 +452,9 @@ public class Visitor
 			TypedValue lhs = VisitValueIdentifier(new Parser.ValueIdentifierContext { ValueName = context.Tokens[1] }, identifiers, IntType);
 			TypedValue rhs = VisitValueIdentifier(new Parser.ValueIdentifierContext { ValueName = context.Tokens[2] }, identifiers, IntType);
 			LLVMValueRef variable = builder.BuildAlloca(IntType.LLVMType, context.Tokens[3]);
-			builder.BuildStore(builder.BuildICmp(LLVMIntPredicate.LLVMIntSLT, lhs.Value, rhs.Value, "lttmp"), variable);
+			LLVMValueRef lessThan = builder.BuildICmp(LLVMIntPredicate.LLVMIntSLT, lhs.Value, rhs.Value, "lttmp");
+			LLVMValueRef lessThanInt = builder.BuildZExt(lessThan, LLVMTypeRef.Int32, "lttmpint");
+			builder.BuildStore(lessThanInt, variable);
 			TypedValue result = new TypedValueValue(IntType.Pointer(), variable);
 			identifiers.Add(context.Tokens[3], result);
 		}
@@ -569,6 +572,9 @@ public static class TypedTypeExtensions
 		
 		if (lhs.Kind == LLVMTypeKind.LLVMIntegerTypeKind)
 			return lhs.IntWidth == rhs.IntWidth;
+		
+		if (lhs.Kind == LLVMTypeKind.LLVMFunctionTypeKind)
+			return TypesEqual(lhs.ReturnType, rhs.ReturnType) && lhs.ParamTypesCount == rhs.ParamTypesCount && lhs.ParamTypes.Zip(rhs.ParamTypes).All(pair => TypesEqual(pair.First, pair.Second));
 		
 		return true;
 	}

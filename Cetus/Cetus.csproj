@@ -17,6 +17,7 @@
     </PropertyGroup>
 
     <ItemGroup>
+      <PackageReference Include="JetBrains.Annotations" Version="2023.3.0" />
       <PackageReference Include="LLVMSharp" Version="16.0.0" />
     </ItemGroup>
 

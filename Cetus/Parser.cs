@@ -397,10 +397,10 @@ public class Parser(Lexer lexer)
 			value = @string;
 			return stringResult;
 		}
-		else if (ParseFunctionBlock(out FunctionBlockContext? functionBlock) is var functionBlockResult and not Result.TokenRuleFailed)
+		else if (ParseClosure(out ClosureContext? closure) is var closureResult and not Result.TokenRuleFailed)
 		{
-			value = functionBlock;
-			return functionBlockResult;
+			value = closure;
+			return closureResult;
 		}
 		else if (ParseNull(out NullContext? @null) is var nullResult and not Result.TokenRuleFailed)
 		{
@@ -777,7 +777,7 @@ public class Parser(Lexer lexer)
 	}
 	
 	
-	public class FunctionBlockContext : IValueContext
+	public class FunctionBlockContext : IContext
 	{
 		public List<IFunctionStatementContext> Statements = null!;
 	}
@@ -806,6 +806,32 @@ public class Parser(Lexer lexer)
 		{
 			lexer.Index = startIndex;
 			block = null;
+			return new Result.TokenRuleFailed("Expected function block", lexer.Line, lexer.Column);
+		}
+	}
+	
+	
+	public class ClosureContext : IValueContext
+	{
+		public List<IFunctionStatementContext> Statements = null!;
+	}
+	
+	public Result ParseClosure(out ClosureContext? closure)
+	{
+		int startIndex = lexer.Index;
+		if (
+			ParseFunctionBlock(out FunctionBlockContext? functionBlock) is var functionBlockResult and not Result.TokenRuleFailed)
+		{
+			closure = new ClosureContext();
+			closure.Statements = functionBlock.Statements;
+			
+			return functionBlockResult as Result.ComplexRuleFailed as Result ??
+			       new Result.Ok();
+		}
+		else
+		{
+			lexer.Index = startIndex;
+			closure = null;
 			return new Result.TokenRuleFailed("Expected function block", lexer.Line, lexer.Column);
 		}
 	}

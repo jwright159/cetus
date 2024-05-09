@@ -6,7 +6,6 @@ Parser parser = new(lexer);
 Parser.ProgramContext program = parser.Parse();
 Visitor visitor = new();
 visitor.Generate(program);
-visitor.Dump();
 Console.WriteLine();
 
 // visitor.Optimize();
