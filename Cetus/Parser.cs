@@ -124,7 +124,7 @@ public class Parser(Lexer lexer)
 		public TypeIdentifierContext ReturnType = null!;
 		public List<FunctionParameterContext> Parameters = null!;
 		public FunctionParameterContext? VarArg = null;
-		public List<IFunctionStatementContext> Statements = null!;
+		public List<FunctionStatementContext> Statements = null!;
 	}
 	
 	public Result ParseFunctionDefinition(out FunctionDefinitionContext? functionDefinition)
@@ -143,6 +143,7 @@ public class Parser(Lexer lexer)
 			functionDefinition.Parameters = parameters.Parameters;
 			functionDefinition.VarArg = parameters.VarArg;
 			functionDefinition.Statements = functionBlock.Statements;
+			
 			return returnTypeResult as Result.ComplexRuleFailed as Result ??
 			       parametersResult as Result.ComplexRuleFailed as Result ??
 			       functionBlockResult as Result.ComplexRuleFailed as Result ??
@@ -582,33 +583,6 @@ public class Parser(Lexer lexer)
 	}
 	
 	
-	public interface IFunctionStatementContext : IContext;
-	
-	public Result? ParseFunctionStatement(out IFunctionStatementContext? functionStatement)
-	{
-		if (lexer.IsAtEnd)
-		{
-			functionStatement = null;
-			return null;
-		}
-		else if (ParseFunctionCallStatement(out FunctionCallStatementContext? functionCall) is var functionCallResult and not Result.TokenRuleFailed)
-		{
-			functionStatement = functionCall.Call;
-			return functionCallResult;
-		}
-		else if (ParseCompilerStatement(out CompilerStatementContext? compilerStatement) is var compilerStatementResult and not Result.TokenRuleFailed)
-		{
-			functionStatement = compilerStatement;
-			return compilerStatementResult;
-		}
-		else
-		{
-			functionStatement = null;
-			return new Result.TokenRuleFailed("Expected function statement", lexer.Line, lexer.Column);
-		}
-	}
-	
-	
 	public interface IExpressionContext : IContext;
 	
 	public Result? ParseExpression(out IExpressionContext? expression, int order = 0)
@@ -642,7 +616,7 @@ public class Parser(Lexer lexer)
 	}
 	
 	
-	public class FunctionCallContext : IExpressionContext, IFunctionStatementContext
+	public class FunctionCallContext : IExpressionContext
 	{
 		public IExpressionContext Function = null!;
 		public List<IExpressionContext> Arguments = null!;
@@ -729,18 +703,18 @@ public class Parser(Lexer lexer)
 	}
 	
 	
-	public class FunctionCallStatementContext : IFunctionStatementContext
+	public class FunctionStatementContext : IContext
 	{
 		public FunctionCallContext Call = null!;
 	}
 	
-	public Result ParseFunctionCallStatement(out FunctionCallStatementContext? functionCallStatement)
+	public Result ParseFunctionStatement(out FunctionStatementContext? functionCallStatement)
 	{
 		int startIndex = lexer.Index;
 		if (ParseFunctionCall(out FunctionCallContext? functionCall) is var functionCallResult and not Result.TokenRuleFailed &&
 		    lexer.Eat<Semicolon>())
 		{
-			functionCallStatement = new FunctionCallStatementContext();
+			functionCallStatement = new FunctionStatementContext();
 			functionCallStatement.Call = functionCall;
 			return functionCallResult as Result.ComplexRuleFailed as Result ??
 			       new Result.Ok();
@@ -754,32 +728,9 @@ public class Parser(Lexer lexer)
 	}
 	
 	
-	public class CompilerStatementContext : IFunctionStatementContext
-	{
-		public string[] Tokens = null!;
-	}
-	
-	public Result ParseCompilerStatement(out CompilerStatementContext? compilerStatement)
-	{
-		int startIndex = lexer.Index;
-		if (lexer.Eat<Pound>())
-		{
-			compilerStatement = new CompilerStatementContext();
-			compilerStatement.Tokens = lexer.EatTo<Newline>().Split();
-			return new Result.Ok();
-		}
-		else
-		{
-			lexer.Index = startIndex;
-			compilerStatement = null;
-			return new Result.TokenRuleFailed("Expected const variable definition", lexer.Line, lexer.Column);
-		}
-	}
-	
-	
 	public class FunctionBlockContext : IContext
 	{
-		public List<IFunctionStatementContext> Statements = null!;
+		public List<FunctionStatementContext> Statements = null!;
 	}
 	
 	public Result ParseFunctionBlock(out FunctionBlockContext? block)
@@ -790,7 +741,7 @@ public class Parser(Lexer lexer)
 			Result? result = null;
 			block = new FunctionBlockContext();
 			block.Statements = [];
-			while (ParseFunctionStatement(out IFunctionStatementContext? statement) is var functionStatementResult and not Result.TokenRuleFailed)
+			while (ParseFunctionStatement(out FunctionStatementContext? statement) is var functionStatementResult and not Result.TokenRuleFailed)
 			{
 				if (functionStatementResult is Result.ComplexRuleFailed)
 					result ??= new Result.ComplexRuleFailed("Invalid function statement", functionStatementResult);
@@ -813,7 +764,7 @@ public class Parser(Lexer lexer)
 	
 	public class ClosureContext : IValueContext
 	{
-		public List<IFunctionStatementContext> Statements = null!;
+		public List<FunctionStatementContext> Statements = null!;
 	}
 	
 	public Result ParseClosure(out ClosureContext? closure)
