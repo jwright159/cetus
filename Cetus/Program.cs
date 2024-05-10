@@ -1,17 +1,15 @@
-﻿using Cetus;
+﻿using Cetus.Parser;
 
 Lexer lexer = new(File.ReadAllText("recursive.cetus"));
 Parser parser = new(lexer);
 
-Parser.ProgramContext program = parser.Parse();
-Visitor visitor = new();
-visitor.Generate(program);
+parser.Generate();
 Console.WriteLine();
 
-// visitor.Optimize();
-// visitor.Dump();
+// parser.Optimize();
+// parser.Dump();
 // Console.WriteLine();
 
-visitor.Compile();
+parser.Compile();
 
-visitor.Dispose();
+parser.Dispose();
