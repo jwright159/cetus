@@ -47,3 +47,15 @@ public class Ellipsis() : LiteralToken("...");
 public class Pointer() : LiteralToken("*");
 
 public class Semicolon() : LiteralToken(";");
+
+public class LessThan() : LiteralToken("<");
+
+public class GreaterThan() : LiteralToken(">");
+
+public class LessThanOrEqualTo() : LiteralToken("<=");
+
+public class GreaterThanOrEqualTo() : LiteralToken(">=");
+
+public class EqualTo() : LiteralToken("==");
+
+public class NotEqualTo() : LiteralToken("!=");

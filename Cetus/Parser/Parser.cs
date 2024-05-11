@@ -71,9 +71,9 @@ public partial class Parser
 			}
 		};
 		Result result = ParseProgram(context);
+		Dump();
 		if (result is not Result.Ok)
 			Console.WriteLine(result);
-		Dump();
 		module.TryVerify(LLVMVerifierFailureAction.LLVMPrintMessageAction, out string _);
 	}
 	

@@ -6,7 +6,7 @@ Void main()
     printf("Starting at %i\n", a);
     
     While({
-        Return(LessThan(a, 6));
+        Return(a < 6);
     },
     {
         Assign(a, a + 1);
