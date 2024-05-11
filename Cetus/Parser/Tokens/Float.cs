@@ -1,10 +1,8 @@
-﻿using System.Diagnostics.CodeAnalysis;
-
-namespace Cetus.Parser.Tokens;
+﻿namespace Cetus.Parser.Tokens;
 
 public class Float : IToken
 {
-	public static bool Split(string contents, ref int index, [NotNullWhen(true)] out string? token)
+	public bool Eat(string contents, ref int index)
 	{
 		if (char.IsDigit(contents[index]))
 		{
@@ -28,20 +26,20 @@ public class Float : IToken
 				i++;
 			else
 			{
-				token = null;
+				TokenText = null;
 				return false;
 			}
 			
-			token = contents[index..i];
+			TokenText = contents[index..i];
 			index = i;
 			return true;
 		}
 		else
 		{
-			token = null;
+			TokenText = null;
 			return false;
 		}
 	}
 		
-	public string TokenText { get; init; } = null!;
+	public string? TokenText { get; set; }
 }

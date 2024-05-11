@@ -4,7 +4,7 @@ using LLVMSharp.Interop;
 
 namespace Cetus.Parser.Types;
 
-public class TypedTypeFunctionWhile() : TypedTypeFunction("While", Parser.VoidType, [new TypedTypeCompilerClosure(Parser.IntType), new TypedTypeCompilerClosure(Parser.VoidType)], null, "while ( $0 ) $1")
+public class TypedTypeFunctionWhile() : TypedTypeFunction("While", Parser.VoidType, [new TypedTypeCompilerClosure(Parser.IntType), new TypedTypeCompilerClosure(Parser.VoidType)], null, null)
 {
 	public override TypedValue Call(LLVMBuilderRef builder, TypedValue function, FunctionContext context, params TypedValue[] args)
 	{

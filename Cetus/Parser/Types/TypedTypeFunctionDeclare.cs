@@ -4,7 +4,7 @@ using LLVMSharp.Interop;
 
 namespace Cetus.Parser.Types;
 
-public class TypedTypeFunctionDeclare() : TypedTypeFunction("Declare", Parser.VoidType, [Parser.CompilerStringType, Parser.IntType], null, "Int $0 = $1")
+public class TypedTypeFunctionDeclare() : TypedTypeFunction("Declare", Parser.VoidType, [Parser.CompilerStringType, Parser.IntType], null, null)
 {
 	public override TypedValue Call(LLVMBuilderRef builder, TypedValue function, FunctionContext context, params TypedValue[] args)
 	{

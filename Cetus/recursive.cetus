@@ -9,7 +9,7 @@ Void main()
         Return(LessThan(a, 6));
     },
     {
-        Assign(a, Add(a, 1));
+        Assign(a, a + 1);
         printf("Loop %i\n", a);
         ReturnVoid();
     });

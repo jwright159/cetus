@@ -14,22 +14,17 @@ public class Lexer(string contents)
 	
 	public string Contents => contents;
 	
-	public bool TryParse<T>([NotNullWhen(true)] out T? token) where T : IToken, new()
+	private bool TryParse<T>(ref T token) where T : IToken
 	{
 		if (Index == 0)
 			EatWhitespace();
 		
-		if (T.Split(contents, ref Index, out string? tokenText))
+		if (token.Eat(contents, ref Index))
 		{
-			token = new T { TokenText = tokenText };
 			EatWhitespace();
 			return true;
 		}
-		else
-		{
-			token = default;
-			return false;
-		}
+		return false;
 	}
 	
 	private void EatWhitespace()
@@ -57,12 +52,19 @@ public class Lexer(string contents)
 	
 	public bool Eat<T>([NotNullWhen(true)] out T? token) where T : IToken, new()
 	{
-		return TryParse(out token);
+		token = new T();
+		return TryParse(ref token);
 	}
 	
 	public bool Eat<T>() where T : IToken, new()
 	{
-		return TryParse(out T? _);
+		T token = new();
+		return TryParse(ref token);
+	}
+	
+	public bool Eat<T>(T token) where T : IToken
+	{
+		return TryParse(ref token);
 	}
 	
 	public string EatTo<T>() where T : IToken, new()

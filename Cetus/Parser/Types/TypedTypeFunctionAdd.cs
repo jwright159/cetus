@@ -1,10 +1,11 @@
 ﻿using Cetus.Parser.Contexts;
+using Cetus.Parser.Tokens;
 using Cetus.Parser.Values;
 using LLVMSharp.Interop;
 
 namespace Cetus.Parser.Types;
 
-public class TypedTypeFunctionAdd() : TypedTypeFunction("Add", Parser.IntType, [Parser.IntType, Parser.IntType], null, "$0 + $1")
+public class TypedTypeFunctionAdd() : TypedTypeFunction("Add", Parser.IntType, [Parser.IntType, Parser.IntType], null, [new ParameterIndexToken(0), new Add(), new ParameterIndexToken(1)])
 {
 	public override TypedValue Call(LLVMBuilderRef builder, TypedValue function, FunctionContext context, params TypedValue[] args)
 	{

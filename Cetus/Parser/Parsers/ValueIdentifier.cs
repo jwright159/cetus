@@ -13,7 +13,7 @@ public partial class Parser
 		if (lexer.Eat(out Word? valueName))
 		{
 			if (!context.Identifiers.TryGetValue(valueName.TokenText, out value))
-				throw new Exception($"Identifier '{valueName.TokenText}' not found");
+				return new Result.TokenRuleFailed($"Identifier '{valueName.TokenText}' not found", lexer.Line, lexer.Column);
 			
 			if (typeHint is not null and not TypedTypePointer && value.Type is TypedTypePointer resultTypePointer)
 			{
@@ -22,7 +22,7 @@ public partial class Parser
 			}
 			
 			if (typeHint is not null && !TypedTypeExtensions.TypesEqual(value.Type, typeHint))
-				throw new Exception($"Type mismatch in value of '{valueName.TokenText}', expected {typeHint.LLVMType} but got {value.Type.LLVMType}");
+				return Result.ComplexTokenRuleFailed($"Type mismatch in value of '{valueName.TokenText}', expected {typeHint.LLVMType} but got {value.Type.LLVMType}", lexer.Line, lexer.Column);
 			
 			return new Result.Ok();
 		}

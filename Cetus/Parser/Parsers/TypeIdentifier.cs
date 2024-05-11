@@ -34,7 +34,7 @@ public partial class Parser
 					return Result.ComplexTokenRuleFailed($"Type '{typeName.TokenText}' not found", lexer.Line, lexer.Column);
 				}
 				type = result.Type;
-				while (lexer.Eat<Dereference>())
+				while (lexer.Eat<Pointer>())
 					type = new TypedTypePointer(type);
 				return new Result.Ok();
 			}

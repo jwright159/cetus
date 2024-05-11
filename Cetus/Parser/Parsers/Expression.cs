@@ -6,7 +6,7 @@ namespace Cetus.Parser;
 
 public partial class Parser
 {
-	public Result? ParseExpression(FunctionContext context, TypedType? typeHint, out TypedValue? value, int order = 0)
+	public Result? ParseExpression(FunctionContext context, TypedType? typeHint, out TypedValue? value)
 	{
 		if (lexer.IsAtEnd)
 		{
@@ -14,20 +14,14 @@ public partial class Parser
 			return null;
 		}
 		
-		if (order <= 3)
+		if (ParseFunctionCall(context, out value) is Result.Passable functionCallResult)
 		{
-			if (ParseFunctionCall(context, out value) is Result.Passable functionCallResult)
-			{
-				return Result.WrapPassable("Invalid expression", functionCallResult);
-			}
+			return Result.WrapPassable("Invalid expression", functionCallResult);
 		}
 		
-		if (order <= 4)
+		if (ParseValue(context, typeHint, out value) is Result.Passable valueResult)
 		{
-			if (ParseValue(context, typeHint, out value) is Result.Passable valueResult)
-			{
-				return Result.WrapPassable("Invalid expression", valueResult);
-			}
+			return Result.WrapPassable("Invalid expression", valueResult);
 		}
 		
 		value = null;

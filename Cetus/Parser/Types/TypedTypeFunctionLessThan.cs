@@ -4,7 +4,7 @@ using LLVMSharp.Interop;
 
 namespace Cetus.Parser.Types;
 
-public class TypedTypeFunctionLessThan() : TypedTypeFunction("LessThan", Parser.IntType, [Parser.IntType, Parser.IntType], null, "$0 < $1")
+public class TypedTypeFunctionLessThan() : TypedTypeFunction("LessThan", Parser.IntType, [Parser.IntType, Parser.IntType], null, null)
 {
 	public override TypedValue Call(LLVMBuilderRef builder, TypedValue function, FunctionContext context, params TypedValue[] args)
 	{

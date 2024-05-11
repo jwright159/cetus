@@ -5,7 +5,6 @@ namespace Cetus.Parser.Types;
 
 public static class TypedTypeExtensions
 {
-	public static bool TypesEqual(TypedValue lhs, TypedValue rhs) => TypesEqual(lhs.Type.LLVMType, rhs.Type.LLVMType);
 	public static bool TypesEqual(TypedType lhs, TypedType rhs) => TypesEqual(lhs.LLVMType, rhs.LLVMType);
 	public static bool TypesEqual(LLVMTypeRef lhs, LLVMTypeRef rhs)
 	{
