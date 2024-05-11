@@ -6,9 +6,9 @@ Parser parser = new(lexer);
 parser.Generate();
 Console.WriteLine();
 
-// parser.Optimize();
-// parser.Dump();
-// Console.WriteLine();
+parser.Optimize();
+parser.Dump();
+Console.WriteLine();
 
 parser.Compile();
 

@@ -21,8 +21,8 @@ public partial class Parser
 				value = new TypedValueValue(resultTypePointer.PointerType, valueValue);
 			}
 			
-			if (typeHint is not null && !TypedTypeExtensions.TypesEqual(value.Type, typeHint))
-				return Result.ComplexTokenRuleFailed($"Type mismatch in value of '{valueName.TokenText}', expected {typeHint.LLVMType} but got {value.Type.LLVMType}", lexer.Line, lexer.Column);
+			if (typeHint is not null && !value.IsOfType(typeHint))
+				return Result.ComplexTokenRuleFailed($"Type mismatch in value of '{valueName.TokenText}', expected {typeHint} but got {value.Type}", lexer.Line, lexer.Column);
 			
 			return new Result.Ok();
 		}

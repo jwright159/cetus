@@ -25,10 +25,22 @@ public partial class Parser
 			{
 				if (token is ParameterIndexToken parameterIndex)
 				{
-					if (ParseValue(context, paramTypes[parameterIndex.Index], out arguments[parameterIndex.Index]) is Result.Failure)
+					if (paramTypes[parameterIndex.Index] is TypedTypeCompilerString)
 					{
-						match = false;
-						break;
+						if (!lexer.Eat(out Word? word))
+						{
+							match = false;
+							break;
+						}
+						arguments[parameterIndex.Index] = new TypedValueCompilerString(word.TokenText);
+					}
+					else
+					{
+						if (ParseValue(context, paramTypes[parameterIndex.Index], out arguments[parameterIndex.Index]) is Result.Failure)
+						{
+							match = false;
+							break;
+						}
 					}
 				}
 				else
@@ -50,7 +62,7 @@ public partial class Parser
 				throw new Exception($"Argument count mismatch in call to '{functionType.FunctionName}', expected {(functionType.IsVarArg ? "at least " : "")}{functionType.NumParams} but got {arguments.Length}");
 			
 			foreach ((TypedValue argument, TypedType type) in arguments.Zip(functionType.ParamTypes))
-				if (!TypedTypeExtensions.TypesEqual(argument.Type, type))
+				if (!argument.IsOfType(type))
 					throw new Exception($"Argument type mismatch in call to '{functionType.FunctionName}', expected {type} but got {argument.Type.LLVMType}");
 			
 			value = functionType.Call(builder, patternFunction, context, arguments);
@@ -102,7 +114,7 @@ public partial class Parser
 				throw new Exception($"Argument count mismatch in call to '{functionType.FunctionName}', expected {(functionType.IsVarArg ? "at least " : "")}{functionType.NumParams} but got {arguments.Count}");
 			
 			foreach ((TypedValue argument, TypedType type) in arguments.Zip(functionType.ParamTypes))
-				if (!TypedTypeExtensions.TypesEqual(argument.Type, type))
+				if (!argument.IsOfType(type))
 					throw new Exception($"Argument type mismatch in call to '{functionType.FunctionName}', expected {type} but got {argument.Type.LLVMType}");
 			
 			value = functionType.Call(builder, function, context, arguments.ToArray());

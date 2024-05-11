@@ -59,3 +59,5 @@ public class GreaterThanOrEqualTo() : LiteralToken(">=");
 public class EqualTo() : LiteralToken("==");
 
 public class NotEqualTo() : LiteralToken("!=");
+
+public class Assign() : LiteralToken("=");

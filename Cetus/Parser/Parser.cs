@@ -22,6 +22,7 @@ public partial class Parser
 	public static readonly TypedType DoubleType = new TypedTypeDouble();
 	public static readonly TypedType StringType = new TypedTypePointer(CharType);
 	public static readonly TypedType CompilerStringType = new TypedTypeCompilerString();
+	public static readonly TypedType TypeType = new TypedTypeType();
 	
 	public static readonly TypedValue Void = new TypedValueType(VoidType);
 	
@@ -58,6 +59,7 @@ public partial class Parser
 				{ "String", new TypedValueType(StringType) },
 				{ "CompilerString", new TypedValueType(CompilerStringType) },
 				{ "Bool", new TypedValueType(BoolType) },
+				{ "Type", new TypedValueType(TypeType) },
 				{ "True", TrueValue },
 				{ "False", FalseValue },
 				
