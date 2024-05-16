@@ -7,8 +7,25 @@ public class Lexer(string contents)
 {
 	public int Index = 0;
 	
-	public int Line => contents[..Index].Count(c => c == '\n') + 1;
-	public int Column => contents[..Index].LastIndexOf('\n') is var i ? Index - i : Index + 1;
+	private int lastIndexAtLastLineCalculated = 0;
+	private int lastLineCalculated = 1;
+	public int Line
+	{
+		get
+		{
+			RecalculateLine();
+			return lastLineCalculated;
+		}
+	}
+	private int lastColumnCalculated = 1;
+	public int Column
+	{
+		get
+		{
+			RecalculateLine();
+			return lastColumnCalculated;
+		}
+	}
 	
 	public bool IsAtEnd => Index >= contents.Length;
 	
@@ -113,6 +130,38 @@ public class Lexer(string contents)
 			
 			Index++;
 			EatWhitespace();
+		}
+	}
+	
+	private void RecalculateLine()
+	{
+		if (Index > lastIndexAtLastLineCalculated)
+		{
+			int linesPassed = contents[lastIndexAtLastLineCalculated..Index].Count(c => c == '\n');
+			if (linesPassed > 0)
+			{
+				lastLineCalculated += linesPassed;
+				lastColumnCalculated = contents[..Index].LastIndexOf('\n') is var i && i < 0 ? Index + 1 : Index - i;
+			}
+			else
+			{
+				lastColumnCalculated += Index - lastIndexAtLastLineCalculated;
+			}
+			lastIndexAtLastLineCalculated = Index;
+		}
+		else if (Index < lastIndexAtLastLineCalculated)
+		{
+			int linesPassed = contents[Index..lastIndexAtLastLineCalculated].Count(c => c == '\n');
+			if (linesPassed > 0)
+			{
+				lastLineCalculated -= linesPassed;
+				lastColumnCalculated = contents[..Index].LastIndexOf('\n') is var i && i < 0 ? Index + 1 : Index - i;
+			}
+			else
+			{
+				lastColumnCalculated -= lastIndexAtLastLineCalculated - Index;
+			}
+			lastIndexAtLastLineCalculated = Index;
 		}
 	}
 }
