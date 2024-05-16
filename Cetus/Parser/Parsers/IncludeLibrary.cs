@@ -4,21 +4,20 @@ namespace Cetus.Parser;
 
 public partial class Parser
 {
-	public Result ParseIncludeLibrary()
+	public bool ParseIncludeLibrary(ProgramContext program)
 	{
 		int startIndex = lexer.Index;
 		if (lexer.Eat<Include>() &&
-		    lexer.Eat(out Word? libraryName))
+		    lexer.Eat(out Word? libraryName) &&
+		    lexer.Eat<Semicolon>())
 		{
-			referencedLibs.Add(libraryName.TokenText);
-			if (lexer.SkipTo<Semicolon>())
-				return new Result.ComplexRuleFailed("Invalid include", new Result.TokenRuleFailed("Expected ';'", lexer.Line, lexer.Column));
-			return new Result.Ok();
+			program.Libraries.Add(libraryName.TokenText);
+			return true;
 		}
 		else
 		{
 			lexer.Index = startIndex;
-			return new Result.TokenRuleFailed("Invalid include", lexer.Line, lexer.Column);
+			return false;
 		}
 	}
 }

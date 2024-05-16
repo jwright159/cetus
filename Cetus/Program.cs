@@ -2,14 +2,15 @@
 
 Lexer lexer = new(File.ReadAllText("recursive.cetus"));
 Parser parser = new(lexer);
-
-parser.Generate();
+ProgramContext program = parser.Parse();
+Visitor visitor = new();
+visitor.Visit(program);
 Console.WriteLine();
 
-parser.Optimize();
-parser.Dump();
+visitor.Optimize();
+visitor.Dump();
 Console.WriteLine();
 
-parser.Compile();
+visitor.Compile(program);
 
-parser.Dispose();
+visitor.Dispose();

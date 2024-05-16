@@ -2,14 +2,14 @@
 
 Void main()
 {
-    Int a = 3;
+    Int "a" = 3;
     printf("Starting at %i\n", a);
     
     While({
         Return(a < 6);
     },
     {
-        Assign(a, a + 1);
+        a = a + 1;
         printf("Loop %i\n", a);
         ReturnVoid();
     });

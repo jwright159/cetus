@@ -1,14 +1,24 @@
-﻿using Cetus.Parser.Contexts;
-using Cetus.Parser.Tokens;
+﻿using Cetus.Parser.Tokens;
 using Cetus.Parser.Types;
 using Cetus.Parser.Values;
 using LLVMSharp.Interop;
 
 namespace Cetus.Parser;
 
+public interface ITypeContext
+{
+	public string Name { get; }
+}
+
+public class ExternStructDeclarationContext : ITypeContext
+{
+	public string Name { get; set; }
+	public int LexerStartIndex { get; set; }
+}
+
 public partial class Parser
 {
-	public Result ParseExternStructDeclaration(ProgramContext context)
+	public bool ParseExternStructDeclarationFirstPass(ProgramContext program)
 	{
 		int startIndex = lexer.Index;
 		if (
@@ -17,16 +27,27 @@ public partial class Parser
 			lexer.Eat(out Word? structName) &&
 			lexer.Eat<Semicolon>())
 		{
-			string name = structName.TokenText;
-			LLVMTypeRef structValue = LLVMContextRef.Global.CreateNamedStruct(name);
-			TypedValue @struct = new TypedValueType(new TypedTypeStruct(structValue));
-			context.Identifiers.Add(name, @struct);
-			return new Result.Ok();
+			ExternStructDeclarationContext externStructDeclaration = new();
+			externStructDeclaration.Name = structName.TokenText;
+			externStructDeclaration.LexerStartIndex = startIndex;
+			program.Types.Add(externStructDeclaration, null);
+			return true;
 		}
 		else
 		{
 			lexer.Index = startIndex;
-			return new Result.TokenRuleFailed("Expected extern struct declaration", lexer.Line, lexer.Column);
+			return false;
 		}
+	}
+}
+
+public partial class Visitor
+{
+	public void VisitExternStructDeclaration(ProgramContext program, ExternStructDeclarationContext externStructDeclaration)
+	{
+		LLVMTypeRef structValue = LLVMContextRef.Global.CreateNamedStruct(externStructDeclaration.Name);
+		TypedTypeStruct @struct = new(structValue);
+		program.Identifiers.Add(externStructDeclaration.Name, new TypedValueType(@struct));
+		program.Types[externStructDeclaration] = @struct;
 	}
 }

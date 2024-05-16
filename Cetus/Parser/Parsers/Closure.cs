@@ -1,48 +1,65 @@
-﻿using Cetus.Parser.Contexts;
-using Cetus.Parser.Tokens;
+﻿using Cetus.Parser.Tokens;
 using Cetus.Parser.Types;
 using Cetus.Parser.Values;
 using LLVMSharp.Interop;
 
 namespace Cetus.Parser;
 
+public class ClosureContext : IValueContext, IHasIdentifiers
+{
+	public List<IFunctionStatementContext> Statements;
+	public ProgramContext Program { get; set; }
+	public Dictionary<string, TypedValue> Identifiers { get; set; }
+}
+
 public partial class Parser
 {
-	public Result ParseClosure(FunctionContext context, TypedType? typeHint, out TypedValue? closure)
+	public Result ParseClosure(IHasIdentifiers program, out ClosureContext closure)
 	{
 		int startIndex = lexer.Index;
-		if (!lexer.Eat<LeftBrace>() || typeHint is not TypedTypeClosurePointer and not TypedTypeCompilerClosure)
+		if (ParseFunctionBlock(program, out List<IFunctionStatementContext> statements) is Result.Passable functionBlockResult)
 		{
-			lexer.Index = startIndex;
-			closure = null;
-			return new Result.TokenRuleFailed("Expected closure", lexer.Line, lexer.Column);
+			closure = new ClosureContext();
+			closure.Statements = statements;
+			closure.Program = program.Program;
+			return Result.WrapPassable("Expected closure", functionBlockResult);
 		}
 		lexer.Index = startIndex;
+		closure = null;
+		return new Result.TokenRuleFailed("Expected closure", lexer.Line, lexer.Column);
+	}
+}
+
+public partial class Visitor
+{
+	public TypedValue VisitClosure(IHasIdentifiers program, ClosureContext closure, TypedType? typeHint)
+	{
+		if (typeHint is not TypedTypeClosurePointer and not TypedTypeCompilerClosure)
+			throw new Exception("Expected closure");
 		
 		if (typeHint is TypedTypeCompilerClosure compilerClosureType)
 		{
 			LLVMBasicBlockRef originalBlock = builder.InsertBlock;
 			LLVMBasicBlockRef block = originalBlock.Parent.AppendBasicBlock("closureBlock");
 			TypedValueCompilerClosure compilerClosure = new(compilerClosureType, block);
-			closure = compilerClosure;
 			builder.PositionAtEnd(block);
+
+			closure.Identifiers = new Dictionary<string, TypedValue>(program.Identifiers);
+			closure.Identifiers["Return"] = new TypedValueType(new TypedTypeFunctionReturnCompilerClosure(compilerClosure));
+			closure.Identifiers["ReturnVoid"] = new TypedValueType(new TypedTypeFunctionReturnVoidCompilerClosure(compilerClosure));
 			
-			FunctionContext closureContext = new(context);
-			closureContext.Identifiers["Return"] = new TypedValueType(new TypedTypeFunctionReturnCompilerClosure(compilerClosure));
-			closureContext.Identifiers["ReturnVoid"] = new TypedValueType(new TypedTypeFunctionReturnVoidCompilerClosure(compilerClosure));
-			
-			Result result = ParseFunctionBlock(closureContext);
+			VisitFunctionBlock(closure, closure.Statements);
 			
 			builder.PositionAtEnd(originalBlock);
 			
-			return Result.WrapPassable("Invalid closure", result);
+			return compilerClosure;
 		}
 		else
 		{
-			Dictionary<string, TypedValue> uniqueClosureIdentifiers = context.Identifiers.Except(context.Program.Identifiers).ToDictionary();
+			Dictionary<string, TypedValue> uniqueClosureIdentifiers = program.Identifiers.Except(program.Program.Identifiers).ToDictionary();
 			TypedTypeStruct closureEnvType = new(LLVMTypeRef.CreateStruct(uniqueClosureIdentifiers.Values.Select(type => type.Type.LLVMType).ToArray(), false));
 			
-			TypedTypeFunction functionType = (typeHint as TypedTypeClosurePointer)?.BlockType ?? new TypedTypeFunction("closure_block", ((TypedTypeCompilerClosure)typeHint).ReturnType, [new TypedTypePointer(new TypedTypeChar())], null, null);
+			TypedTypeFunction functionType = (typeHint as TypedTypeClosurePointer)?.BlockType ?? new TypedTypeFunction("closure_block", ((TypedTypeCompilerClosure)typeHint).ReturnType, [new TypedTypePointer(new TypedTypeChar())], null);
 			LLVMValueRef function = module.AddFunction("closure_block", functionType.LLVMType);
 			function.Linkage = LLVMLinkage.LLVMInternalLinkage;
 			
@@ -50,19 +67,18 @@ public partial class Parser
 			builder.PositionAtEnd(function.AppendBasicBlock("entry"));
 			
 			// Unpack the closure environment in the function
-			Result result;
-			{
-				FunctionContext closureContext = new(context.Program);
+			{ 
+				closure.Identifiers = new Dictionary<string, TypedValue>(program.Identifiers);
 				LLVMValueRef closureEnvPtr = function.GetParam(0);
 				int paramIndex = 0;
 				foreach ((string name, TypedValue value) in uniqueClosureIdentifiers)
 				{
 					LLVMValueRef elementPtr = builder.BuildStructGEP2(closureEnvType.LLVMType, closureEnvPtr, (uint)paramIndex++, name);
 					LLVMValueRef element = builder.BuildLoad2(value.Type.LLVMType, elementPtr, name);
-					closureContext.Identifiers.Add(name, new TypedValueValue(value.Type, element));
+					closure.Identifiers.Add(name, new TypedValueValue(value.Type, element));
 				}
 				
-				result = ParseFunctionBlock(closureContext);
+				VisitFunctionBlock(closure, closure.Statements);
 			}
 			
 			TypedTypeStruct closureStructType = new(LLVMTypeRef.CreateStruct([LLVMTypeRef.CreatePointer(functionType.LLVMType, 0), LLVMTypeRef.CreatePointer(LLVMTypeRef.Int8, 0)], false));
@@ -88,9 +104,7 @@ public partial class Parser
 				builder.BuildStore(closureEnvCasted, closureEnvPtr);
 			}
 			
-			closure = new TypedValueValue(closureType, closurePtr);
-			
-			return Result.WrapPassable("Invalid closure", result);
+			return new TypedValueValue(closureType, closurePtr);
 		}
 	}
 }

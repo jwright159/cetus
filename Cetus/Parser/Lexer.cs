@@ -19,6 +19,9 @@ public class Lexer(string contents)
 		if (Index == 0)
 			EatWhitespace();
 		
+		if (IsAtEnd)
+			return false;
+		
 		if (token.Eat(contents, ref Index))
 		{
 			EatWhitespace();
@@ -82,5 +85,34 @@ public class Lexer(string contents)
 		
 		EatTo<T>();
 		return true;
+	}
+	
+	public bool EatMatches<TLeft, TRight>()
+		where TLeft : IToken, new()
+		where TRight : IToken, new()
+	{
+		int startIndex = Index;
+		if (!Eat<TLeft>())
+		{
+			Index = startIndex;
+			return false;
+		}
+		
+		while (true)
+		{
+			if (IsAtEnd)
+				return false;
+			
+			if (Eat<TRight>())
+				return true;
+			
+			if (Eat<Tokens.String>() ||
+				EatMatches<LeftParenthesis, RightParenthesis>() ||
+			    EatMatches<LeftBrace, RightBrace>())
+				continue;
+			
+			Index++;
+			EatWhitespace();
+		}
 	}
 }

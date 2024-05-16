@@ -1,12 +1,11 @@
-﻿using Cetus.Parser.Contexts;
-using Cetus.Parser.Values;
+﻿using Cetus.Parser.Values;
 using LLVMSharp.Interop;
 
 namespace Cetus.Parser.Types;
 
-public class TypedTypeFunctionWhile() : TypedTypeFunction("While", Parser.VoidType, [new TypedTypeCompilerClosure(Parser.IntType), new TypedTypeCompilerClosure(Parser.VoidType)], null, null)
+public class TypedTypeFunctionWhile() : TypedTypeFunction("While", Visitor.VoidType, [new TypedTypeCompilerClosure(Visitor.IntType), new TypedTypeCompilerClosure(Visitor.VoidType)], null)
 {
-	public override TypedValue Call(LLVMBuilderRef builder, TypedValue function, FunctionContext context, params TypedValue[] args)
+	public override TypedValue Call(LLVMBuilderRef builder, TypedValue function, IHasIdentifiers context, params TypedValue[] args)
 	{
 		TypedValueCompilerClosure conditionClosure = (TypedValueCompilerClosure)args[0];
 		TypedValueCompilerClosure loopClosure = (TypedValueCompilerClosure)args[1];
@@ -23,6 +22,6 @@ public class TypedTypeFunctionWhile() : TypedTypeFunction("While", Parser.VoidTy
 		builder.BuildBr(conditionClosure.Block);
 		
 		builder.PositionAtEnd(merge);
-		return Parser.Void;
+		return Visitor.Void;
 	}
 }

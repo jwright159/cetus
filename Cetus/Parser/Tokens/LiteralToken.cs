@@ -16,8 +16,6 @@ public class LiteralToken(string token) : IToken
 	public string? TokenText { get; set; } = token;
 }
 
-public class Add() : LiteralToken("+");
-
 public class LeftBrace() : LiteralToken("{");
 
 public class RightBrace() : LiteralToken("}");
@@ -47,17 +45,3 @@ public class Ellipsis() : LiteralToken("...");
 public class Pointer() : LiteralToken("*");
 
 public class Semicolon() : LiteralToken(";");
-
-public class LessThan() : LiteralToken("<");
-
-public class GreaterThan() : LiteralToken(">");
-
-public class LessThanOrEqualTo() : LiteralToken("<=");
-
-public class GreaterThanOrEqualTo() : LiteralToken(">=");
-
-public class EqualTo() : LiteralToken("==");
-
-public class NotEqualTo() : LiteralToken("!=");
-
-public class Assign() : LiteralToken("=");

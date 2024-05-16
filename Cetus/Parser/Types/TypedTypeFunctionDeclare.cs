@@ -1,13 +1,11 @@
-﻿using Cetus.Parser.Contexts;
-using Cetus.Parser.Tokens;
-using Cetus.Parser.Values;
+﻿using Cetus.Parser.Values;
 using LLVMSharp.Interop;
 
 namespace Cetus.Parser.Types;
 
-public class TypedTypeFunctionDeclare() : TypedTypeFunction("Declare", Parser.VoidType, [Parser.TypeType, Parser.CompilerStringType, Parser.IntType], null, [new ParameterIndexToken(0), new ParameterIndexToken(1), new Assign(), new ParameterIndexToken(2)])
+public class TypedTypeFunctionDeclare() : TypedTypeFunction("Declare", Visitor.VoidType, [Visitor.TypeType, Visitor.CompilerStringType, Visitor.IntType], null)
 {
-	public override TypedValue Call(LLVMBuilderRef builder, TypedValue function, FunctionContext context, params TypedValue[] args)
+	public override TypedValue Call(LLVMBuilderRef builder, TypedValue function, IHasIdentifiers context, params TypedValue[] args)
 	{
 		TypedType type = args[0].Type;
 		string name = ((TypedValueCompilerString)args[1]).StringValue;
@@ -18,6 +16,6 @@ public class TypedTypeFunctionDeclare() : TypedTypeFunction("Declare", Parser.Vo
 		builder.BuildStore(value.Value, variable);
 		TypedValue result = new TypedValueValue(new TypedTypePointer(type), variable);
 		context.Identifiers.Add(name, result);
-		return Parser.Void;
+		return Visitor.Void;
 	}
 }

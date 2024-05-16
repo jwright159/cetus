@@ -1,20 +1,16 @@
-﻿using Cetus.Parser.Contexts;
-using Cetus.Parser.Tokens;
-using Cetus.Parser.Types;
-using Cetus.Parser.Values;
+﻿using Cetus.Parser.Tokens;
 
 namespace Cetus.Parser;
 
 public partial class Parser
 {
-	public Result ParseFunctionArguments(FunctionContext context, TypedType[] paramTypes, TypedType? varArgType, out List<TypedValue>? arguments)
+	public Result ParseFunctionArguments(IHasIdentifiers program, out List<IExpressionContext> arguments)
 	{
 		if (lexer.Eat<LeftParenthesis>())
 		{
 			List<Result> results = [];
 			arguments = [];
-			int paramIndex = 0;
-			while (ParseExpression(context, paramIndex < paramTypes.Length ? paramTypes[paramIndex++] : varArgType, out TypedValue? argument) is Result.Passable functionParameterResult)
+			while (ParseExpression(program, out IExpressionContext? argument) is Result.Passable functionParameterResult)
 			{
 				if (functionParameterResult is Result.Failure)
 					results.Add(functionParameterResult);

@@ -1,14 +1,13 @@
-﻿using Cetus.Parser.Contexts;
-using Cetus.Parser.Values;
+﻿using Cetus.Parser.Values;
 using LLVMSharp.Interop;
 
 namespace Cetus.Parser.Types;
 
-public class TypedTypeFunctionReturnVoidCompilerClosure(TypedValueCompilerClosure closure) : TypedTypeFunction("ReturnVoid", Parser.VoidType, [], null, null)
+public class TypedTypeFunctionReturnVoidCompilerClosure(TypedValueCompilerClosure closure) : TypedTypeFunction("ReturnVoid", Visitor.VoidType, [], null)
 {
-	public override TypedValue Call(LLVMBuilderRef builder, TypedValue function, FunctionContext context, params TypedValue[] args)
+	public override TypedValue Call(LLVMBuilderRef builder, TypedValue function, IHasIdentifiers context, params TypedValue[] args)
 	{
 		closure.ReturnValue = null;
-		return Parser.Void;
+		return Visitor.Void;
 	}
 }

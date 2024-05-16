@@ -2,9 +2,10 @@
 
 namespace Cetus.Parser.Types;
 
-public class TypedTypePointer(TypedType pointerType) : TypedType
+public class TypedTypePointer(TypedType baseType) : TypedType
 {
-	public LLVMTypeRef LLVMType => LLVMTypeRef.CreatePointer(pointerType.LLVMType, 0);
-	public TypedType PointerType => pointerType;
-	public override string ToString() => pointerType + "*";
+	public LLVMTypeRef LLVMType => LLVMTypeRef.CreatePointer(baseType.LLVMType, 0);
+	public TypedType BaseType => baseType;
+	public int PointerDepth => baseType.PointerDepth + 1;
+	public override string ToString() => baseType + "*";
 }
