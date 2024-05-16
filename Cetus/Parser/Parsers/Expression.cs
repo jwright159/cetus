@@ -1,5 +1,6 @@
 ﻿using Cetus.Parser.Types;
 using Cetus.Parser.Values;
+using LLVMSharp.Interop;
 
 namespace Cetus.Parser;
 
@@ -30,6 +31,20 @@ public partial class Visitor
 {
 	public TypedValue VisitExpression(IHasIdentifiers program, IExpressionContext expression, TypedType? typeHint)
 	{
+		if (typeHint is TypedTypeCompilerExpression compilerExpressionType)
+		{
+			LLVMBasicBlockRef originalBlock = builder.InsertBlock;
+			LLVMBasicBlockRef block = originalBlock.Parent.AppendBasicBlock("closureBlock");
+			TypedValueCompilerExpression compilerExpression = new(compilerExpressionType, block);
+			builder.PositionAtEnd(block);
+			
+			compilerExpression.ReturnValue = VisitExpression(program, expression, compilerExpressionType.ReturnType);
+			
+			builder.PositionAtEnd(originalBlock);
+			
+			return compilerExpression;
+		}
+		
 		if (expression is FunctionCallContext functionCall)
 			return VisitFunctionCall(program, functionCall);
 		if (expression is IValueContext value)

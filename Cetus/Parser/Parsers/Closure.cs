@@ -1,5 +1,4 @@
-﻿using Cetus.Parser.Tokens;
-using Cetus.Parser.Types;
+﻿using Cetus.Parser.Types;
 using Cetus.Parser.Values;
 using LLVMSharp.Interop;
 
@@ -43,10 +42,8 @@ public partial class Visitor
 			LLVMBasicBlockRef block = originalBlock.Parent.AppendBasicBlock("closureBlock");
 			TypedValueCompilerClosure compilerClosure = new(compilerClosureType, block);
 			builder.PositionAtEnd(block);
-
+			
 			closure.Identifiers = new Dictionary<string, TypedValue>(program.Identifiers);
-			closure.Identifiers["Return"] = new TypedValueType(new TypedTypeFunctionReturnCompilerClosure(compilerClosure));
-			closure.Identifiers["ReturnVoid"] = new TypedValueType(new TypedTypeFunctionReturnVoidCompilerClosure(compilerClosure));
 			
 			VisitFunctionBlock(closure, closure.Statements);
 			
