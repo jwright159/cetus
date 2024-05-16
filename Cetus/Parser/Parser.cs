@@ -45,9 +45,9 @@ public partial class Parser(Lexer lexer)
 		{
 			{ new CompilerFunctionContext(Visitor.AssignFunctionType, [new ParameterIndexToken(0), new LiteralToken("="), new ParameterIndexToken(1)]), new TypedValueType(Visitor.AssignFunctionType) },
 			{ new CompilerFunctionContext(Visitor.DeclareFunctionType, [new ParameterIndexToken(0), new ParameterIndexToken(1), new LiteralToken("="), new ParameterIndexToken(2)]), new TypedValueType(Visitor.DeclareFunctionType) },
-			{ new CompilerFunctionContext(Visitor.WhileFunctionType, [new LiteralToken("while"), new LiteralToken("("), new ParameterIndexToken(0), new LiteralToken(")"), new ParameterIndexToken(1)]), new TypedValueType(Visitor.WhileFunctionType) },
-			{ new CompilerFunctionContext(Visitor.ReturnFunctionType, [new LiteralToken("return"), new ParameterIndexToken(0)]), new TypedValueType(Visitor.ReturnFunctionType) },
-			{ new CompilerFunctionContext(Visitor.ReturnVoidFunctionType, [new LiteralToken("return")]), new TypedValueType(Visitor.ReturnVoidFunctionType) },
+			{ new CompilerFunctionContext(Visitor.WhileFunctionType, [new LiteralToken("While"), new LiteralToken("("), new ParameterIndexToken(0), new LiteralToken(")"), new ParameterIndexToken(1)]), new TypedValueType(Visitor.WhileFunctionType) },
+			{ new CompilerFunctionContext(Visitor.ReturnFunctionType, [new LiteralToken("Return"), new ParameterIndexToken(0)]), new TypedValueType(Visitor.ReturnFunctionType) },
+			{ new CompilerFunctionContext(Visitor.ReturnVoidFunctionType, [new LiteralToken("Return")]), new TypedValueType(Visitor.ReturnVoidFunctionType) },
 			{ new CompilerFunctionContext(Visitor.LessThanFunctionType, [new ParameterIndexToken(0), new LiteralToken("<"), new ParameterIndexToken(1)]), new TypedValueType(Visitor.LessThanFunctionType) },
 			{ new CompilerFunctionContext(Visitor.AddFunctionType, [new ParameterIndexToken(0), new LiteralToken("+"), new ParameterIndexToken(1)]), new TypedValueType(Visitor.AddFunctionType) },
 		};

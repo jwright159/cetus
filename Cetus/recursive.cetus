@@ -5,12 +5,12 @@ Void main()
     Int "a" = 3;
     printf("Starting at %i\n", a);
     
-    while (a < 6)
+    While (a < 6)
     {
         a = a + 1;
         printf("Loop %i\n", a);
     };
     
     printf("Ending at %i\n", a);
-    return;
+    Return;
 }
