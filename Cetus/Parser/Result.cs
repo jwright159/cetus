@@ -33,14 +33,26 @@ public interface Result
 	/// Represents a partially failed value. These values are typically followed through to a final token, returning a
 	/// partial and potentially usable value.
 	/// </summary>
-	public class ComplexRuleFailed(string message, params Result?[] results) : Passable, Failure
+	public class ComplexRuleFailed : Passable, Failure
 	{
+		private readonly string message;
+		private readonly Result?[] results;
+		
+		public ComplexRuleFailed(string message, params Result?[] results)
+		{
+			this.message = message;
+			this.results = results;
+			
+			if (this.results.Length == 0)
+				throw new ArgumentException("ComplexRuleFailed must have at least one result", nameof(results));
+		}
+		
 		public override string ToString() => $"ComplexRule failed: {message}\n\t{string.Join("\n", results.Where(result => result is Failure).Select(result => result!.ToString()!.Replace("\n", "\n\t")))}";
 	}
 	
 	public static Result WrapPassable(string message, params Result?[] results)
 	{
-		return results.FirstOrDefault(result => result is TokenRuleFailed) ?? (results.All(result => result is Ok) ? new Ok() : new ComplexRuleFailed(message, results.Where(result => result is Failure).ToArray()));
+		return results.All(result => result is null or Ok) ? new Ok() : new ComplexRuleFailed(message, results.Where(result => result is Failure).ToArray());
 	}
 	
 	public static ComplexRuleFailed ComplexTokenRuleFailed(string message, int line, int column)

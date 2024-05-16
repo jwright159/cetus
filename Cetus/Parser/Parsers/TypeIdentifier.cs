@@ -26,8 +26,8 @@ public partial class Parser
 			{
 				results.Add(ParseTypeIdentifier(out TypeIdentifierContext innerType));
 				type.InnerType = innerType;
-				if (lexer.SkipTo<RightTriangle>())
-					results.Add(new Result.TokenRuleFailed("Expected '>'", lexer.Line, lexer.Column));
+				if (lexer.SkipTo<RightTriangle>(out int line, out int column))
+					results.Add(new Result.TokenRuleFailed("Expected '>'", line, column));
 			}
 			
 			while (lexer.Eat<Pointer>())

@@ -15,7 +15,7 @@ public partial class Parser
 			{
 				statements.Add(statement);
 				if (functionStatementResult is Result.Failure)
-					results.Add(new Result.ComplexRuleFailed("Invalid function statement", functionStatementResult));
+					results.Add(functionStatementResult);
 			}
 			
 			if (!lexer.Eat<RightBrace>())

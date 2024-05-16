@@ -95,8 +95,11 @@ public class Lexer(string contents)
 	}
 	
 	/// <returns>True if any tokens were skipped</returns>
-	public bool SkipTo<T>() where T : IToken, new()
+	public bool SkipTo<T>(out int originalLine, out int originalColumn) where T : IToken, new()
 	{
+		originalLine = Line;
+		originalColumn = Column;
+		
 		if (Eat<T>())
 			return false;
 		

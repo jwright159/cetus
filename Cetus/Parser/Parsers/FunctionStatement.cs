@@ -9,17 +9,21 @@ public partial class Parser
 	public Result ParseFunctionStatement(IHasIdentifiers program, out IFunctionStatementContext statement)
 	{
 		int startIndex = lexer.Index;
-		if (ParseFunctionCall(program, out FunctionCallContext functionCall) is Result.Passable functionCallResult &&
-		    lexer.Eat<Semicolon>())
+		if (ParseFunctionCall(program, out FunctionCallContext functionCall) is Result.Passable functionCallResult)
 		{
 			statement = functionCall;
-			return Result.WrapPassable("Invalid function statement", functionCallResult);
+			
+			Result? semicolonResult = null;
+			if (lexer.SkipTo<Semicolon>(out int line, out int column))
+				semicolonResult = new Result.TokenRuleFailed("Expected ';'", line, column);
+			
+			return Result.WrapPassable("Invalid function statement", functionCallResult, semicolonResult);
 		}
 		else
 		{
 			lexer.Index = startIndex;
 			statement = null;
-			return new Result.TokenRuleFailed("Expected functionStatement", lexer.Line, lexer.Column);
+			return new Result.TokenRuleFailed("Expected function statement", lexer.Line, lexer.Column);
 		}
 	}
 }
