@@ -26,7 +26,6 @@ public partial class Parser
 			lexer.Eat<Struct>() &&
 			lexer.Eat(out Word? structName))
 		{
-			lexer.Eat<Semicolon>();
 			ExternStructDeclarationContext externStructDeclaration = new();
 			externStructDeclaration.Name = structName.TokenText;
 			externStructDeclaration.LexerStartIndex = startIndex;

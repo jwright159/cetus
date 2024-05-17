@@ -1,14 +1,22 @@
-﻿namespace Cetus.Parser;
+﻿using Cetus.Parser.Tokens;
+
+namespace Cetus.Parser;
 
 public partial class Parser
 {
 	public bool ParseProgramStatementFirstPass(ProgramContext program)
 	{
-		return ParseIncludeLibrary(program) ||
-		       ParseFunctionDefinitionFirstPass(program) ||
-		       ParseExternFunctionDeclarationFirstPass(program) ||
-		       ParseExternStructDeclarationFirstPass(program) ||
-		       ParseDelegateDeclarationFirstPass(program);
+		if (ParseIncludeLibrary(program) ||
+		    ParseFunctionDefinitionFirstPass(program) ||
+		    ParseExternFunctionDeclarationFirstPass(program) ||
+		    ParseExternStructDeclarationFirstPass(program) ||
+		    ParseDelegateDeclarationFirstPass(program))
+		{
+			lexer.Eat<Semicolon>();
+			return true;
+		}
+		else
+			return false;
 	}
 	
 	public Result ParseTypeStatementDeclaration(ProgramContext program, ITypeContext type)

@@ -25,7 +25,6 @@ public partial class Parser
 		    lexer.Eat(out Word? functionName) &&
 		    lexer.EatMatches<LeftParenthesis, RightParenthesis>())
 		{
-			lexer.Eat<Semicolon>();
 			ExternFunctionDeclarationContext externFunctionDeclaration = new();
 			externFunctionDeclaration.Name = functionName.TokenText;
 			externFunctionDeclaration.LexerStartIndex = startIndex;

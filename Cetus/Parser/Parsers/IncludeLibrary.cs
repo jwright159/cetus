@@ -10,7 +10,6 @@ public partial class Parser
 		if (lexer.Eat<Include>() &&
 		    lexer.Eat(out Word? libraryName))
 		{
-			lexer.Eat<Semicolon>();
 			program.Libraries.Add(libraryName.TokenText);
 			return true;
 		}
