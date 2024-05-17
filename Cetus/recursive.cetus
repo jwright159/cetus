@@ -8,7 +8,7 @@ struct Foo
 
 Void main()
 {
-    Declare(Foo, "foo")
+    Foo foo = New
     foo.a = 2
     printf("Starting at %i\n", foo.a)
     

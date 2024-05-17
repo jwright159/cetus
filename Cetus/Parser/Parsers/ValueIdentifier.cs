@@ -33,6 +33,9 @@ public partial class Visitor
 	{
 		string name = valueIdentifier.Name;
 		
+		if (typeHint is TypedTypeCompilerString)
+			return new TypedValueCompilerString(name);
+		
 		if (!program.Identifiers.TryGetValue(name, out TypedValue? value))
 			throw new Exception($"Identifier '{name}' not found");
 		

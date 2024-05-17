@@ -45,6 +45,7 @@ public partial class Parser(Lexer lexer)
 		program.Functions = new Dictionary<IFunctionContext, TypedValue?>
 		{
 			{ new CompilerFunctionContext(Visitor.AssignFunctionType, [new ParameterExpressionToken(0), new LiteralToken("="), new ParameterExpressionToken(1)]), new TypedValueType(Visitor.AssignFunctionType) },
+			{ new CompilerFunctionContext(Visitor.DeclareFunctionType, [new ParameterValueToken(0), new ParameterValueToken(1), new LiteralToken("="), new LiteralToken("New")]), new TypedValueType(Visitor.DeclareFunctionType) },
 			{ new CompilerFunctionContext(Visitor.DefineFunctionType, [new ParameterValueToken(0), new ParameterValueToken(1), new LiteralToken("="), new ParameterExpressionToken(2)]), new TypedValueType(Visitor.DefineFunctionType) },
 			{ new CompilerFunctionContext(Visitor.WhileFunctionType, [new LiteralToken("While"), new LiteralToken("("), new ParameterExpressionToken(0), new LiteralToken(")"), new ParameterExpressionToken(1)]), new TypedValueType(Visitor.WhileFunctionType) },
 			{ new CompilerFunctionContext(Visitor.ReturnFunctionType, [new LiteralToken("Return"), new ParameterExpressionToken(0)]), new TypedValueType(Visitor.ReturnFunctionType) },
