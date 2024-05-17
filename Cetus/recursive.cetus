@@ -2,7 +2,7 @@
 
 Void main()
 {
-    Int "a" = 3;
+    Int a = 3;
     printf("Starting at %i\n", a);
     
     While (a < 6)
