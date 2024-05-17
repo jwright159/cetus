@@ -11,13 +11,9 @@ public partial class Parser
 		int startIndex = lexer.Index;
 		if (ParseFunctionCall(program, out FunctionCallContext functionCall) is Result.Passable functionCallResult)
 		{
+			lexer.Eat<Semicolon>();
 			statement = functionCall;
-			
-			Result? semicolonResult = null;
-			if (lexer.SkipTo<Semicolon>(out int line, out int column))
-				semicolonResult = new Result.TokenRuleFailed("Expected ';'", line, column);
-			
-			return Result.WrapPassable("Invalid function statement", functionCallResult, semicolonResult);
+			return Result.WrapPassable("Invalid function statement", functionCallResult);
 		}
 		else
 		{

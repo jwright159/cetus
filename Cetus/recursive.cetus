@@ -1,16 +1,16 @@
-﻿extern Void printf(String format, Int... values);
+﻿extern Void printf(String format, Int... values)
 
 Void main()
 {
-    Int a = 3;
-    printf("Starting at %i\n", a);
+    Int a = 3
+    printf("Starting at %i\n", a)
     
     While (a < 6)
     {
-        a = a + 1;
-        printf("Loop %i\n", a);
-    };
+        a = a + 1
+        printf("Loop %i\n", a)
+    }
     
-    printf("Ending at %i\n", a);
-    Return;
+    printf("Ending at %i\n", a)
+    Return
 }

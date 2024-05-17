@@ -23,9 +23,9 @@ public partial class Parser
 		if (lexer.Eat<Extern>() &&
 			lexer.Eat<Word>() &&
 		    lexer.Eat(out Word? functionName) &&
-		    lexer.EatMatches<LeftParenthesis, RightParenthesis>() &&
-		    lexer.Eat<Semicolon>())
+		    lexer.EatMatches<LeftParenthesis, RightParenthesis>())
 		{
+			lexer.Eat<Semicolon>();
 			ExternFunctionDeclarationContext externFunctionDeclaration = new();
 			externFunctionDeclaration.Name = functionName.TokenText;
 			externFunctionDeclaration.LexerStartIndex = startIndex;
@@ -46,8 +46,7 @@ public partial class Parser
 			lexer.Eat<Extern>() &&
 			ParseTypeIdentifier(out TypeIdentifierContext returnType) is Result.Passable typeIdentifierResult &&
 			lexer.Eat<Word>() &&
-			ParseFunctionParameters(out FunctionParametersContext parameters) is Result.Passable functionParametersResult &&
-			lexer.Eat<Semicolon>())
+			ParseFunctionParameters(out FunctionParametersContext parameters) is Result.Passable functionParametersResult)
 		{
 			externFunctionDeclaration.ReturnType = returnType;
 			externFunctionDeclaration.ParameterContexts = parameters;
