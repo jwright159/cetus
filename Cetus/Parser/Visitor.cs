@@ -27,6 +27,7 @@ public partial class Visitor
 	public static readonly TypedValue FalseValue = new TypedValueValue(BoolType, LLVMValueRef.CreateConstInt(LLVMTypeRef.Int1, 0, false));
 	
 	public static readonly TypedTypeFunction DeclareFunctionType = new TypedTypeFunctionDeclare();
+	public static readonly TypedTypeFunction DefineFunctionType = new TypedTypeFunctionDefine();
 	public static readonly TypedTypeFunction AssignFunctionType = new TypedTypeFunctionAssign();
 	public static readonly TypedTypeFunction ReturnFunctionType = new TypedTypeFunctionReturn();
 	public static readonly TypedTypeFunction ReturnVoidFunctionType = new TypedTypeFunctionReturnVoid();
@@ -66,6 +67,7 @@ public partial class Visitor
 			{ "False", FalseValue },
 			
 			{ "Declare", new TypedValueType(DeclareFunctionType) },
+			{ "Define", new TypedValueType(DefineFunctionType) },
 			{ "Assign", new TypedValueType(AssignFunctionType) },
 			{ "Return", new TypedValueType(ReturnFunctionType) },
 			{ "ReturnVoid", new TypedValueType(ReturnVoidFunctionType) },

@@ -24,7 +24,7 @@ public partial class Parser
 		    lexer.Eat(out Word? name))
 		{
 			parameter = new FunctionParameterContext(type, name.TokenText);
-			return Result.WrapPassable("Invalid function parameter", typeResult);
+			return Result.WrapPassable($"Invalid function parameter for '{name.TokenText}'", typeResult);
 		}
 		else
 		{

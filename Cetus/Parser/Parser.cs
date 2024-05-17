@@ -4,9 +4,10 @@ using Cetus.Parser.Values;
 
 namespace Cetus.Parser;
 
-public class CompilerTypeContext(string name) : ITypeContext
+public class CompilerTypeContext(string name, TypedType type) : ITypeContext
 {
-	public string Name => name;
+	public string Name => type.ToString();
+	public TypedType Type => type;
 }
 
 public class CompilerFunctionContext(TypedTypeFunction function, IToken[]? pattern) : IFunctionContext
@@ -29,27 +30,27 @@ public partial class Parser(Lexer lexer)
 	public ProgramContext Parse()
 	{
 		ProgramContext program = new();
-		program.Types = new Dictionary<ITypeContext, TypedType?>
-		{
-			{ new CompilerTypeContext("Void"), Visitor.VoidType },
-			{ new CompilerTypeContext("Float"), Visitor.FloatType },
-			{ new CompilerTypeContext("Double"), Visitor.DoubleType },
-			{ new CompilerTypeContext("Char"), Visitor.CharType },
-			{ new CompilerTypeContext("Int"), Visitor.IntType },
-			{ new CompilerTypeContext("String"), Visitor.StringType },
-			{ new CompilerTypeContext("CompilerString"), Visitor.CompilerStringType },
-			{ new CompilerTypeContext("Bool"), Visitor.BoolType },
-			{ new CompilerTypeContext("Type"), Visitor.TypeType },
-		};
+		program.Types =
+		[
+			new CompilerTypeContext("Void", Visitor.VoidType),
+			new CompilerTypeContext("Float", Visitor.FloatType),
+			new CompilerTypeContext("Double", Visitor.DoubleType),
+			new CompilerTypeContext("Char", Visitor.CharType),
+			new CompilerTypeContext("Int", Visitor.IntType),
+			new CompilerTypeContext("String", Visitor.StringType),
+			new CompilerTypeContext("CompilerString", Visitor.CompilerStringType),
+			new CompilerTypeContext("Bool", Visitor.BoolType),
+			new CompilerTypeContext("Type", Visitor.TypeType)
+		];
 		program.Functions = new Dictionary<IFunctionContext, TypedValue?>
 		{
-			{ new CompilerFunctionContext(Visitor.AssignFunctionType, [new ParameterIndexToken(0), new LiteralToken("="), new ParameterIndexToken(1)]), new TypedValueType(Visitor.AssignFunctionType) },
-			{ new CompilerFunctionContext(Visitor.DeclareFunctionType, [new ParameterIndexToken(0), new ParameterIndexToken(1), new LiteralToken("="), new ParameterIndexToken(2)]), new TypedValueType(Visitor.DeclareFunctionType) },
-			{ new CompilerFunctionContext(Visitor.WhileFunctionType, [new LiteralToken("While"), new LiteralToken("("), new ParameterIndexToken(0), new LiteralToken(")"), new ParameterIndexToken(1)]), new TypedValueType(Visitor.WhileFunctionType) },
-			{ new CompilerFunctionContext(Visitor.ReturnFunctionType, [new LiteralToken("Return"), new ParameterIndexToken(0)]), new TypedValueType(Visitor.ReturnFunctionType) },
+			{ new CompilerFunctionContext(Visitor.AssignFunctionType, [new ParameterExpressionToken(0), new LiteralToken("="), new ParameterExpressionToken(1)]), new TypedValueType(Visitor.AssignFunctionType) },
+			{ new CompilerFunctionContext(Visitor.DefineFunctionType, [new ParameterValueToken(0), new ParameterValueToken(1), new LiteralToken("="), new ParameterExpressionToken(2)]), new TypedValueType(Visitor.DefineFunctionType) },
+			{ new CompilerFunctionContext(Visitor.WhileFunctionType, [new LiteralToken("While"), new LiteralToken("("), new ParameterExpressionToken(0), new LiteralToken(")"), new ParameterExpressionToken(1)]), new TypedValueType(Visitor.WhileFunctionType) },
+			{ new CompilerFunctionContext(Visitor.ReturnFunctionType, [new LiteralToken("Return"), new ParameterExpressionToken(0)]), new TypedValueType(Visitor.ReturnFunctionType) },
 			{ new CompilerFunctionContext(Visitor.ReturnVoidFunctionType, [new LiteralToken("Return")]), new TypedValueType(Visitor.ReturnVoidFunctionType) },
-			{ new CompilerFunctionContext(Visitor.LessThanFunctionType, [new ParameterIndexToken(0), new LiteralToken("<"), new ParameterIndexToken(1)]), new TypedValueType(Visitor.LessThanFunctionType) },
-			{ new CompilerFunctionContext(Visitor.AddFunctionType, [new ParameterIndexToken(0), new LiteralToken("+"), new ParameterIndexToken(1)]), new TypedValueType(Visitor.AddFunctionType) },
+			{ new CompilerFunctionContext(Visitor.LessThanFunctionType, [new ParameterExpressionToken(0), new LiteralToken("<"), new ParameterExpressionToken(1)]), new TypedValueType(Visitor.LessThanFunctionType) },
+			{ new CompilerFunctionContext(Visitor.AddFunctionType, [new ParameterExpressionToken(0), new LiteralToken("+"), new ParameterExpressionToken(1)]), new TypedValueType(Visitor.AddFunctionType) },
 		};
 		
 		Console.WriteLine("Parsing...");

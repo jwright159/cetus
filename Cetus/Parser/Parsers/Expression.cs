@@ -46,7 +46,7 @@ public partial class Visitor
 		}
 		
 		if (expression is FunctionCallContext functionCall)
-			return VisitFunctionCall(program, functionCall);
+			return VisitFunctionCall(program, functionCall, typeHint);
 		if (expression is IValueContext value)
 			return VisitValue(program, value, typeHint);
 		throw new Exception("Unknown expression type {expression}");

@@ -4,19 +4,20 @@ namespace Cetus.Parser;
 
 public partial class Parser
 {
-	public bool ParseProgramStatementFirstPass(ProgramContext program)
+	public Result ParseProgramStatementFirstPass(ProgramContext program)
 	{
 		if (ParseIncludeLibrary(program) ||
 		    ParseFunctionDefinitionFirstPass(program) ||
 		    ParseExternFunctionDeclarationFirstPass(program) ||
 		    ParseExternStructDeclarationFirstPass(program) ||
-		    ParseDelegateDeclarationFirstPass(program))
+		    ParseDelegateDeclarationFirstPass(program) ||
+		    ParseStructDefinitionFirstPass(program))
 		{
 			lexer.Eat<Semicolon>();
-			return true;
+			return new Result.Ok();
 		}
 		else
-			return false;
+			return new Result.TokenRuleFailed("Expected program statement", lexer.Line, lexer.Column);
 	}
 	
 	public Result ParseTypeStatementDeclaration(ProgramContext program, ITypeContext type)
@@ -25,6 +26,8 @@ public partial class Parser
 			return new Result.Ok();
 		if (type is ExternStructDeclarationContext)
 			return new Result.Ok();
+		if (type is StructDefinitionContext)
+			return new Result.Ok();
 		throw new Exception($"Unknown statement type {type}");
 	}
 	
@@ -32,8 +35,10 @@ public partial class Parser
 	{
 		if (type is CompilerTypeContext)
 			return new Result.Ok();
-		if (type is ExternStructDeclarationContext)
-			return new Result.Ok();
+		if (type is ExternStructDeclarationContext externStructDeclaration)
+			return ParseExternStructDefinition(externStructDeclaration);
+		if (type is StructDefinitionContext structDefinition)
+			return ParseStructDefinition(program, structDefinition);
 		throw new Exception($"Unknown statement type {type}");
 	}
 	
@@ -74,6 +79,9 @@ public partial class Visitor
 				break;
 			case ExternStructDeclarationContext externStructDeclaration:
 				VisitExternStructDeclaration(program, externStructDeclaration);
+				break;
+			case StructDefinitionContext structDefinition:
+				VisitStructDefinition(program, structDefinition);
 				break;
 			default:
 				throw new Exception($"Unknown statement type {type}");

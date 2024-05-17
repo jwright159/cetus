@@ -29,7 +29,7 @@ public partial class Visitor
 	public void VisitFunctionStatement(IHasIdentifiers program, IFunctionStatementContext statement)
 	{
 		if (statement is FunctionCallContext functionCall)
-			VisitFunctionCall(program, functionCall);
+			VisitFunctionCall(program, functionCall, null);
 		else
 			throw new Exception($"Unknown function statement type {statement}");
 	}

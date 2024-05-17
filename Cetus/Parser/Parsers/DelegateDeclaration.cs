@@ -48,11 +48,11 @@ public partial class Parser
 		{
 			delegateDeclaration.ReturnType = returnType;
 			delegateDeclaration.ParameterContexts = parameters;
-			return Result.WrapPassable("Invalid delegate declaration", typeIdentifierResult, functionParametersResult);
+			return Result.WrapPassable($"Invalid delegate declaration for '{delegateDeclaration.Name}'", typeIdentifierResult, functionParametersResult);
 		}
 		else
 		{
-			return new Result.TokenRuleFailed("Expected delegate declaration", lexer.Line, lexer.Column);
+			return new Result.TokenRuleFailed($"Expected delegate declaration for '{delegateDeclaration.Name}'", lexer.Line, lexer.Column);
 		}
 	}
 }
@@ -64,7 +64,7 @@ public partial class Visitor
 		string name = delegateDeclaration.Name;
 		TypedType returnType = VisitTypeIdentifier(program, delegateDeclaration.ReturnType);
 		FunctionParameters parameters = delegateDeclaration.Parameters = VisitFunctionParameters(program, delegateDeclaration.ParameterContexts);
-		TypedTypeFunction functionType = new(name, returnType, parameters.ParamTypes.ToArray(), parameters.VarArg.Type);
+		TypedTypeFunctionCall functionType = new(name, returnType, parameters.ParamTypes.ToArray(), parameters.VarArg.Type);
 		TypedValue function = new TypedValueType(functionType);
 		program.Identifiers.Add(name, function);
 		program.Functions[delegateDeclaration] = function;

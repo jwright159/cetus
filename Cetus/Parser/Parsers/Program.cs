@@ -1,5 +1,4 @@
-﻿using Cetus.Parser.Types;
-using Cetus.Parser.Values;
+﻿using Cetus.Parser.Values;
 
 namespace Cetus.Parser;
 
@@ -13,7 +12,7 @@ public class ProgramContext : IHasIdentifiers
 {
 	public ProgramContext Program => this;
 	public Dictionary<IFunctionContext, TypedValue?> Functions;
-	public Dictionary<ITypeContext, TypedType?> Types;
+	public List<ITypeContext> Types;
 	public Dictionary<string, TypedValue> Identifiers { get; set; }
 	public List<string> Libraries = [];
 }
@@ -24,18 +23,25 @@ public partial class Parser
 	{
 		List<Result> results = [];
 		
-		while (ParseProgramStatementFirstPass(program)) { }
+		while (true)
+		{
+			Result result = ParseProgramStatementFirstPass(program);
+			if (result is Result.ComplexRuleFailed)
+				results.Add(result);
+			if (result is Result.TokenRuleFailed)
+				break;
+		}
 		
 		if (!lexer.IsAtEnd)
 			return new Result.TokenRuleFailed("Expected program statement", lexer.Line, lexer.Column);
 		
 		Console.WriteLine("Parsing type declarations...");
-		foreach (ITypeContext type in program.Types.Keys)
+		foreach (ITypeContext type in program.Types)
 			if (ParseTypeStatementDeclaration(program, type) is Result.Failure result)
 				results.Add(result);
 		
 		Console.WriteLine("Parsing type definitions...");
-		foreach (ITypeContext type in program.Types.Keys)
+		foreach (ITypeContext type in program.Types)
 			if (ParseTypeStatementDefinition(program, type) is Result.Failure result)
 				results.Add(result);
 		
@@ -57,7 +63,7 @@ public partial class Visitor
 {
 	public void VisitProgram(ProgramContext program)
 	{
-		foreach (ITypeContext type in program.Types.Keys)
+		foreach (ITypeContext type in program.Types)
 			VisitTypeStatement(program, type);
 		
 		foreach (IFunctionContext function in program.Functions.Keys)

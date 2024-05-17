@@ -33,20 +33,11 @@ public partial class Visitor
 	{
 		string name = valueIdentifier.Name;
 		
-		if (typeHint is TypedTypeCompilerString)
-			return new TypedValueCompilerString(name);
-		
 		if (!program.Identifiers.TryGetValue(name, out TypedValue? value))
 			throw new Exception($"Identifier '{name}' not found");
 		
-		if (typeHint is not null and not TypedTypePointer && value.Type is TypedTypePointer resultTypePointer)
-		{
-			LLVMValueRef valueValue = builder.BuildLoad2(resultTypePointer.BaseType.LLVMType, value.Value, "loadtmp");
-			value = new TypedValueValue(resultTypePointer.BaseType, valueValue);
-		}
-		
-		if (typeHint is not null && !value.IsOfType(typeHint))
-			throw new Exception($"Type mismatch in value of '{name}', expected {typeHint} but got {value.Type}");
+		if (typeHint is not null)
+			value = value.CoersePointer(typeHint, builder, name);
 		
 		return value;
 	}

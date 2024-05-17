@@ -49,11 +49,11 @@ public partial class Parser
 		{
 			externFunctionDeclaration.ReturnType = returnType;
 			externFunctionDeclaration.ParameterContexts = parameters;
-			return Result.WrapPassable("Invalid extern function declaration", typeIdentifierResult, functionParametersResult);
+			return Result.WrapPassable($"Invalid extern function declaration for '{externFunctionDeclaration.Name}'", typeIdentifierResult, functionParametersResult);
 		}
 		else
 		{
-			return new Result.TokenRuleFailed("Expected extern function declaration", lexer.Line, lexer.Column);
+			return new Result.TokenRuleFailed($"Expected extern function declaration for '{externFunctionDeclaration.Name}'", lexer.Line, lexer.Column);
 		}
 	}
 }
@@ -65,7 +65,7 @@ public partial class Visitor
 		string name = externFunctionDeclaration.Name;
 		TypedType returnType = VisitTypeIdentifier(program, externFunctionDeclaration.ReturnType);
 		FunctionParameters parameters = externFunctionDeclaration.Parameters = VisitFunctionParameters(program, externFunctionDeclaration.ParameterContexts);
-		TypedTypeFunction functionType = new(name, returnType, parameters.ParamTypes.ToArray(), parameters.VarArg.Type);
+		TypedTypeFunctionCall functionType = new(name, returnType, parameters.ParamTypes.ToArray(), parameters.VarArg.Type);
 		LLVMValueRef functionValue = module.AddFunction(name, functionType.LLVMType);
 		TypedValue function = new TypedValueValue(functionType, functionValue);
 		program.Identifiers.Add(name, function);

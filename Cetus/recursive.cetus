@@ -1,16 +1,23 @@
 ﻿extern Void printf(String format, Int... values)
 
+struct Foo
+{
+    Int a
+    Int b
+}
+
 Void main()
 {
-    Int a = 3
-    printf("Starting at %i\n", a)
+    Declare(Foo, "foo")
+    foo.a = 2
+    printf("Starting at %i\n", foo.a)
     
-    While (a < 6)
+    While (foo.a < 6)
     {
-        a = a + 1
-        printf("Loop %i\n", a)
+        foo.a = foo.a + 1
+        printf("Loop %i\n", foo.a)
     }
     
-    printf("Ending at %i\n", a)
+    printf("Ending at %i\n", foo.a)
     Return
 }

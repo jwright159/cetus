@@ -5,14 +5,10 @@ using LLVMSharp.Interop;
 
 namespace Cetus.Parser;
 
-public interface ITypeContext
-{
-	public string Name { get; }
-}
-
 public class ExternStructDeclarationContext : ITypeContext
 {
 	public string Name { get; set; }
+	public TypedType Type { get; set; }
 	public int LexerStartIndex { get; set; }
 }
 
@@ -29,7 +25,7 @@ public partial class Parser
 			ExternStructDeclarationContext externStructDeclaration = new();
 			externStructDeclaration.Name = structName.TokenText;
 			externStructDeclaration.LexerStartIndex = startIndex;
-			program.Types.Add(externStructDeclaration, null);
+			program.Types.Add(externStructDeclaration);
 			return true;
 		}
 		else
@@ -38,15 +34,20 @@ public partial class Parser
 			return false;
 		}
 	}
+	
+	public Result ParseExternStructDefinition(ExternStructDeclarationContext externStructDeclaration)
+	{
+		LLVMTypeRef structValue = LLVMContextRef.Global.CreateNamedStruct(externStructDeclaration.Name);
+		TypedTypeStruct @struct = new(structValue);
+		externStructDeclaration.Type = @struct;
+		return new Result.Ok();
+	}
 }
 
 public partial class Visitor
 {
 	public void VisitExternStructDeclaration(ProgramContext program, ExternStructDeclarationContext externStructDeclaration)
 	{
-		LLVMTypeRef structValue = LLVMContextRef.Global.CreateNamedStruct(externStructDeclaration.Name);
-		TypedTypeStruct @struct = new(structValue);
-		program.Identifiers.Add(externStructDeclaration.Name, new TypedValueType(@struct));
-		program.Types[externStructDeclaration] = @struct;
+		program.Identifiers.Add(externStructDeclaration.Name, new TypedValueType(externStructDeclaration.Type));
 	}
 }

@@ -51,18 +51,18 @@ public partial class Parser
 	{
 		lexer.Index = functionDefinition.LexerStartIndex;
 		if (
-			ParseTypeIdentifier(out TypeIdentifierContext? returnType) is Result.Passable typeIdentifierResult &&
+			ParseTypeIdentifier(out TypeIdentifierContext returnType) is Result.Passable typeIdentifierResult &&
 			lexer.Eat<Word>() &&
-			ParseFunctionParameters(out FunctionParametersContext? parameters) is Result.Passable functionParametersResult)
+			ParseFunctionParameters(out FunctionParametersContext parameters) is Result.Passable functionParametersResult)
 		{
 			functionDefinition.ReturnType = returnType;
 			functionDefinition.ParameterContexts = parameters;
 			functionDefinition.Program = program;
-			return Result.WrapPassable("Invalid extern function declaration", typeIdentifierResult, functionParametersResult);
+			return Result.WrapPassable($"Invalid function declaration for '{functionDefinition.Name}'", typeIdentifierResult, functionParametersResult);
 		}
 		else
 		{
-			return new Result.TokenRuleFailed("Expected extern function declaration", lexer.Line, lexer.Column);
+			return new Result.TokenRuleFailed($"Expected function declaration for '{functionDefinition.Name}'", lexer.Line, lexer.Column);
 		}
 	}
 	
@@ -76,11 +76,11 @@ public partial class Parser
 			ParseFunctionBlock(program, out List<IFunctionStatementContext> statements) is Result.Passable functionBlockResult)
 		{
 			functionDefinition.Statements = statements;
-			return Result.WrapPassable("Invalid function definition", functionBlockResult);
+			return Result.WrapPassable($"Invalid function definition for '{functionDefinition.Name}'", functionBlockResult);
 		}
 		else
 		{
-			return new Result.TokenRuleFailed("Expected function definition", lexer.Line, lexer.Column);
+			return new Result.TokenRuleFailed($"Expected function definition for '{functionDefinition.Name}'", lexer.Line, lexer.Column);
 		}
 	}
 }
@@ -92,7 +92,7 @@ public partial class Visitor
 		string name = functionDefinition.Name;
 		TypedType returnType = VisitTypeIdentifier(program, functionDefinition.ReturnType);
 		FunctionParameters parameters = functionDefinition.Parameters = VisitFunctionParameters(program, functionDefinition.ParameterContexts);
-		TypedTypeFunction functionType = new(functionDefinition.Name, returnType, parameters.ParamTypes.ToArray(), parameters.VarArg?.Type);
+		TypedTypeFunctionCall functionType = new(functionDefinition.Name, returnType, parameters.ParamTypes.ToArray(), parameters.VarArg?.Type);
 		TypedValue function = new TypedValueValue(functionType, module.AddFunction(name, functionType.LLVMType));
 		LLVMValueRef functionValue = function.Value;
 		program.Identifiers.Add(name, function);

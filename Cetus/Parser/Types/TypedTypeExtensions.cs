@@ -37,4 +37,18 @@ public static class TypedTypeExtensions
 	}
 	
 	public static TypedTypePointer Pointer(this TypedType type) => new(type);
+	
+	public static TypedValue CoersePointer(this TypedValue value, TypedType typeHint, LLVMBuilderRef builder, string name)
+	{
+		if (typeHint is not TypedTypePointer && value.Type is TypedTypePointer resultTypePointer)
+		{
+			LLVMValueRef valueValue = builder.BuildLoad2(resultTypePointer.BaseType.LLVMType, value.Value, "loadtmp");
+			value = new TypedValueValue(resultTypePointer.BaseType, valueValue);
+		}
+		
+		if (!value.IsOfType(typeHint))
+			throw new Exception($"Type mismatch in value of '{name}', expected {typeHint} but got {value.Type}");
+		
+		return value;
+	}
 }

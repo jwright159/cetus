@@ -51,7 +51,7 @@ public partial class Visitor
 		if (type.Name == "Closure")
 		{
 			TypedType? innerType = type.InnerType is not null ? VisitTypeIdentifier(program, type.InnerType) : null;
-			TypedTypeFunction functionType = new("block", innerType ?? VoidType, [new TypedTypePointer(new TypedTypeChar())], null);
+			TypedTypeFunctionCall functionType = new("block", innerType ?? VoidType, [new TypedTypePointer(new TypedTypeChar())], null);
 			TypedTypeStruct closureStructType = new(LLVMTypeRef.CreateStruct([LLVMTypeRef.CreatePointer(functionType.LLVMType, 0), LLVMTypeRef.CreatePointer(LLVMTypeRef.Int8, 0)], false));
 			result = new TypedTypeClosurePointer(closureStructType, functionType);
 		}
