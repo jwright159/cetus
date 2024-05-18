@@ -1,6 +1,6 @@
 ﻿extern Void printf(String format, Int... values)
 
-struct Foo
+Foo
 {
     Int a
     Int b

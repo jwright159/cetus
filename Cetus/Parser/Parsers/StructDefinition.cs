@@ -25,7 +25,6 @@ public partial class Parser
 	{
 		int startIndex = lexer.Index;
 		if (
-			lexer.Eat<Struct>() &&
 			lexer.Eat(out Word? structName) &&
 			lexer.EatMatches<LeftBrace, RightBrace>())
 		{
@@ -46,7 +45,6 @@ public partial class Parser
 	{
 		lexer.Index = structDefinition.LexerStartIndex;
 		if (
-			lexer.Eat<Struct>() &&
 			lexer.Eat<Word>() &&
 			ParseStructBlock(out List<StructFieldContext> fields) is Result.Passable structBlockResult)
 		{

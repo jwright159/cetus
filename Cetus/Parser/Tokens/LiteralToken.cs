@@ -32,8 +32,6 @@ public class Comma() : LiteralToken(",");
 
 public class Delegate() : LiteralToken("delegate");
 
-public class Struct() : LiteralToken("struct");
-
 public class Null() : LiteralToken("null");
 
 public class Include() : LiteralToken("include");

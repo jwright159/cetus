@@ -19,7 +19,6 @@ public partial class Parser
 		int startIndex = lexer.Index;
 		if (
 			lexer.Eat<Extern>() &&
-			lexer.Eat<Struct>() &&
 			lexer.Eat(out Word? structName))
 		{
 			ExternStructDeclarationContext externStructDeclaration = new();
