@@ -4,16 +4,26 @@ namespace Cetus.Parser;
 
 public interface IHasIdentifiers
 {
-	public ProgramContext Program { get; }
-	public Dictionary<string, TypedValue> Identifiers { get; }
+	public IDictionary<string, TypedValue> Identifiers { get; set; }
+	public ICollection<IFunctionContext> Functions { get; set; }
+	public ICollection<ITypeContext> Types { get; set; }
+}
+
+public static class IHasIdentifiersExtensions
+{
+	public static void NestFrom(this IHasIdentifiers child, IHasIdentifiers parent)
+	{
+		child.Identifiers = new NestedDictionary<string, TypedValue>(parent.Identifiers);
+		child.Functions = new NestedCollection<IFunctionContext>(parent.Functions);
+		child.Types = new NestedCollection<ITypeContext>(parent.Types);
+	}
 }
 
 public class ProgramContext : IHasIdentifiers
 {
-	public ProgramContext Program => this;
-	public Dictionary<IFunctionContext, TypedValue?> Functions;
-	public List<ITypeContext> Types;
-	public Dictionary<string, TypedValue> Identifiers { get; set; }
+	public IDictionary<string, TypedValue> Identifiers { get; set; } = new Dictionary<string, TypedValue>();
+	public ICollection<IFunctionContext> Functions { get; set; } = new List<IFunctionContext>();
+	public ICollection<ITypeContext> Types { get; set; } = new List<ITypeContext>();
 	public List<string> Libraries = [];
 }
 
@@ -37,22 +47,22 @@ public partial class Parser
 		
 		Console.WriteLine("Parsing type declarations...");
 		foreach (ITypeContext type in program.Types)
-			if (ParseTypeStatementDeclaration(program, type) is Result.Failure result)
+			if (ParseTypeStatementDeclaration(type) is Result.Failure result)
 				results.Add(result);
 		
 		Console.WriteLine("Parsing type definitions...");
 		foreach (ITypeContext type in program.Types)
-			if (ParseTypeStatementDefinition(program, type) is Result.Failure result)
+			if (ParseTypeStatementDefinition(type) is Result.Failure result)
 				results.Add(result);
 		
 		Console.WriteLine("Parsing function declarations...");
-		foreach (IFunctionContext function in program.Functions.Keys)
-			if (ParseFunctionStatementDeclaration(program, function) is Result.Failure result)
+		foreach (IFunctionContext function in program.Functions)
+			if (ParseFunctionStatementDeclaration(function) is Result.Failure result)
 				results.Add(result);
 		
 		Console.WriteLine("Parsing function definitions...");
-		foreach (IFunctionContext function in program.Functions.Keys)
-			if (ParseFunctionStatementDefinition(program, function) is Result.Failure result)
+		foreach (IFunctionContext function in program.Functions)
+			if (ParseFunctionStatementDefinition(function) is Result.Failure result)
 				results.Add(result);
 		
 		return Result.WrapPassable("Invalid program", results.ToArray());
@@ -66,7 +76,7 @@ public partial class Visitor
 		foreach (ITypeContext type in program.Types)
 			VisitTypeStatement(program, type);
 		
-		foreach (IFunctionContext function in program.Functions.Keys)
+		foreach (IFunctionContext function in program.Functions)
 			VisitFunctionStatement(program, function);
 	}
 }

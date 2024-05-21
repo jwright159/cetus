@@ -27,11 +27,8 @@ public partial class Parser
 			program.Types.Add(externStructDeclaration);
 			return true;
 		}
-		else
-		{
-			lexer.Index = startIndex;
-			return false;
-		}
+		lexer.Index = startIndex;
+		return false;
 	}
 	
 	public Result ParseExternStructDefinition(ExternStructDeclarationContext externStructDeclaration)

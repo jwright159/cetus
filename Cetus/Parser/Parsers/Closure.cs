@@ -8,7 +8,9 @@ public class ClosureContext : IValueContext, IHasIdentifiers
 {
 	public List<IFunctionStatementContext> Statements;
 	public ProgramContext Program { get; set; }
-	public Dictionary<string, TypedValue> Identifiers { get; set; }
+	public IDictionary<string, TypedValue> Identifiers { get; set; }
+	public ICollection<IFunctionContext> Functions { get; set; }
+	public ICollection<ITypeContext> Types { get; set; }
 }
 
 public partial class Parser
@@ -20,7 +22,7 @@ public partial class Parser
 		{
 			closure = new ClosureContext();
 			closure.Statements = statements;
-			closure.Program = program.Program;
+			closure.NestFrom(program);
 			return Result.WrapPassable("Expected closure", functionBlockResult);
 		}
 		lexer.Index = startIndex;
@@ -53,7 +55,7 @@ public partial class Visitor
 		}
 		else
 		{
-			Dictionary<string, TypedValue> uniqueClosureIdentifiers = program.Identifiers.Except(program.Program.Identifiers).ToDictionary();
+			Dictionary<string, TypedValue> uniqueClosureIdentifiers = ((NestedDictionary<string, TypedValue>)program.Identifiers).ThisDict;
 			TypedTypeStruct closureEnvType = new(LLVMTypeRef.CreateStruct(uniqueClosureIdentifiers.Values.Select(type => type.Type.LLVMType).ToArray(), false));
 			
 			TypedTypeFunction functionType = (typeHint as TypedTypeClosurePointer)?.BlockType ?? new TypedTypeFunctionCall("closure_block", ((TypedTypeCompilerClosure)typeHint).ReturnType, [new TypedTypePointer(new TypedTypeChar())], null);
@@ -64,8 +66,7 @@ public partial class Visitor
 			builder.PositionAtEnd(function.AppendBasicBlock("entry"));
 			
 			// Unpack the closure environment in the function
-			{ 
-				closure.Identifiers = new Dictionary<string, TypedValue>(program.Identifiers);
+			{
 				LLVMValueRef closureEnvPtr = function.GetParam(0);
 				int paramIndex = 0;
 				foreach ((string name, TypedValue value) in uniqueClosureIdentifiers)

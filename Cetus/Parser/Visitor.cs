@@ -47,47 +47,22 @@ public partial class Visitor
 		builder = LLVMBuilderRef.Create(module.Context);
 	}
 	
-	public void Visit(ProgramContext context)
+	public void Visit(ProgramContext program)
 	{
 		Console.WriteLine("Visiting...");
-		
-		context.Identifiers = new Dictionary<string, TypedValue>
-		{
-			{ "Void", new TypedValueType(VoidType) },
-			{ "Float", new TypedValueType(FloatType) },
-			{ "Double", new TypedValueType(DoubleType) },
-			{ "Char", new TypedValueType(CharType) },
-			{ "Int", new TypedValueType(IntType) },
-			{ "String", new TypedValueType(StringType) },
-			{ "CompilerString", new TypedValueType(CompilerStringType) },
-			{ "Bool", new TypedValueType(BoolType) },
-			{ "Type", new TypedValueType(TypeType) },
-			
-			{ "True", TrueValue },
-			{ "False", FalseValue },
-			
-			{ "Declare", new TypedValueType(DeclareFunctionType) },
-			{ "Define", new TypedValueType(DefineFunctionType) },
-			{ "Assign", new TypedValueType(AssignFunctionType) },
-			{ "Return", new TypedValueType(ReturnFunctionType) },
-			{ "ReturnVoid", new TypedValueType(ReturnVoidFunctionType) },
-			{ "Add", new TypedValueType(AddFunctionType) },
-			{ "LessThan", new TypedValueType(LessThanFunctionType) },
-			{ "While", new TypedValueType(WhileFunctionType) },
-		};
-		VisitProgram(context);
+		VisitProgram(program);
 		Dump();
 		module.TryVerify(LLVMVerifierFailureAction.LLVMPrintMessageAction, out string _);
 	}
 	
 	[UsedImplicitly]
-	private void Printf(string message, ProgramContext context, params TypedValue[] args)
+	private void Printf(string message, ProgramContext program, params TypedValue[] args)
 	{
-		TypedValue function = context.Identifiers["printf"];
+		TypedValue function = program.Identifiers["printf"];
 		TypedTypeFunction functionType = (TypedTypeFunction)function.Type;
 		TypedValueValue messageValue = new(StringType, builder.BuildGlobalStringPtr(message, "message"));
 		args = args.Prepend(messageValue).ToArray();
-		functionType.Call(builder, function, context, args);
+		functionType.Call(builder, function, program, args);
 	}
 	
 	public void Optimize()

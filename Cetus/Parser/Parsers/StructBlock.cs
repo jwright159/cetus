@@ -1,35 +1,21 @@
 ﻿using Cetus.Parser.Tokens;
-using Cetus.Parser.Types;
 
 namespace Cetus.Parser;
 
-public class StructFieldContext
-{
-	public TypeIdentifierContext TypeIdentifier;
-	public TypedType Type;
-	public string Name;
-}
-
 public partial class Parser
 {
-	public Result ParseStructBlock(out List<StructFieldContext> fields)
+	public Result ParseStructBlock(StructDefinitionContext @struct, out List<IStructStatementContext> statements)
 	{
 		int startIndex = lexer.Index;
 		if (lexer.Eat<LeftBrace>())
 		{
 			List<Result> results = [];
-			fields = [];
-			while (ParseTypeIdentifier(out TypeIdentifierContext type) is Result.Passable typeResult
-			       && lexer.Eat(out Word? name))
+			statements = [];
+			while (ParseStructStatement(@struct, out IStructStatementContext statement) is Result.Passable typeResult)
 			{
-				StructFieldContext field = new();
-				field.TypeIdentifier = type;
-				field.Name = name.TokenText;
-				fields.Add(field);
+				statements.Add(statement);
 				if (typeResult is Result.Failure)
 					results.Add(typeResult);
-				
-				lexer.Eat<Semicolon>();
 			}
 			
 			if (!lexer.Eat<RightBrace>())
@@ -42,8 +28,17 @@ public partial class Parser
 		else
 		{
 			lexer.Index = startIndex;
-			fields = null;
+			statements = null;
 			return new Result.TokenRuleFailed("Expected struct block", lexer.Line, lexer.Column);
 		}
+	}
+}
+
+public partial class Visitor
+{
+	public void VisitStructBlock(IHasIdentifiers program, List<IStructStatementContext> statements)
+	{
+		foreach (IStructStatementContext statement in statements)
+			VisitStructStatement(program, statement);
 	}
 }

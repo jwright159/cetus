@@ -2,22 +2,22 @@
 
 Foo
 {
-    Int a
-    Int b
+	Int a
+	Int b
 }
 
 Void main()
 {
-    Foo foo = New
-    foo.a = 2
-    printf("Starting at %i\n", foo.a)
-    
-    While (foo.a < 6)
-    {
-        foo.a = foo.a + 1
-        printf("Loop %i\n", foo.a)
-    }
-    
-    printf("Ending at %i\n", foo.a)
-    Return
+	Declare Foo foo
+	foo.a = 2
+	printf("Starting at %i\n", foo.a)
+	
+	While (foo.a < 6)
+	{
+		foo.a = foo.a + 1
+		printf("Loop %i\n", foo.a)
+	}
+	
+	printf("Ending at %i\n", foo.a)
+	Return
 }

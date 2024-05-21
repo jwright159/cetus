@@ -4,6 +4,9 @@ namespace Cetus.Parser;
 
 public partial class Parser
 {
+	/// <summary>
+	/// Collects all the type and function names and patterns, recursively
+	/// </summary>
 	public Result ParseProgramStatementFirstPass(ProgramContext program)
 	{
 		if (ParseIncludeLibrary(program) ||
@@ -20,7 +23,10 @@ public partial class Parser
 			return new Result.TokenRuleFailed("Expected program statement", lexer.Line, lexer.Column);
 	}
 	
-	public Result ParseTypeStatementDeclaration(ProgramContext program, ITypeContext type)
+	/// <summary>
+	/// Unsure!
+	/// </summary>
+	public Result ParseTypeStatementDeclaration(ITypeContext type)
 	{
 		if (type is CompilerTypeContext)
 			return new Result.Ok();
@@ -31,18 +37,24 @@ public partial class Parser
 		throw new Exception($"Unknown statement type {type}");
 	}
 	
-	public Result ParseTypeStatementDefinition(ProgramContext program, ITypeContext type)
+	/// <summary>
+	/// Sets up struct fields and registers their llvm types
+	/// </summary>
+	public Result ParseTypeStatementDefinition(ITypeContext type)
 	{
 		if (type is CompilerTypeContext)
 			return new Result.Ok();
 		if (type is ExternStructDeclarationContext externStructDeclaration)
 			return ParseExternStructDefinition(externStructDeclaration);
 		if (type is StructDefinitionContext structDefinition)
-			return ParseStructDefinition(program, structDefinition);
+			return ParseStructDefinition(structDefinition);
 		throw new Exception($"Unknown statement type {type}");
 	}
 	
-	public Result ParseFunctionStatementDeclaration(ProgramContext program, IFunctionContext function)
+	/// <summary>
+	/// Sets up function parameters and return types
+	/// </summary>
+	public Result ParseFunctionStatementDeclaration(IFunctionContext function)
 	{
 		if (function is CompilerFunctionContext)
 			return new Result.Ok();
@@ -51,11 +63,16 @@ public partial class Parser
 		if (function is DelegateDeclarationContext delegateDeclaration)
 			return ParseDelegateDeclaration(delegateDeclaration);
 		if (function is FunctionDefinitionContext functionDefinition)
-			return ParseFunctionDeclaration(program, functionDefinition);
+			return ParseFunctionDeclaration(functionDefinition);
+		if (function is GetterContext)
+			return new Result.Ok(); // FIXME: This shouldn't be public - remove after struct functions are implemented
 		throw new Exception($"Unknown statement type {function}");
 	}
 	
-	public Result ParseFunctionStatementDefinition(ProgramContext program, IFunctionContext function)
+	/// <summary>
+	/// Sets up function bodies
+	/// </summary>
+	public Result ParseFunctionStatementDefinition(IFunctionContext function)
 	{
 		if (function is CompilerFunctionContext)
 			return new Result.Ok();
@@ -64,7 +81,9 @@ public partial class Parser
 		if (function is DelegateDeclarationContext)
 			return new Result.Ok();
 		if (function is FunctionDefinitionContext functionDefinition)
-			return ParseFunctionDefinition(program, functionDefinition);
+			return ParseFunctionDefinition(functionDefinition);
+		if (function is GetterContext)
+			return new Result.Ok(); // FIXME: This shouldn't be public - remove after struct functions are implemented
 		throw new Exception($"Unknown statement type {function}");
 	}
 }
@@ -103,6 +122,8 @@ public partial class Visitor
 			case DelegateDeclarationContext delegateDeclaration:
 				VisitDelegateDeclaration(program, delegateDeclaration);
 				break;
+			case GetterContext:
+				break; // FIXME: This shouldn't be public - remove after struct functions are implemented
 			default:
 				throw new Exception($"Unknown statement type {function}");
 		}

@@ -18,7 +18,7 @@ public partial class Parser
 	{
 		int startIndex = lexer.Index;
 		
-		foreach (IFunctionContext patternFunction in program.Program.Functions.Keys
+		foreach (IFunctionContext patternFunction in program.Functions
 			         .Where(value => value is { Pattern.Length: > 0 })
 			         .Skip(order))
 		{
@@ -107,7 +107,7 @@ public partial class Visitor
 	public TypedValue VisitFunctionCall(IHasIdentifiers program, FunctionCallContext functionCall, TypedType? typeHint)
 	{
 		List<TypedValue> arguments = [];
-		TypedValue function = functionCall.Context is not null ? program.Program.Functions[functionCall.Context] : VisitValue(program, functionCall.Value, null);
+		TypedValue function = functionCall.Context is not null ? functionCall.Context.Value : VisitValue(program, functionCall.Value, null);
 		TypedTypeFunction functionType;
 		if (function.Type is TypedTypeClosurePointer closurePtr)
 		{

@@ -7,6 +7,8 @@ namespace Cetus.Parser;
 public class DelegateDeclarationContext : IFunctionContext
 {
 	public string Name;
+	public TypedType? Type { get; set; }
+	public TypedValue? Value { get; set; }
 	public IToken[]? Pattern { get; set; }
 	public int LexerStartIndex { get; set; }
 	public TypeIdentifierContext ReturnType;
@@ -27,7 +29,7 @@ public partial class Parser
 			DelegateDeclarationContext delegateDeclaration = new();
 			delegateDeclaration.Name = functionName.TokenText;
 			delegateDeclaration.LexerStartIndex = startIndex;
-			program.Functions.Add(delegateDeclaration, null);
+			program.Functions.Add(delegateDeclaration);
 			return true;
 		}
 		else
@@ -59,14 +61,13 @@ public partial class Parser
 
 public partial class Visitor
 {
-	public void VisitDelegateDeclaration(ProgramContext program, DelegateDeclarationContext delegateDeclaration)
+	public void VisitDelegateDeclaration(ProgramContext program, DelegateDeclarationContext function)
 	{
-		string name = delegateDeclaration.Name;
-		TypedType returnType = VisitTypeIdentifier(program, delegateDeclaration.ReturnType);
-		FunctionParameters parameters = delegateDeclaration.Parameters = VisitFunctionParameters(program, delegateDeclaration.ParameterContexts);
-		TypedTypeFunctionCall functionType = new(name, returnType, parameters.ParamTypes.ToArray(), parameters.VarArg.Type);
-		TypedValue function = new TypedValueType(functionType);
-		program.Identifiers.Add(name, function);
-		program.Functions[delegateDeclaration] = function;
+		string name = function.Name;
+		TypedType returnType = VisitTypeIdentifier(program, function.ReturnType);
+		FunctionParameters parameters = function.Parameters = VisitFunctionParameters(program, function.ParameterContexts);
+		function.Type = new TypedTypeFunctionCall(name, returnType, parameters.ParamTypes.ToArray(), parameters.VarArg.Type);
+		function.Value = new TypedValueType(function.Type);
+		program.Identifiers.Add(name, function.Value);
 	}
 }

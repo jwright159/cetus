@@ -11,12 +11,16 @@ public interface ITypeContext
 	public TypedType Type { get; }
 }
 
-public class StructDefinitionContext : ITypeContext
+public class StructDefinitionContext : ITypeContext, IHasIdentifiers
 {
 	public string Name { get; set; }
 	public TypedType Type { get; set; }
 	public int LexerStartIndex { get; set; }
-	public List<StructFieldContext> Fields;
+	public List<IStructStatementContext> Statements;
+	public List<StructFieldContext> Fields = [];
+	public IDictionary<string, TypedValue> Identifiers { get; set; }
+	public ICollection<IFunctionContext> Functions { get; set; }
+	public ICollection<ITypeContext> Types { get; set; }
 }
 
 public partial class Parser
@@ -31,6 +35,7 @@ public partial class Parser
 			StructDefinitionContext structDefinition = new();
 			structDefinition.Name = structName.TokenText;
 			structDefinition.LexerStartIndex = startIndex;
+			structDefinition.NestFrom(program);
 			program.Types.Add(structDefinition);
 			return true;
 		}
@@ -41,25 +46,14 @@ public partial class Parser
 		}
 	}
 	
-	public Result ParseStructDefinition(ProgramContext program, StructDefinitionContext structDefinition)
+	public Result ParseStructDefinition(StructDefinitionContext structDefinition)
 	{
 		lexer.Index = structDefinition.LexerStartIndex;
 		if (
 			lexer.Eat<Word>() &&
-			ParseStructBlock(out List<StructFieldContext> fields) is Result.Passable structBlockResult)
+			ParseStructBlock(structDefinition, out List<IStructStatementContext> statements) is Result.Passable structBlockResult)
 		{
-			structDefinition.Fields = fields;
-			LLVMTypeRef structValue = LLVMContextRef.Global.CreateNamedStruct(structDefinition.Name);
-            TypedTypeStruct @struct = new(structValue);
-            structDefinition.Type = @struct;
-			
-			foreach ((int i, StructFieldContext field) in fields.Enumerate())
-			{
-				field.Type = program.Types.First(pair => pair.Name == field.TypeIdentifier.Name).Type;
-				TypedTypeFunctionGetter getter = new(structDefinition, field, i);
-				program.Functions.Add(new CompilerFunctionContext(getter, [new ParameterExpressionToken(0), new LiteralToken("."), new LiteralToken(field.Name)]), new TypedValueType(getter));
-			}
-			
+			structDefinition.Statements = statements;
 			return Result.WrapPassable($"Invalid struct definition for '{structDefinition.Name}'", structBlockResult);
 		}
 		else
@@ -71,9 +65,13 @@ public partial class Parser
 
 public partial class Visitor
 {
-	public void VisitStructDefinition(ProgramContext program, StructDefinitionContext structDefinition)
+	public void VisitStructDefinition(IHasIdentifiers program, StructDefinitionContext structDefinition)
 	{
-		structDefinition.Type.LLVMType.StructSetBody(structDefinition.Fields.Select(field => VisitTypeIdentifier(program, field.TypeIdentifier).LLVMType).ToArray(), false);
+		LLVMTypeRef structValue = LLVMContextRef.Global.CreateNamedStruct(structDefinition.Name);
+		TypedTypeStruct @struct = new(structValue);
+		@struct.LLVMType.StructSetBody(structDefinition.Statements.OfType<StructFieldContext>().Select(field => VisitTypeIdentifier(program, field.TypeIdentifier).LLVMType).ToArray(), false);
+		structDefinition.Type = @struct;
 		program.Identifiers.Add(structDefinition.Name, new TypedValueType(structDefinition.Type));
+		VisitStructBlock(structDefinition, structDefinition.Statements);
 	}
 }

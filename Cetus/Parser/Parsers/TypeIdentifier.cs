@@ -10,6 +10,15 @@ public class TypeIdentifierContext
 	public string Name;
 	public TypeIdentifierContext? InnerType;
 	public int PointerDepth;
+	
+	public TypeIdentifierContext Pointer()
+	{
+		TypeIdentifierContext result = new();
+		result.Name = Name;
+		result.InnerType = InnerType;
+		result.PointerDepth = PointerDepth + 1;
+		return result;
+	}
 }
 
 public partial class Parser
@@ -45,7 +54,7 @@ public partial class Parser
 
 public partial class Visitor
 {
-	public TypedType VisitTypeIdentifier(ProgramContext program, TypeIdentifierContext type)
+	public TypedType VisitTypeIdentifier(IHasIdentifiers program, TypeIdentifierContext type)
 	{
 		TypedType result;
 		if (type.Name == "Closure")

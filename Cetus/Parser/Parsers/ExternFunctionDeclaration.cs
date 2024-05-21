@@ -8,6 +8,8 @@ namespace Cetus.Parser;
 public class ExternFunctionDeclarationContext : IFunctionContext
 {
 	public string Name;
+	public TypedType? Type { get; set; }
+	public TypedValue? Value { get; set; }
 	public IToken[]? Pattern { get; set; }
 	public int LexerStartIndex { get; set; }
 	public TypeIdentifierContext ReturnType;
@@ -28,7 +30,7 @@ public partial class Parser
 			ExternFunctionDeclarationContext externFunctionDeclaration = new();
 			externFunctionDeclaration.Name = functionName.TokenText;
 			externFunctionDeclaration.LexerStartIndex = startIndex;
-			program.Functions.Add(externFunctionDeclaration, null);
+			program.Functions.Add(externFunctionDeclaration);
 			return true;
 		}
 		else
@@ -60,15 +62,14 @@ public partial class Parser
 
 public partial class Visitor
 {
-	public void VisitExternFunctionDeclaration(ProgramContext program, ExternFunctionDeclarationContext externFunctionDeclaration)
+	public void VisitExternFunctionDeclaration(ProgramContext program, ExternFunctionDeclarationContext function)
 	{
-		string name = externFunctionDeclaration.Name;
-		TypedType returnType = VisitTypeIdentifier(program, externFunctionDeclaration.ReturnType);
-		FunctionParameters parameters = externFunctionDeclaration.Parameters = VisitFunctionParameters(program, externFunctionDeclaration.ParameterContexts);
-		TypedTypeFunctionCall functionType = new(name, returnType, parameters.ParamTypes.ToArray(), parameters.VarArg.Type);
-		LLVMValueRef functionValue = module.AddFunction(name, functionType.LLVMType);
-		TypedValue function = new TypedValueValue(functionType, functionValue);
-		program.Identifiers.Add(name, function);
-		program.Functions[externFunctionDeclaration] = function;
+		string name = function.Name;
+		TypedType returnType = VisitTypeIdentifier(program, function.ReturnType);
+		FunctionParameters parameters = function.Parameters = VisitFunctionParameters(program, function.ParameterContexts);
+		function.Type = new TypedTypeFunctionCall(name, returnType, parameters.ParamTypes.ToArray(), parameters.VarArg.Type);
+		LLVMValueRef functionValue = module.AddFunction(name, function.Type.LLVMType);
+		function.Value = new TypedValueValue(function.Type, functionValue);
+		program.Identifiers.Add(name, function.Value);
 	}
 }
