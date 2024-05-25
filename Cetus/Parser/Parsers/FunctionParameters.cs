@@ -7,6 +7,8 @@ public class FunctionParametersContext
 {
 	public List<FunctionParameterContext> Parameters = [];
 	public FunctionParameterContext? VarArg;
+	
+	public override string ToString() => $"({string.Join(", ", Parameters)}{(VarArg is not null ? $", {VarArg.Type}... {VarArg.Name}" : "")})";
 }
 
 public class FunctionParameters
@@ -15,6 +17,8 @@ public class FunctionParameters
 	public FunctionParameter? VarArg;
 	
 	public IEnumerable<TypedType> ParamTypes => Parameters.Select(p => p.Type);
+	
+	public override string ToString() => $"({string.Join(", ", Parameters)}{(VarArg is not null ? $", {VarArg.Type}... {VarArg.Name}" : "")})";
 }
 
 public partial class Parser
@@ -38,9 +42,9 @@ public partial class Parser
 			if (ParseTypeIdentifier(out TypeIdentifierContext? varArgType) is not Result.TokenRuleFailed &&
 			    lexer.Eat<Ellipsis>() &&
 			    lexer.Eat(out Word? varArgName))
-				parameters.VarArg = new FunctionParameterContext(varArgType, varArgName.TokenText);
+				parameters.VarArg = new FunctionParameterContext(varArgType, varArgName.Value);
 			
-			if (lexer.SkipTo<RightParenthesis>(out int line, out int column))
+			if (lexer.SkipToMatches<RightParenthesis>(out int line, out int column))
 				results.Add(Result.ComplexTokenRuleFailed("Expected ')'", line, column));
 			
 			return Result.WrapPassable("Invalid function parameters", results.ToArray());
@@ -55,7 +59,7 @@ public partial class Parser
 
 public partial class Visitor
 {
-	public FunctionParameters VisitFunctionParameters(ProgramContext program, FunctionParametersContext parameters)
+	public FunctionParameters VisitFunctionParameters(IHasIdentifiers program, FunctionParametersContext parameters)
 	{
 		FunctionParameters functionParameters = new();
 		

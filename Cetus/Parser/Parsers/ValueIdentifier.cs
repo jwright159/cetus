@@ -16,7 +16,7 @@ public partial class Parser
 	{
 		if (lexer.Eat(out Word? valueName))
 		{
-			value = new ValueIdentifierContext { Name = valueName.TokenText };
+			value = new ValueIdentifierContext { Name = valueName.Value };
 			return new Result.Ok();
 		}
 		else

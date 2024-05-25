@@ -15,12 +15,9 @@ public partial class Parser
 			statement = functionCall;
 			return Result.WrapPassable("Invalid function statement", functionCallResult);
 		}
-		else
-		{
-			lexer.Index = startIndex;
-			statement = null;
-			return new Result.TokenRuleFailed("Expected function statement", lexer.Line, lexer.Column);
-		}
+		lexer.Index = startIndex;
+		statement = null;
+		return new Result.TokenRuleFailed("Expected function statement", lexer.Line, lexer.Column);
 	}
 }
 

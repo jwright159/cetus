@@ -4,19 +4,19 @@ namespace Cetus.Parser;
 
 public partial class Parser
 {
-	public bool ParseIncludeLibrary(ProgramContext program)
+	public Result ParseIncludeLibrary(ProgramContext program)
 	{
 		int startIndex = lexer.Index;
 		if (lexer.Eat<Include>() &&
 		    lexer.Eat(out Word? libraryName))
 		{
-			program.Libraries.Add(libraryName.TokenText);
-			return true;
+			program.Libraries.Add(libraryName.Value);
+			return new Result.Ok();
 		}
 		else
 		{
 			lexer.Index = startIndex;
-			return false;
+			return new Result.TokenRuleFailed("Expected include library", lexer.Line, lexer.Column);
 		}
 	}
 }

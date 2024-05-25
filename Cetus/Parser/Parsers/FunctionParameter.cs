@@ -7,12 +7,16 @@ public class FunctionParameterContext(TypeIdentifierContext type, string name)
 {
 	public TypeIdentifierContext Type => type;
 	public string Name => name;
+	
+	public override string ToString() => $"{Type} {Name}";
 }
 
 public class FunctionParameter(TypedType type, string name)
 {
 	public TypedType Type => type;
 	public string Name => name;
+	
+	public override string ToString() => $"{Type} {Name}";
 }
 
 public partial class Parser
@@ -23,8 +27,8 @@ public partial class Parser
 		if (ParseTypeIdentifier(out TypeIdentifierContext? type) is Result.Passable typeResult &&
 		    lexer.Eat(out Word? name))
 		{
-			parameter = new FunctionParameterContext(type, name.TokenText);
-			return Result.WrapPassable($"Invalid function parameter for '{name.TokenText}'", typeResult);
+			parameter = new FunctionParameterContext(type, name.Value);
+			return Result.WrapPassable($"Invalid function parameter for '{name.Value}'", typeResult);
 		}
 		else
 		{
@@ -37,7 +41,7 @@ public partial class Parser
 
 public partial class Visitor
 {
-	public FunctionParameter VisitFunctionParameter(ProgramContext program, FunctionParameterContext parameter)
+	public FunctionParameter VisitFunctionParameter(IHasIdentifiers program, FunctionParameterContext parameter)
 	{
 		return new FunctionParameter(VisitTypeIdentifier(program, parameter.Type), parameter.Name);
 	}

@@ -9,32 +9,37 @@ public partial class Parser
 	/// </summary>
 	public Result ParseProgramStatementFirstPass(ProgramContext program)
 	{
-		if (ParseIncludeLibrary(program) ||
-		    ParseFunctionDefinitionFirstPass(program) ||
-		    ParseExternFunctionDeclarationFirstPass(program) ||
-		    ParseExternStructDeclarationFirstPass(program) ||
-		    ParseDelegateDeclarationFirstPass(program) ||
-		    ParseStructDefinitionFirstPass(program))
+		if (ParseIncludeLibrary(program) is Result.Passable includeLibraryResult)
 		{
 			lexer.Eat<Semicolon>();
-			return new Result.Ok();
+			return includeLibraryResult;
 		}
-		else
-			return new Result.TokenRuleFailed("Expected program statement", lexer.Line, lexer.Column);
-	}
-	
-	/// <summary>
-	/// Unsure!
-	/// </summary>
-	public Result ParseTypeStatementDeclaration(ITypeContext type)
-	{
-		if (type is CompilerTypeContext)
-			return new Result.Ok();
-		if (type is ExternStructDeclarationContext)
-			return new Result.Ok();
-		if (type is StructDefinitionContext)
-			return new Result.Ok();
-		throw new Exception($"Unknown statement type {type}");
+		if (ParseFunctionDefinitionFirstPass(program) is Result.Passable functionDefinitionResult)
+		{
+			lexer.Eat<Semicolon>();
+			return functionDefinitionResult;
+		}
+		if (ParseExternFunctionDeclarationFirstPass(program) is Result.Passable externFunctionDeclarationResult)
+		{
+			lexer.Eat<Semicolon>();
+			return externFunctionDeclarationResult;
+		}
+		if (ParseExternStructDeclarationFirstPass(program) is Result.Passable externStructDeclarationResult)
+		{
+			lexer.Eat<Semicolon>();
+			return externStructDeclarationResult;
+		}
+		if (ParseDelegateDeclarationFirstPass(program) is Result.Passable delegateDeclarationResult)
+		{
+			lexer.Eat<Semicolon>();
+			return delegateDeclarationResult;
+		}
+		if (ParseStructDefinitionFirstPass(program) is Result.Passable structDefinitionResult)
+		{
+			lexer.Eat<Semicolon>();
+			return structDefinitionResult;
+		}
+		return new Result.TokenRuleFailed("Expected program statement", lexer.Line, lexer.Column);
 	}
 	
 	/// <summary>
@@ -48,25 +53,7 @@ public partial class Parser
 			return ParseExternStructDefinition(externStructDeclaration);
 		if (type is StructDefinitionContext structDefinition)
 			return ParseStructDefinition(structDefinition);
-		throw new Exception($"Unknown statement type {type}");
-	}
-	
-	/// <summary>
-	/// Sets up function parameters and return types
-	/// </summary>
-	public Result ParseFunctionStatementDeclaration(IFunctionContext function)
-	{
-		if (function is CompilerFunctionContext)
-			return new Result.Ok();
-		if (function is ExternFunctionDeclarationContext externFunctionDeclaration)
-			return ParseExternFunctionDeclaration(externFunctionDeclaration);
-		if (function is DelegateDeclarationContext delegateDeclaration)
-			return ParseDelegateDeclaration(delegateDeclaration);
-		if (function is FunctionDefinitionContext functionDefinition)
-			return ParseFunctionDeclaration(functionDefinition);
-		if (function is GetterContext)
-			return new Result.Ok(); // FIXME: This shouldn't be public - remove after struct functions are implemented
-		throw new Exception($"Unknown statement type {function}");
+		throw new Exception($"Unknown statement type {type.GetType()}");
 	}
 	
 	/// <summary>
@@ -76,6 +63,8 @@ public partial class Parser
 	{
 		if (function is CompilerFunctionContext)
 			return new Result.Ok();
+		if (function is LateCompilerFunctionContext)
+			return new Result.Ok();
 		if (function is ExternFunctionDeclarationContext)
 			return new Result.Ok();
 		if (function is DelegateDeclarationContext)
@@ -83,14 +72,14 @@ public partial class Parser
 		if (function is FunctionDefinitionContext functionDefinition)
 			return ParseFunctionDefinition(functionDefinition);
 		if (function is GetterContext)
-			return new Result.Ok(); // FIXME: This shouldn't be public - remove after struct functions are implemented
-		throw new Exception($"Unknown statement type {function}");
+			return new Result.Ok();
+		throw new Exception($"Unknown statement type {function.GetType()}");
 	}
 }
 
 public partial class Visitor
 {
-	public void VisitTypeStatement(ProgramContext program, ITypeContext type)
+	public void VisitTypeStatement(IHasIdentifiers program, ITypeContext type)
 	{
 		switch (type)
 		{
@@ -103,15 +92,17 @@ public partial class Visitor
 				VisitStructDefinition(program, structDefinition);
 				break;
 			default:
-				throw new Exception($"Unknown statement type {type}");
+				throw new Exception($"Unknown statement type {type.GetType()}");
 		}
 	}
 	
-	public void VisitFunctionStatement(ProgramContext program, IFunctionContext function)
+	public void VisitFunctionStatement(IHasIdentifiers program, IFunctionContext function)
 	{
 		switch (function)
 		{
 			case CompilerFunctionContext:
+				break;
+			case LateCompilerFunctionContext:
 				break;
 			case FunctionDefinitionContext functionDefinition:
 				VisitFunctionDefinition(program, functionDefinition);
@@ -122,10 +113,11 @@ public partial class Visitor
 			case DelegateDeclarationContext delegateDeclaration:
 				VisitDelegateDeclaration(program, delegateDeclaration);
 				break;
-			case GetterContext:
-				break; // FIXME: This shouldn't be public - remove after struct functions are implemented
+			case GetterContext getter:
+				VisitGetter(getter);
+				break;
 			default:
-				throw new Exception($"Unknown statement type {function}");
+				throw new Exception($"Unknown statement type {function.GetType()}");
 		}
 	}
 }

@@ -26,15 +26,6 @@ public partial class Visitor
 	public static readonly TypedValue TrueValue = new TypedValueValue(BoolType, LLVMValueRef.CreateConstInt(LLVMTypeRef.Int1, 1, false));
 	public static readonly TypedValue FalseValue = new TypedValueValue(BoolType, LLVMValueRef.CreateConstInt(LLVMTypeRef.Int1, 0, false));
 	
-	public static readonly TypedTypeFunction DeclareFunctionType = new TypedTypeFunctionDeclare();
-	public static readonly TypedTypeFunction DefineFunctionType = new TypedTypeFunctionDefine();
-	public static readonly TypedTypeFunction AssignFunctionType = new TypedTypeFunctionAssign();
-	public static readonly TypedTypeFunction ReturnFunctionType = new TypedTypeFunctionReturn();
-	public static readonly TypedTypeFunction ReturnVoidFunctionType = new TypedTypeFunctionReturnVoid();
-	public static readonly TypedTypeFunction AddFunctionType = new TypedTypeFunctionAdd();
-	public static readonly TypedTypeFunction LessThanFunctionType = new TypedTypeFunctionLessThan();
-	public static readonly TypedTypeFunction WhileFunctionType = new TypedTypeFunctionWhile();
-	
 	public Visitor()
 	{
 		LLVM.LinkInMCJIT();

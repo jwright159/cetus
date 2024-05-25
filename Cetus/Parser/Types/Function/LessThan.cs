@@ -1,9 +1,9 @@
 ﻿using Cetus.Parser.Values;
 using LLVMSharp.Interop;
 
-namespace Cetus.Parser.Types;
+namespace Cetus.Parser.Types.Function;
 
-public class TypedTypeFunctionLessThan() : TypedTypeFunction("LessThan", Visitor.IntType, [Visitor.IntType, Visitor.IntType], null)
+public class LessThan() : TypedTypeFunction("LessThan", Visitor.IntType, [(Visitor.IntType, "a"), (Visitor.IntType, "b")], null)
 {
 	public override TypedValue Call(LLVMBuilderRef builder, TypedValue function, IHasIdentifiers context, params TypedValue[] args)
 	{

@@ -18,9 +18,7 @@ public partial class Parser
 	{
 		int startIndex = lexer.Index;
 		
-		foreach (IFunctionContext patternFunction in program.Functions
-			         .Where(value => value is { Pattern.Length: > 0 })
-			         .Skip(order))
+		foreach (IFunctionContext patternFunction in program.GetFinalizedFunctions().Skip(order))
 		{
 			order++;
 			IToken[] pattern = patternFunction.Pattern;
@@ -29,23 +27,23 @@ public partial class Parser
 			bool match = true;
 			foreach (IToken token in pattern)
 			{
-				if (token is ParameterExpressionToken expressionIndex)
+				if (token is ParameterExpressionToken expressionToken)
 				{
 					if (ParseExpression(program, out IExpressionContext expression, order) is Result.Failure)
 					{
 						match = false;
 						break;
 					}
-					arguments[expressionIndex.Index] = expression;
+					arguments[patternFunction.IndexOf(expressionToken)] = expression;
 				}
-				else if (token is ParameterValueToken valueIndex)
+				else if (token is ParameterValueToken valueToken)
 				{
 					if (ParseValueIdentifier(out ValueIdentifierContext value) is Result.Failure)
 					{
 						match = false;
 						break;
 					}
-					arguments[valueIndex.Index] = value;
+					arguments[patternFunction.IndexOf(valueToken)] = value;
 				}
 				else
 				{
@@ -131,12 +129,12 @@ public partial class Visitor
 		
 		TypedType varArgType = functionType.VarArgType;
 		arguments.AddRange(functionCall.Arguments
-			.Enumerate((paramIndex, arg) => VisitExpression(program, arg, paramIndex < functionType.ParamTypes.Length ? functionType.ParamTypes[paramIndex] : varArgType)));
+			.Enumerate((paramIndex, arg) => VisitExpression(program, arg, paramIndex < functionType.NumParams ? functionType.Parameters[paramIndex].Type : varArgType)));
 		
 		if (functionType.IsVarArg ? arguments.Count < functionType.NumParams : arguments.Count != functionType.NumParams)
 			throw new Exception($"Argument count mismatch in call to '{functionType.Name}', expected {(functionType.IsVarArg ? "at least " : "")}{functionType.NumParams} but got {arguments.Count}");
 		
-		foreach ((TypedValue argument, TypedType type) in arguments.Zip(functionType.ParamTypes))
+		foreach ((TypedValue argument, (TypedType type, string _)) in arguments.Zip(functionType.Parameters))
 			if (!argument.IsOfType(type))
 				throw new Exception($"Argument type mismatch in call to '{functionType.Name}', expected {type} but got {argument.Type.LLVMType}");
 		

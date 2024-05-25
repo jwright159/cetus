@@ -14,7 +14,7 @@ public class ExternStructDeclarationContext : ITypeContext
 
 public partial class Parser
 {
-	public bool ParseExternStructDeclarationFirstPass(ProgramContext program)
+	public Result ParseExternStructDeclarationFirstPass(ProgramContext program)
 	{
 		int startIndex = lexer.Index;
 		if (
@@ -22,13 +22,13 @@ public partial class Parser
 			lexer.Eat(out Word? structName))
 		{
 			ExternStructDeclarationContext externStructDeclaration = new();
-			externStructDeclaration.Name = structName.TokenText;
+			externStructDeclaration.Name = structName.Value;
 			externStructDeclaration.LexerStartIndex = startIndex;
 			program.Types.Add(externStructDeclaration);
-			return true;
+			return new Result.Ok();
 		}
 		lexer.Index = startIndex;
-		return false;
+		return new Result.TokenRuleFailed("Expected external struct declaration", lexer.Line, lexer.Column);
 	}
 	
 	public Result ParseExternStructDefinition(ExternStructDeclarationContext externStructDeclaration)
@@ -42,7 +42,7 @@ public partial class Parser
 
 public partial class Visitor
 {
-	public void VisitExternStructDeclaration(ProgramContext program, ExternStructDeclarationContext externStructDeclaration)
+	public void VisitExternStructDeclaration(IHasIdentifiers program, ExternStructDeclarationContext externStructDeclaration)
 	{
 		program.Identifiers.Add(externStructDeclaration.Name, new TypedValueType(externStructDeclaration.Type));
 	}

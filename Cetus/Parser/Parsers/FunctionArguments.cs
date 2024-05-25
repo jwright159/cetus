@@ -18,7 +18,7 @@ public partial class Parser
 				if (!lexer.Eat<Comma>())
 					break;
 			}
-			if (lexer.SkipTo<RightParenthesis>(out int line, out int column))
+			if (lexer.SkipToMatches<RightParenthesis>(out int line, out int column))
 				results.Add(Result.ComplexTokenRuleFailed("Expected ')'", line, column));
 			return Result.WrapPassable("Invalid function arguments", results.ToArray());
 		}

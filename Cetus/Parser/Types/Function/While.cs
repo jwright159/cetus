@@ -1,9 +1,9 @@
 ﻿using Cetus.Parser.Values;
 using LLVMSharp.Interop;
 
-namespace Cetus.Parser.Types;
+namespace Cetus.Parser.Types.Function;
 
-public class TypedTypeFunctionWhile() : TypedTypeFunction("While", Visitor.VoidType, [new TypedTypeCompilerExpression(Visitor.BoolType), new TypedTypeCompilerClosure(Visitor.VoidType)], null)
+public class While() : TypedTypeFunction("While", Visitor.VoidType, [(new TypedTypeCompilerExpression(Visitor.BoolType), "condition"), (new TypedTypeCompilerClosure(Visitor.VoidType), "body")], null)
 {
 	public override TypedValue Call(LLVMBuilderRef builder, TypedValue function, IHasIdentifiers context, params TypedValue[] args)
 	{

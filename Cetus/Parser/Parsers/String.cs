@@ -14,9 +14,7 @@ public partial class Parser
 	{
 		if (lexer.Eat(out Tokens.String? stringToken))
 		{
-			string value = stringToken.TokenText[1..^1];
-			value = System.Text.RegularExpressions.Regex.Unescape(value);
-			@string = new StringContext { Value = value };
+			@string = new StringContext { Value = stringToken.Value };
 			return new Result.Ok();
 		}
 		else

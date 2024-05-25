@@ -47,7 +47,7 @@ public interface Result
 				throw new ArgumentException("ComplexRuleFailed must have at least one result", nameof(results));
 		}
 		
-		public override string ToString() => $"ComplexRule failed: {message}\n\t{string.Join("\n", results.Where(result => result is Failure).Select(result => result!.ToString()!.Replace("\n", "\n\t")))}";
+		public override string ToString() => $"ComplexRule failed: {message}\n\t{string.Join("\n", results.Where(result => result is Failure).Select(result => result!.ToString()!)).Replace("\n", "\n\t")}";
 	}
 	
 	public static Result WrapPassable(string message, params Result?[] results)

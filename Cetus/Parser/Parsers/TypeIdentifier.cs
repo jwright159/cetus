@@ -1,5 +1,6 @@
 ﻿using Cetus.Parser.Tokens;
 using Cetus.Parser.Types;
+using Cetus.Parser.Types.Function;
 using Cetus.Parser.Values;
 using LLVMSharp.Interop;
 
@@ -19,6 +20,8 @@ public class TypeIdentifierContext
 		result.PointerDepth = PointerDepth + 1;
 		return result;
 	}
+	
+	public override string ToString() => $"{Name}{(InnerType is not null ? $"<{InnerType}>" : "")}{new string('*', PointerDepth)}";
 }
 
 public partial class Parser
@@ -29,13 +32,13 @@ public partial class Parser
 		{
 			List<Result> results = [];
 			type = new TypeIdentifierContext();
-			type.Name = typeName.TokenText;
+			type.Name = typeName.Value;
 			
 			if (lexer.Eat<LeftTriangle>())
 			{
 				results.Add(ParseTypeIdentifier(out TypeIdentifierContext innerType));
 				type.InnerType = innerType;
-				if (lexer.SkipTo<RightTriangle>(out int line, out int column))
+				if (lexer.SkipToMatches<RightTriangle>(out int line, out int column))
 					results.Add(new Result.TokenRuleFailed("Expected '>'", line, column));
 			}
 			
@@ -60,7 +63,7 @@ public partial class Visitor
 		if (type.Name == "Closure")
 		{
 			TypedType? innerType = type.InnerType is not null ? VisitTypeIdentifier(program, type.InnerType) : null;
-			TypedTypeFunctionCall functionType = new("block", innerType ?? VoidType, [new TypedTypePointer(new TypedTypeChar())], null);
+			FunctionCall functionType = new("block", innerType ?? VoidType, [new TypedTypePointer(new TypedTypeChar())], null);
 			TypedTypeStruct closureStructType = new(LLVMTypeRef.CreateStruct([LLVMTypeRef.CreatePointer(functionType.LLVMType, 0), LLVMTypeRef.CreatePointer(LLVMTypeRef.Int8, 0)], false));
 			result = new TypedTypeClosurePointer(closureStructType, functionType);
 		}

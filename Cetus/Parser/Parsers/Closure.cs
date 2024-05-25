@@ -1,4 +1,5 @@
 ﻿using Cetus.Parser.Types;
+using Cetus.Parser.Types.Function;
 using Cetus.Parser.Values;
 using LLVMSharp.Interop;
 
@@ -11,6 +12,7 @@ public class ClosureContext : IValueContext, IHasIdentifiers
 	public IDictionary<string, TypedValue> Identifiers { get; set; }
 	public ICollection<IFunctionContext> Functions { get; set; }
 	public ICollection<ITypeContext> Types { get; set; }
+	public List<IFunctionContext>? FinalizedFunctions { get; set; }
 }
 
 public partial class Parser
@@ -58,7 +60,7 @@ public partial class Visitor
 			Dictionary<string, TypedValue> uniqueClosureIdentifiers = ((NestedDictionary<string, TypedValue>)program.Identifiers).ThisDict;
 			TypedTypeStruct closureEnvType = new(LLVMTypeRef.CreateStruct(uniqueClosureIdentifiers.Values.Select(type => type.Type.LLVMType).ToArray(), false));
 			
-			TypedTypeFunction functionType = (typeHint as TypedTypeClosurePointer)?.BlockType ?? new TypedTypeFunctionCall("closure_block", ((TypedTypeCompilerClosure)typeHint).ReturnType, [new TypedTypePointer(new TypedTypeChar())], null);
+			TypedTypeFunction functionType = (typeHint as TypedTypeClosurePointer)?.BlockType ?? new FunctionCall("closure_block", ((TypedTypeCompilerClosure)typeHint).ReturnType, [new TypedTypePointer(new TypedTypeChar())], null);
 			LLVMValueRef function = module.AddFunction("closure_block", functionType.LLVMType);
 			function.Linkage = LLVMLinkage.LLVMInternalLinkage;
 			

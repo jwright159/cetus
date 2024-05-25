@@ -16,21 +16,15 @@ public class String : IToken
 			if (contents[i] == '"')
 				i++;
 			else
-			{
-				TokenText = null;
 				return false;
-			}
 			
-			TokenText = contents[index..i];
+			Value = System.Text.RegularExpressions.Regex.Unescape(contents[(index + 1)..(i - 1)]);
 			index = i;
 			return true;
 		}
-		else
-		{
-			TokenText = null;
-			return false;
-		}
+		
+		return false;
 	}
 	
-	public string? TokenText { get; set; }
+	public string Value { get; private set; }
 }

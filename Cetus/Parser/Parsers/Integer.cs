@@ -16,8 +16,7 @@ public partial class Parser
 	{
 		if (lexer.Eat(out HexInteger? hexIntegerToken))
 		{
-			int value = int.Parse(hexIntegerToken.TokenText[2..], NumberStyles.HexNumber);
-			integer = new IntegerContext { Value = value };
+			integer = new IntegerContext { Value = hexIntegerToken.Value };
 			return new Result.Ok();
 		}
 		else
@@ -31,8 +30,7 @@ public partial class Parser
 	{
 		if (lexer.Eat(out DecimalInteger? decimalIntegerToken))
 		{
-			int value = int.Parse(decimalIntegerToken.TokenText);
-			integer = new IntegerContext { Value = value };
+			integer = new IntegerContext { Value = decimalIntegerToken.Value };
 			return new Result.Ok();
 		}
 		else

@@ -8,18 +8,15 @@ public class DecimalInteger : IToken
 		{
 			int i = index;
 			while (i < contents.Length && char.IsDigit(contents[i])) i++;
-			TokenText = contents[index..i];
+			Value = int.Parse(contents[index..i]);
 			index = i;
 			return true;
 		}
-		else
-		{
-			TokenText = null;
-			return false;
-		}
+		
+		return false;
 	}
 	
-	public string? TokenText { get; set; }
+	public int Value { get; private set; }
 }
 
 public class HexInteger : IToken
@@ -30,16 +27,13 @@ public class HexInteger : IToken
 		{
 			int i = index + 2;
 			while (i < contents.Length && char.IsDigit(contents[i])) i++;
-			TokenText = contents[index..i];
+			Value = int.Parse(contents[(index + 1)..i]);
 			index = i;
 			return true;
 		}
-		else
-		{
-			TokenText = null;
-			return false;
-		}
+		
+		return false;
 	}
 	
-	public string? TokenText { get; set; }
+	public int Value { get; private set; }
 }

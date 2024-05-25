@@ -25,21 +25,15 @@ public class Float : IToken
 			if (contents[i] == 'f')
 				i++;
 			else
-			{
-				TokenText = null;
 				return false;
-			}
 			
-			TokenText = contents[index..i];
+			Value = float.Parse(contents[index..(i - 1)]);
 			index = i;
 			return true;
 		}
-		else
-		{
-			TokenText = null;
-			return false;
-		}
+		
+		return false;
 	}
 		
-	public string? TokenText { get; set; }
+	public float Value { get; private set; }
 }

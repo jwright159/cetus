@@ -23,21 +23,15 @@ public class Double : IToken
 			}
 			
 			if (!dot)
-			{
-				TokenText = null;
 				return false;
-			}
 			
-			TokenText = contents[index..i];
+			Value = double.Parse(contents[index..i]);
 			index = i;
 			return true;
 		}
-		else
-		{
-			TokenText = null;
-			return false;
-		}
-	}
 		
-	public string? TokenText { get; set; }
+		return false;
+	}
+	
+	public double Value { get; private set; }
 }

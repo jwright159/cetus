@@ -45,12 +45,6 @@ public partial class Parser
 			return Result.WrapPassable("Invalid value", closureResult);
 		}
 		
-		if (ParseNull(out NullContext @null) is Result.Passable nullResult)
-		{
-			value = @null;
-			return Result.WrapPassable("Invalid value", nullResult);
-		}
-		
 		if (ParseValueIdentifier(out ValueIdentifierContext valueIdentifier) is Result.Passable valueIdentifierResult)
 		{
 			value = valueIdentifier;
@@ -76,8 +70,6 @@ public partial class Visitor
 			return VisitString(@string, typeHint);
 		if (value is ClosureContext closure)
 			return VisitClosure(program, closure, typeHint);
-		if (value is NullContext @null)
-			return VisitNull(@null, typeHint);
 		if (value is ValueIdentifierContext valueIdentifier)
 			return VisitValueIdentifier(program, valueIdentifier, typeHint);
 		throw new Exception("Unknown value type {value}");

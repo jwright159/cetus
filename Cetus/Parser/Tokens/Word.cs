@@ -8,16 +8,13 @@ public class Word : IToken
 		{
 			int i = index;
 			while (i < contents.Length && (char.IsLetterOrDigit(contents[i]) || contents[i] == '_')) i++;
-			TokenText = contents[index..i];
+			Value = contents[index..i];
 			index = i;
 			return true;
 		}
-		else
-		{
-			TokenText = null;
-			return false;
-		}
+		
+		return false;
 	}
 	
-	public string? TokenText { get; set; }
+	public string Value { get; private set; }
 }

@@ -14,8 +14,7 @@ public partial class Parser
 	{
 		if (lexer.Eat(out Tokens.Double? doubleToken))
 		{
-			double value = double.Parse(doubleToken.TokenText);
-			@double = new DoubleContext { Value = value };
+			@double = new DoubleContext { Value = doubleToken.Value };
 			return new Result.Ok();
 		}
 		else

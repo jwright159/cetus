@@ -15,8 +15,7 @@ public partial class Parser
 	{
 		if (lexer.Eat(out Float? floatToken))
 		{
-			float value = float.Parse(floatToken.TokenText[..^1]);
-			@float = new FloatContext { Value = value };
+			@float = new FloatContext { Value = floatToken.Value };
 			return new Result.Ok();
 		}
 		else

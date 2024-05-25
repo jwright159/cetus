@@ -7,6 +7,7 @@ public interface IHasIdentifiers
 	public IDictionary<string, TypedValue> Identifiers { get; set; }
 	public ICollection<IFunctionContext> Functions { get; set; }
 	public ICollection<ITypeContext> Types { get; set; }
+	public List<IFunctionContext>? FinalizedFunctions { get; set; }
 }
 
 public static class IHasIdentifiersExtensions
@@ -17,13 +18,22 @@ public static class IHasIdentifiersExtensions
 		child.Functions = new NestedCollection<IFunctionContext>(parent.Functions);
 		child.Types = new NestedCollection<ITypeContext>(parent.Types);
 	}
+	
+	public static List<IFunctionContext> GetFinalizedFunctions(this IHasIdentifiers program)
+	{
+		if (program.FinalizedFunctions is null)
+		{
+			program.FinalizedFunctions = program.Functions
+				.Where(value => value is { Pattern.Length: > 0 })
+				.ToList();
+			program.FinalizedFunctions.Sort((a, b) => -a.Priority.CompareTo(b.Priority)); // Sort in descending order
+		}
+		return program.FinalizedFunctions;
+	}
 }
 
-public class ProgramContext : IHasIdentifiers
+public class ProgramContext
 {
-	public IDictionary<string, TypedValue> Identifiers { get; set; } = new Dictionary<string, TypedValue>();
-	public ICollection<IFunctionContext> Functions { get; set; } = new List<IFunctionContext>();
-	public ICollection<ITypeContext> Types { get; set; } = new List<ITypeContext>();
 	public List<string> Libraries = [];
 }
 
@@ -33,31 +43,18 @@ public partial class Parser
 	{
 		List<Result> results = [];
 		
-		while (true)
+		while (!lexer.IsAtEnd)
 		{
 			Result result = ParseProgramStatementFirstPass(program);
-			if (result is Result.ComplexRuleFailed)
+			if (result is Result.Failure)
 				results.Add(result);
 			if (result is Result.TokenRuleFailed)
-				break;
+				return Result.WrapPassable("Invalid program", results.ToArray());
 		}
-		
-		if (!lexer.IsAtEnd)
-			return new Result.TokenRuleFailed("Expected program statement", lexer.Line, lexer.Column);
-		
-		Console.WriteLine("Parsing type declarations...");
-		foreach (ITypeContext type in program.Types)
-			if (ParseTypeStatementDeclaration(type) is Result.Failure result)
-				results.Add(result);
 		
 		Console.WriteLine("Parsing type definitions...");
 		foreach (ITypeContext type in program.Types)
 			if (ParseTypeStatementDefinition(type) is Result.Failure result)
-				results.Add(result);
-		
-		Console.WriteLine("Parsing function declarations...");
-		foreach (IFunctionContext function in program.Functions)
-			if (ParseFunctionStatementDeclaration(function) is Result.Failure result)
 				results.Add(result);
 		
 		Console.WriteLine("Parsing function definitions...");

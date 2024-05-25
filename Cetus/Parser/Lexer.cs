@@ -94,8 +94,17 @@ public class Lexer(string contents)
 		return contents[start..Index];
 	}
 	
+	public string EatToMatches<T>() where T : IToken, new()
+	{
+		int start = Index;
+		while (!IsAtEnd && !Eat<T>())
+			if (!EatAnyMatches())
+				Index++;
+		return contents[start..Index];
+	}
+	
 	/// <returns>True if any tokens were skipped</returns>
-	public bool SkipTo<T>(out int originalLine, out int originalColumn) where T : IToken, new()
+	public bool SkipToMatches<T>(out int originalLine, out int originalColumn) where T : IToken, new()
 	{
 		originalLine = Line;
 		originalColumn = Column;
@@ -103,7 +112,7 @@ public class Lexer(string contents)
 		if (Eat<T>())
 			return false;
 		
-		EatTo<T>();
+		EatToMatches<T>();
 		return true;
 	}
 	
@@ -126,14 +135,19 @@ public class Lexer(string contents)
 			if (Eat<TRight>())
 				return true;
 			
-			if (Eat<Tokens.String>() ||
-				EatMatches<LeftParenthesis, RightParenthesis>() ||
-			    EatMatches<LeftBrace, RightBrace>())
+			if (EatAnyMatches())
 				continue;
 			
 			Index++;
 			EatWhitespace();
 		}
+	}
+	
+	public bool EatAnyMatches()
+	{
+		return Eat<Tokens.String>() ||
+		       EatMatches<LeftParenthesis, RightParenthesis>() ||
+		       EatMatches<LeftBrace, RightBrace>();
 	}
 	
 	private void RecalculateLine()

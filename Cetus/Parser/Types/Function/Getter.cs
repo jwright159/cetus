@@ -1,9 +1,9 @@
 ﻿using Cetus.Parser.Values;
 using LLVMSharp.Interop;
 
-namespace Cetus.Parser.Types;
+namespace Cetus.Parser.Types.Function;
 
-public class TypedTypeFunctionGetter(GetterContext getter) : TypedTypeFunction($"{getter.Struct.Name}.Get_{getter.Field.Name}", getter.Field.Type.Pointer(), [getter.Struct.Type.Pointer()], null)
+public class Getter(GetterContext getter) : TypedTypeFunction(getter.Name, getter.Field.Type.Pointer(), [(getter.Struct.Type.Pointer(), "value")], null)
 {
 	public override TypedValue Call(LLVMBuilderRef builder, TypedValue function, IHasIdentifiers context, params TypedValue[] args)
 	{

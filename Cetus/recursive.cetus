@@ -1,23 +1,35 @@
-﻿extern Void printf(String format, Int... values)
+﻿extern Void printf(String format, Int... values);
 
 Foo
 {
-	Int a
-	Int b
-}
+	Int a;
+	Int b;
+	
+	Foo New(Int a, Int b)
+	{
+		Declare Foo this;
+		this.a = a;
+		this.b = b;
+		Return this;
+	}
+	
+	Int* A(Foo this)
+	{
+		Return this.a;
+	}
+};
 
 Void main()
 {
-	Declare Foo foo
-	foo.a = 2
-	printf("Starting at %i\n", foo.a)
+	Foo foo = Foo.New(2, 3);
+	printf("Starting at %i\n", foo.A());
 	
-	While (foo.a < 6)
+	While (foo.A() < 6)
 	{
-		foo.a = foo.a + 1
-		printf("Loop %i\n", foo.a)
-	}
+		foo.A() = foo.A() + 1;
+		printf("Loop %i\n", foo.A());
+	};
 	
-	printf("Ending at %i\n", foo.a)
-	Return
-}
+	printf("Ending at %i\n", foo.A());
+	Return;
+};
