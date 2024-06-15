@@ -1,7 +1,24 @@
-﻿namespace Cetus.Parser.Tokens;
+﻿using Cetus.Parser.Types;
+using Cetus.Parser.Values;
+using LLVMSharp.Interop;
 
-public class Double : IToken
+namespace Cetus.Parser.Tokens;
+
+public class Double : TypedValue, IToken
 {
+	public double Value { get; private set; }
+	public TypedType Type => Visitor.DoubleType;
+	public LLVMValueRef LLVMValue { get; private set; }
+	
+	public void Parse(IHasIdentifiers context) { }
+	
+	public void Transform(IHasIdentifiers context, TypedType? typeHint) { }
+	
+	public void Visit(IHasIdentifiers context, TypedType? typeHint, LLVMBuilderRef builder)
+	{
+		LLVMValue = LLVMValueRef.CreateConstReal(LLVMTypeRef.Double, Value);
+	}
+	
 	public bool Eat(string contents, ref int index)
 	{
 		if (char.IsDigit(contents[index]))
@@ -32,6 +49,4 @@ public class Double : IToken
 		
 		return false;
 	}
-	
-	public double Value { get; private set; }
 }

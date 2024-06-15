@@ -4,19 +4,47 @@ using LLVMSharp.Interop;
 
 namespace Cetus.Parser;
 
-public interface IExpressionContext;
+public class Expression : TypedValue
+{
+	public LLVMBasicBlockRef Block;
+	public TypedValue ReturnValue;
+	
+	public TypedType Type { get; }
+	public LLVMValueRef LLVMValue { get; }
+	
+	public void Parse(IHasIdentifiers context)
+	{
+		
+	}
+	
+	public void Transform(IHasIdentifiers context, TypedType? typeHint)
+	{
+		
+	}
+	
+	public void Visit(IHasIdentifiers context, TypedType? typeHint, LLVMBuilderRef builder)
+	{
+		LLVMBasicBlockRef originalBlock = builder.InsertBlock;
+		LLVMBasicBlockRef block = originalBlock.Parent.AppendBasicBlock("closureBlock");
+		builder.PositionAtEnd(block);
+		
+		// Visit something here
+		
+		builder.PositionAtEnd(originalBlock);
+	}
+}
 
 public partial class Parser
 {
-	public Result ParseExpression(IHasIdentifiers program, out IExpressionContext expression, int order = 0)
+	public Result ParseExpression(IHasIdentifiers context, out TypedValue expression, int order = 0)
 	{
-		if (ParseFunctionCall(program, out FunctionCallContext functionCall, order) is Result.Passable functionCallResult)
+		if (ParseFunctionCall(context, out FunctionCallContext functionCall, order) is Result.Passable functionCallResult)
 		{
 			expression = functionCall;
 			return Result.WrapPassable("Invalid expression", functionCallResult);
 		}
 		
-		if (ParseValue(program, out IValueContext value) is Result.Passable valueResult)
+		if (ParseValue(out TypedValue value) is Result.Passable valueResult)
 		{
 			expression = value;
 			return Result.WrapPassable("Invalid expression", valueResult);
@@ -25,30 +53,52 @@ public partial class Parser
 		expression = null;
 		return new Result.TokenRuleFailed("Expected expression", lexer.Line, lexer.Column);
 	}
-}
-
-public partial class Visitor
-{
-	public TypedValue VisitExpression(IHasIdentifiers program, IExpressionContext expression, TypedType? typeHint)
+	
+	public Result ParseValue(out TypedValue value)
 	{
-		if (typeHint is TypedTypeCompilerExpression compilerExpressionType)
+		if (lexer.Eat(out Tokens.HexInteger? hexInteger))
 		{
-			LLVMBasicBlockRef originalBlock = builder.InsertBlock;
-			LLVMBasicBlockRef block = originalBlock.Parent.AppendBasicBlock("closureBlock");
-			TypedValueCompilerExpression compilerExpression = new(compilerExpressionType, block);
-			builder.PositionAtEnd(block);
-			
-			compilerExpression.ReturnValue = VisitExpression(program, expression, compilerExpressionType.ReturnType);
-			
-			builder.PositionAtEnd(originalBlock);
-			
-			return compilerExpression;
+			value = hexInteger;
+			return new Result.Ok();
 		}
 		
-		if (expression is FunctionCallContext functionCall)
-			return VisitFunctionCall(program, functionCall, typeHint);
-		if (expression is IValueContext value)
-			return VisitValue(program, value, typeHint);
-		throw new Exception("Unknown expression type {expression}");
+		if (lexer.Eat(out Tokens.Float? @float))
+		{
+			value = @float;
+			return new Result.Ok();
+		}
+		
+		if (lexer.Eat(out Tokens.Double? @double))
+		{
+			value = @double;
+			return new Result.Ok();
+		}
+		
+		if (lexer.Eat(out Tokens.DecimalInteger? decimalInteger))
+		{
+			value = decimalInteger;
+			return new Result.Ok();
+		}
+		
+		if (lexer.Eat(out Tokens.String? @string))
+		{
+			value = @string;
+			return new Result.Ok();
+		}
+		
+		if (lexer.Eat(out Tokens.Closure? closure))
+		{
+			value = closure;
+			return new Result.Ok();
+		}
+		
+		if (lexer.Eat(out Tokens.Word? valueName))
+		{
+			value = new ValueIdentifierContext(valueName.Value);
+			return new Result.Ok();
+		}
+		
+		value = null;
+		return new Result.TokenRuleFailed("Expected value", lexer.Line, lexer.Column);
 	}
 }

@@ -11,15 +11,19 @@ public partial class Visitor
 	private LLVMModuleRef module;
 	private LLVMBuilderRef builder;
 	
-	public static readonly TypedType VoidType = new TypedTypeVoid();
-	public static readonly TypedType IntType = new TypedTypeInt();
-	public static readonly TypedType BoolType = new TypedTypeBool();
-	public static readonly TypedType CharType = new TypedTypeChar();
-	public static readonly TypedType FloatType = new TypedTypeFloat();
-	public static readonly TypedType DoubleType = new TypedTypeDouble();
-	public static readonly TypedType StringType = new TypedTypePointer(CharType);
-	public static readonly TypedType CompilerStringType = new TypedTypeCompilerString();
-	public static readonly TypedType TypeType = new TypedTypeType();
+	public static readonly TypedTypeVoid VoidType = new();
+	public static readonly TypedTypeInt IntType = new();
+	public static readonly TypedTypeBool BoolType = new();
+	public static readonly TypedTypeChar CharType = new();
+	public static readonly TypedTypeFloat FloatType = new();
+	public static readonly TypedTypeDouble DoubleType = new();
+	public static readonly TypedTypePointer StringType = new(CharType);
+	public static readonly TypedTypeCompilerString CompilerStringType = new();
+	public static readonly TypedTypeType TypeType = new();
+	public static readonly TypedTypeCompilerAnyFunctionCall AnyFunctionCall = new();
+	public static readonly TypedTypeCompilerTypeIdentifier TypeIdentifierType = new();
+	public static readonly TypedTypeCompilerAnyFunction AnyFunctionType = new();
+	public static readonly TypedTypeCompilerAnyValue AnyValueType = new();
 	
 	public static readonly TypedValue Void = new TypedValueType(VoidType);
 	
@@ -46,14 +50,21 @@ public partial class Visitor
 		module.TryVerify(LLVMVerifierFailureAction.LLVMPrintMessageAction, out string _);
 	}
 	
+	private void VisitProgram(ProgramContext program)
+	{
+		program.Call.Visit(program.Call, null, builder);
+	}
+	
 	[UsedImplicitly]
 	private void Printf(string message, ProgramContext program, params TypedValue[] args)
 	{
-		TypedValue function = program.Identifiers["printf"];
+		TypedValue function = program.Call.Identifiers["printf"];
 		TypedTypeFunction functionType = (TypedTypeFunction)function.Type;
 		TypedValueValue messageValue = new(StringType, builder.BuildGlobalStringPtr(message, "message"));
-		args = args.Prepend(messageValue).ToArray();
-		functionType.Call(builder, function, program, args);
+		FunctionArgs functionArgs = new(functionType.Parameters);
+		functionArgs["args"] = args.Prepend(messageValue).ToArray();
+		FunctionCallContext functionCall = new(new TypedValueType(functionType), functionArgs);
+		functionCall.Call(program.Call);
 	}
 	
 	public void Optimize()

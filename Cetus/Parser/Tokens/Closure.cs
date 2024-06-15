@@ -3,64 +3,50 @@ using Cetus.Parser.Types.Function;
 using Cetus.Parser.Values;
 using LLVMSharp.Interop;
 
-namespace Cetus.Parser;
+namespace Cetus.Parser.Tokens;
 
-public class ClosureContext : IValueContext, IHasIdentifiers
+public class Closure() : TokenSplit(new LiteralToken("{"), new LiteralToken(";"), new LiteralToken("}"), new ParameterExpressionToken("statements")), TypedValue, IHasIdentifiers
 {
-	public List<IFunctionStatementContext> Statements;
+	public List<FunctionCallContext> Statements;
 	public ProgramContext Program { get; set; }
 	public IDictionary<string, TypedValue> Identifiers { get; set; }
 	public ICollection<IFunctionContext> Functions { get; set; }
-	public ICollection<ITypeContext> Types { get; set; }
+	public ICollection<TypedType> Types { get; set; }
 	public List<IFunctionContext>? FinalizedFunctions { get; set; }
-}
-
-public partial class Parser
-{
-	public Result ParseClosure(IHasIdentifiers program, out ClosureContext closure)
+	public LLVMBasicBlockRef Block;
+	public TypedValue? ReturnValue;
+	
+	public TypedType Type { get; }
+	public LLVMValueRef LLVMValue { get; }
+	
+	public void Parse(IHasIdentifiers context)
 	{
-		int startIndex = lexer.Index;
-		if (ParseFunctionBlock(program, out List<IFunctionStatementContext> statements) is Result.Passable functionBlockResult)
-		{
-			closure = new ClosureContext();
-			closure.Statements = statements;
-			closure.NestFrom(program);
-			return Result.WrapPassable("Expected closure", functionBlockResult);
-		}
-		lexer.Index = startIndex;
-		closure = null;
-		return new Result.TokenRuleFailed("Expected closure", lexer.Line, lexer.Column);
-	}
-}
-
-public partial class Visitor
-{
-	public TypedValue VisitClosure(IHasIdentifiers program, ClosureContext closure, TypedType? typeHint)
-	{
-		if (typeHint is not TypedTypeClosurePointer and not TypedTypeCompilerClosure)
-			throw new Exception("Expected closure");
 		
-		if (typeHint is TypedTypeCompilerClosure compilerClosureType)
+	}
+	
+	public void Transform(IHasIdentifiers context, TypedType? typeHint)
+	{
+		
+	}
+	
+	public void Visit(IHasIdentifiers context, TypedType? typeHint, LLVMBuilderRef builder)
+	{
+		if (typeHint is TypedTypeCompilerClosure)
 		{
 			LLVMBasicBlockRef originalBlock = builder.InsertBlock;
 			LLVMBasicBlockRef block = originalBlock.Parent.AppendBasicBlock("closureBlock");
-			TypedValueCompilerClosure compilerClosure = new(compilerClosureType, block);
 			builder.PositionAtEnd(block);
 			
-			closure.Identifiers = new Dictionary<string, TypedValue>(program.Identifiers);
-			
-			VisitFunctionBlock(closure, closure.Statements);
+			VisitFunctionBlock(this, Statements);
 			
 			builder.PositionAtEnd(originalBlock);
-			
-			return compilerClosure;
 		}
-		else
+		else if (typeHint is TypedTypeClosurePointer pointer)
 		{
-			Dictionary<string, TypedValue> uniqueClosureIdentifiers = ((NestedDictionary<string, TypedValue>)program.Identifiers).ThisDict;
+			Dictionary<string, TypedValue> uniqueClosureIdentifiers = ((NestedDictionary<string, TypedValue>)context.Identifiers).ThisDict;
 			TypedTypeStruct closureEnvType = new(LLVMTypeRef.CreateStruct(uniqueClosureIdentifiers.Values.Select(type => type.Type.LLVMType).ToArray(), false));
 			
-			TypedTypeFunction functionType = (typeHint as TypedTypeClosurePointer)?.BlockType ?? new FunctionCall("closure_block", ((TypedTypeCompilerClosure)typeHint).ReturnType, [new TypedTypePointer(new TypedTypeChar())], null);
+			TypedTypeFunction functionType = pointer.BlockType ?? new DefinedFunctionCall("closure_block", ((TypedTypeCompilerClosure)typeHint).ReturnType, [(new TypedTypePointer(new TypedTypeChar()), "data")], null);
 			LLVMValueRef function = module.AddFunction("closure_block", functionType.LLVMType);
 			function.Linkage = LLVMLinkage.LLVMInternalLinkage;
 			
@@ -75,10 +61,10 @@ public partial class Visitor
 				{
 					LLVMValueRef elementPtr = builder.BuildStructGEP2(closureEnvType.LLVMType, closureEnvPtr, (uint)paramIndex++, name);
 					LLVMValueRef element = builder.BuildLoad2(value.Type.LLVMType, elementPtr, name);
-					closure.Identifiers.Add(name, new TypedValueValue(value.Type, element));
+					Identifiers.Add(name, new TypedValueValue(value.Type, element));
 				}
 				
-				VisitFunctionBlock(closure, closure.Statements);
+				VisitFunctionBlock(this, Statements);
 			}
 			
 			TypedTypeStruct closureStructType = new(LLVMTypeRef.CreateStruct([LLVMTypeRef.CreatePointer(functionType.LLVMType, 0), LLVMTypeRef.CreatePointer(LLVMTypeRef.Int8, 0)], false));
@@ -98,13 +84,13 @@ public partial class Visitor
 				foreach ((string name, TypedValue value) in uniqueClosureIdentifiers)
 				{
 					LLVMValueRef elementPtr = builder.BuildStructGEP2(closureEnvType.LLVMType, closureEnv, (uint)paramIndex++, name);
-					builder.BuildStore(value.Value, elementPtr);
+					builder.BuildStore(value.LLVMValue, elementPtr);
 				}
 				LLVMValueRef closureEnvCasted = builder.BuildBitCast(closureEnv, LLVMTypeRef.CreatePointer(LLVMTypeRef.Int8, 0), "closure_env_casted");
 				builder.BuildStore(closureEnvCasted, closureEnvPtr);
 			}
-			
-			return new TypedValueValue(closureType, closurePtr);
 		}
+		else
+			throw new Exception("Expected closure");
 	}
 }

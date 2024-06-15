@@ -1,47 +1,39 @@
-﻿using Cetus.Parser.Tokens;
-using Cetus.Parser.Types;
+﻿using Cetus.Parser.Types;
 using Cetus.Parser.Values;
 using LLVMSharp.Interop;
 
 namespace Cetus.Parser;
 
-public class ValueIdentifierContext : IValueContext
+public class ValueIdentifierContext(string name) : TypedValue
 {
-	public string Name;
-}
-
-public partial class Parser
-{
-	public Result ParseValueIdentifier(out ValueIdentifierContext value)
+	public string Name => name;
+	public TypedValue Value;
+	
+	public TypedType Type { get; }
+	public LLVMValueRef LLVMValue { get; }
+	
+	public void Parse(IHasIdentifiers context)
 	{
-		if (lexer.Eat(out Word? valueName))
-		{
-			value = new ValueIdentifierContext { Name = valueName.Value };
-			return new Result.Ok();
-		}
-		else
-		{
-			value = null;
-			return new Result.TokenRuleFailed("Expected value identifier", lexer.Line, lexer.Column);
-		}
+		
 	}
-}
-
-public partial class Visitor
-{
-	public TypedValue VisitValueIdentifier(IHasIdentifiers program, ValueIdentifierContext valueIdentifier, TypedType? typeHint)
+	
+	public void Transform(IHasIdentifiers context, TypedType? typeHint)
 	{
-		string name = valueIdentifier.Name;
 		
+	}
+	
+	public void Visit(IHasIdentifiers context, TypedType? typeHint, LLVMBuilderRef builder)
+	{
 		if (typeHint is TypedTypeCompilerString)
-			return new TypedValueCompilerString(name);
+		{
+			Value = new TypedValueCompiler<string>(typeHint, Name);
+			return;
+		}
 		
-		if (!program.Identifiers.TryGetValue(name, out TypedValue? value))
-			throw new Exception($"Identifier '{name}' not found");
+		if (!context.Identifiers.TryGetValue(Name, out Value))
+			throw new Exception($"Identifier '{Name}' not found");
 		
 		if (typeHint is not null)
-			value = value.CoersePointer(typeHint, builder, name);
-		
-		return value;
+			Value = Value.CoersePointer(typeHint, builder, Name);
 	}
 }

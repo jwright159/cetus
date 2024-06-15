@@ -1,7 +1,24 @@
-﻿namespace Cetus.Parser.Tokens;
+﻿using Cetus.Parser.Types;
+using Cetus.Parser.Values;
+using LLVMSharp.Interop;
 
-public class String : IToken
+namespace Cetus.Parser.Tokens;
+
+public class String : TypedValue, IToken
 {
+	public string Value { get; private set; }
+	public TypedType Type => Visitor.StringType;
+	public LLVMValueRef LLVMValue { get; private set; }
+	
+	public void Parse(IHasIdentifiers context) { }
+	
+	public void Transform(IHasIdentifiers context, TypedType? typeHint) { }
+	
+	public void Visit(IHasIdentifiers context, TypedType? typeHint, LLVMBuilderRef builder)
+	{
+		LLVMValue = builder.BuildGlobalStringPtr(Value, Value.Length == 0 ? "emptyString" : Value);
+	}
+	
 	public bool Eat(string contents, ref int index)
 	{
 		if (contents[index] == '"')
@@ -25,6 +42,4 @@ public class String : IToken
 		
 		return false;
 	}
-	
-	public string Value { get; private set; }
 }

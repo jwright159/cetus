@@ -5,5 +5,6 @@ namespace Cetus.Parser.Types;
 public class TypedTypeBool : TypedType
 {
 	public LLVMTypeRef LLVMType => LLVMTypeRef.Int1;
-	public override string ToString() => "Bool";
+	public string Name => "Bool";
+	public override string ToString() => Name;
 }

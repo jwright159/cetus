@@ -5,5 +5,6 @@ namespace Cetus.Parser.Types;
 public class TypedTypeFloat : TypedType
 {
 	public LLVMTypeRef LLVMType => LLVMTypeRef.Float;
-	public override string ToString() => "Float";
+	public string Name => "Float";
+	public override string ToString() => Name;
 }

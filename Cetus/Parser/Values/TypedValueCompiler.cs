@@ -3,10 +3,11 @@ using LLVMSharp.Interop;
 
 namespace Cetus.Parser.Values;
 
-public class TypedValueType(TypedType type) : TypedValue
+public class TypedValueCompiler<TValue>(TypedType type, TValue value) : TypedValue
 {
 	public TypedType Type => type;
-	public LLVMValueRef LLVMValue => throw new Exception("Cannot get the value of a type");
+	public LLVMValueRef LLVMValue => throw new Exception("Cannot get the llvm value of a compiler value");
+	public TValue CompilerValue => value;
 	
 	public void Parse(IHasIdentifiers context)
 	{
@@ -22,6 +23,4 @@ public class TypedValueType(TypedType type) : TypedValue
 	{
 		
 	}
-	
-	public override string ToString() => type.ToString()!;
 }

@@ -6,5 +6,6 @@ public class TypedTypeCompilerClosure(TypedType returnType) : TypedType
 {
 	public LLVMTypeRef LLVMType => LLVMTypeRef.CreatePointer(LLVMTypeRef.CreateStruct([LLVMTypeRef.CreateFunction(returnType.LLVMType, [LLVMTypeRef.CreatePointer(LLVMTypeRef.Int8, 0)], false), LLVMTypeRef.CreatePointer(LLVMTypeRef.Int8, 0)], false), 0);
 	public TypedType ReturnType => returnType;
-	public override string ToString() => LLVMType.ToString();
+	public string Name => LLVMType.ToString();
+	public override string ToString() => Name;
 }

@@ -1,8 +1,30 @@
-﻿namespace Cetus.Parser.Tokens;
+﻿using Cetus.Parser.Types;
+using Cetus.Parser.Values;
+using LLVMSharp.Interop;
 
-public class DecimalInteger : IToken
+namespace Cetus.Parser.Tokens;
+
+public abstract class Integer : TypedValue, IToken
 {
-	public bool Eat(string contents, ref int index)
+	public int Value { get; protected set; }
+	public TypedType Type => Visitor.IntType;
+	public LLVMValueRef LLVMValue { get; private set; }
+	
+	public void Parse(IHasIdentifiers context) { }
+	
+	public void Transform(IHasIdentifiers context, TypedType? typeHint) { }
+	
+	public void Visit(IHasIdentifiers context, TypedType? typeHint, LLVMBuilderRef builder)
+	{
+		LLVMValue = LLVMValueRef.CreateConstInt(LLVMTypeRef.Int32, (ulong)Value, true);
+	}
+	
+	public abstract bool Eat(string contents, ref int index);
+}
+
+public class DecimalInteger : Integer
+{
+	public override bool Eat(string contents, ref int index)
 	{
 		if (char.IsDigit(contents[index]))
 		{
@@ -15,13 +37,11 @@ public class DecimalInteger : IToken
 		
 		return false;
 	}
-	
-	public int Value { get; private set; }
 }
 
-public class HexInteger : IToken
+public class HexInteger : Integer
 {
-	public bool Eat(string contents, ref int index)
+	public override bool Eat(string contents, ref int index)
 	{
 		if (contents.Length > index + 2 && contents[index..(index+2)] == "0x")
 		{
@@ -34,6 +54,4 @@ public class HexInteger : IToken
 		
 		return false;
 	}
-	
-	public int Value { get; private set; }
 }

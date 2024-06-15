@@ -1,89 +1,70 @@
-﻿using Cetus.Parser.Tokens;
-using Cetus.Parser.Types;
+﻿using Cetus.Parser.Types;
 using Cetus.Parser.Types.Function;
 using Cetus.Parser.Values;
 using LLVMSharp.Interop;
 
 namespace Cetus.Parser;
 
-public class TypeIdentifierContext
+public class TypeIdentifier : TypedValue
 {
-	public string Name;
-	public TypeIdentifierContext? InnerType;
-	public int PointerDepth;
+	public string Name { get; }
+	public TypedType? Type { get; private set; }
+	public LLVMValueRef LLVMValue { get; }
+	public TypeIdentifier? InnerType { get; }
 	
-	public TypeIdentifierContext Pointer()
+	public TypeIdentifier(string name, TypeIdentifier? innerType = null)
 	{
-		TypeIdentifierContext result = new();
-		result.Name = Name;
-		result.InnerType = InnerType;
-		result.PointerDepth = PointerDepth + 1;
-		return result;
+		Name = name;
+		InnerType = innerType;
 	}
 	
-	public override string ToString() => $"{Name}{(InnerType is not null ? $"<{InnerType}>" : "")}{new string('*', PointerDepth)}";
-}
-
-public partial class Parser
-{
-	public Result ParseTypeIdentifier(out TypeIdentifierContext type)
+	public TypeIdentifier(TypedType type)
 	{
-		if (lexer.Eat(out Word? typeName))
-		{
-			List<Result> results = [];
-			type = new TypeIdentifierContext();
-			type.Name = typeName.Value;
-			
-			if (lexer.Eat<LeftTriangle>())
-			{
-				results.Add(ParseTypeIdentifier(out TypeIdentifierContext innerType));
-				type.InnerType = innerType;
-				if (lexer.SkipToMatches<RightTriangle>(out int line, out int column))
-					results.Add(new Result.TokenRuleFailed("Expected '>'", line, column));
-			}
-			
-			while (lexer.Eat<Pointer>())
-				type.PointerDepth++;
-			
-			return Result.WrapPassable("Invalid type identifier", results.ToArray());
-		}
-		else
-		{
-			type = null;
-			return new Result.TokenRuleFailed("Expected type identifier", lexer.Line, lexer.Column);
-		}
+		Name = type.Name;
+		Type = type;
+		InnerType = type.InnerType is not null ? new TypeIdentifier(type.InnerType) : null;
 	}
-}
-
-public partial class Visitor
-{
-	public TypedType VisitTypeIdentifier(IHasIdentifiers program, TypeIdentifierContext type)
+	
+	public void Parse(IHasIdentifiers context)
 	{
-		TypedType result;
-		if (type.Name == "Closure")
+		
+	}
+	
+	public void Transform(IHasIdentifiers context, TypedType? typeHint)
+	{
+		InnerType?.Transform(context, null);
+		
+		if (Type is not null)
+			return;
+		
+		if (Name == "Closure")
 		{
-			TypedType? innerType = type.InnerType is not null ? VisitTypeIdentifier(program, type.InnerType) : null;
-			FunctionCall functionType = new("block", innerType ?? VoidType, [new TypedTypePointer(new TypedTypeChar())], null);
+			DefinedFunctionCall functionType = new("block", InnerType?.Type ?? Visitor.VoidType, [(new TypedTypePointer(new TypedTypeChar()), "data")], null);
 			TypedTypeStruct closureStructType = new(LLVMTypeRef.CreateStruct([LLVMTypeRef.CreatePointer(functionType.LLVMType, 0), LLVMTypeRef.CreatePointer(LLVMTypeRef.Int8, 0)], false));
-			result = new TypedTypeClosurePointer(closureStructType, functionType);
+			Type = new TypedTypeClosurePointer(closureStructType, functionType);
 		}
-		else if (type.Name == "CompilerClosure")
+		else if (Name == "CompilerClosure")
 		{
-			TypedType? innerType = type.InnerType is not null ? VisitTypeIdentifier(program, type.InnerType) : null;
-			result = new TypedTypeCompilerClosure(innerType ?? VoidType);
+			Type = new TypedTypeCompilerClosure(InnerType?.Type ?? Visitor.VoidType);
 		}
 		else
 		{
-			if (!program.Identifiers.TryGetValue(type.Name, out TypedValue? value))
-				throw new Exception($"Identifier '{type.Name}' not found");
+			if (!context.Identifiers.TryGetValue(Name, out TypedValue? value))
+				throw new Exception($"Identifier '{Name}' not found");
 			
 			if (value is not TypedValueType)
-				throw new Exception($"'{type.Name}' is not a type");
+				throw new Exception($"'{Name}' is not a type");
 			
-			result = value.Type;
+			Type = value.Type;
 		}
-		for (int i = 0; i < type.PointerDepth; i++)
-			result = new TypedTypePointer(result);
-		return result;
 	}
+	
+	public void Visit(IHasIdentifiers context, TypedType? typeHint, LLVMBuilderRef builder)
+	{
+		
+	}
+	
+	public TypeIdentifier Pointer() => new("Pointer", this);
+	
+	public override string ToString() => $"{Name}{(InnerType is not null ? $"<{InnerType}>" : "")}";
 }

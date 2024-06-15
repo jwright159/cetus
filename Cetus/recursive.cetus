@@ -1,4 +1,4 @@
-﻿extern Void printf(String format, Int... values);
+﻿Void printf(String format, Int... values);
 
 Foo
 {
@@ -11,12 +11,12 @@ Foo
 		this.a = a;
 		this.b = b;
 		Return this;
-	}
+	};
 	
 	Int* A(Foo this)
 	{
 		Return this.a;
-	}
+	};
 };
 
 Void main()

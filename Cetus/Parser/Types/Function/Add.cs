@@ -1,13 +1,11 @@
-﻿using Cetus.Parser.Values;
-using LLVMSharp.Interop;
+﻿using LLVMSharp.Interop;
 
 namespace Cetus.Parser.Types.Function;
 
-public class Add() : TypedTypeFunction("Add", Visitor.IntType, [(Visitor.IntType, "a"), (Visitor.IntType, "b")], null)
+public class Add() : TypedTypeFunctionSimple("Add", Visitor.IntType, [(Visitor.IntType, "a"), (Visitor.IntType, "b")], null)
 {
-	public override TypedValue Call(LLVMBuilderRef builder, TypedValue function, IHasIdentifiers context, params TypedValue[] args)
+	public override LLVMValueRef Visit(IHasIdentifiers context, LLVMBuilderRef builder, TypedType? typeHint, FunctionArgs args)
 	{
-		LLVMValueRef sum = builder.BuildAdd(args[0].Value, args[1].Value, "addtmp");
-		return new TypedValueValue(Visitor.IntType, sum);
+		return builder.BuildAdd(args["a"].LLVMValue, args["b"].LLVMValue, "addtmp");
 	}
 }

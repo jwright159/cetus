@@ -17,3 +17,11 @@ public class LiteralToken(string token) : IToken
 }
 
 public class Semicolon() : LiteralToken(";");
+
+public class LeftParenthesis() : LiteralToken("(");
+
+public class RightParenthesis() : LiteralToken(")");
+
+public class LeftBrace() : LiteralToken("{");
+
+public class RightBrace() : LiteralToken("}");
