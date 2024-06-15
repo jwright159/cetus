@@ -1,9 +1,17 @@
-﻿namespace Cetus.Parser.Tokens;
+﻿using Cetus.Parser.Types;
+
+namespace Cetus.Parser.Tokens;
 
 public class TokenOptional(IToken token) : IToken
 {
-	public bool Eat(string contents, ref int index)
+	public Result Eat(Lexer lexer)
 	{
-		throw new NotImplementedException();
+		if (lexer.Eat(token) is Result.Passable result)
+			return result;
+		return new Result.Ok();
 	}
+	
+	public IToken Contextualize(IHasIdentifiers context, FunctionArgs arguments, int order) => new TokenOptional(token.Contextualize(context, arguments, order));
+	
+	public override string ToString() => token + "?";
 }

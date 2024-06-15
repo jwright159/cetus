@@ -1,5 +1,4 @@
-﻿using System.Diagnostics.CodeAnalysis;
-using Cetus.Parser.Tokens;
+﻿using Cetus.Parser.Tokens;
 
 namespace Cetus.Parser;
 
@@ -31,20 +30,17 @@ public class Lexer(string contents)
 	
 	public string Contents => contents;
 	
-	private bool TryParse<T>(ref T token) where T : IToken
+	private Result TryParse<T>(ref T token) where T : IToken
 	{
 		if (Index == 0)
 			EatWhitespace();
 		
-		if (IsAtEnd)
-			return false;
+		Result result = token.Eat(this);
 		
-		if (token.Eat(contents, ref Index))
-		{
+		if (result is Result.Passable)
 			EatWhitespace();
-			return true;
-		}
-		return false;
+		
+		return result;
 	}
 	
 	private void EatWhitespace()
@@ -70,19 +66,19 @@ public class Lexer(string contents)
 		}
 	}
 	
-	public bool Eat<T>([NotNullWhen(true)] out T? token) where T : IToken, new()
+	public Result Eat<T>(out T token) where T : IToken, new()
 	{
 		token = new T();
 		return TryParse(ref token);
 	}
 	
-	public bool Eat<T>() where T : IToken, new()
+	public Result Eat<T>() where T : IToken, new()
 	{
 		T token = new();
 		return TryParse(ref token);
 	}
 	
-	public bool Eat<T>(T token) where T : IToken
+	public Result Eat<T>(T token) where T : IToken
 	{
 		return TryParse(ref token);
 	}
@@ -90,50 +86,52 @@ public class Lexer(string contents)
 	public string EatTo<T>() where T : IToken, new()
 	{
 		int start = Index;
-		while (!IsAtEnd && !Eat<T>()) Index++;
+		while (!IsAtEnd && Eat<T>() is not Result.Passable) Index++;
 		return contents[start..Index];
 	}
 	
-	public string EatToMatches<T>() where T : IToken, new()
+	public string EatToMatches<T>(T token) where T : IToken
 	{
 		int start = Index;
-		while (!IsAtEnd && !Eat<T>())
+		while (!IsAtEnd && Eat(token) is not Result.Passable)
 			if (!EatAnyMatches())
 				Index++;
 		return contents[start..Index];
 	}
 	
-	/// <returns>True if any tokens were skipped</returns>
-	public bool SkipToMatches<T>(out int originalLine, out int originalColumn) where T : IToken, new()
+	public string EatToMatches<T>() where T : IToken, new() => EatToMatches(new T());
+	
+	public Result? SkipToMatches<T>(T token, bool failIfSkip = true) where T : IToken
 	{
-		originalLine = Line;
-		originalColumn = Column;
-		
-		if (Eat<T>())
-			return false;
-		
-		EatToMatches<T>();
-		return true;
+		int originalLine = Line;
+		int originalColumn = Column;
+		if (Eat(token) is Result.Passable eatResult)
+		{
+			return eatResult;
+		}
+		else
+		{
+			EatToMatches(token);
+			return failIfSkip ? Result.ComplexTokenRuleFailed($"Skipped to {token}", originalLine, originalColumn) : null;
+		}
 	}
 	
-	public bool EatMatches<TLeft, TRight>()
-		where TLeft : IToken, new()
-		where TRight : IToken, new()
+	public Result? SkipToMatches<T>(bool failIfSkip = true) where T : IToken, new() => SkipToMatches(new T(), failIfSkip);
+	
+	public Result EatMatches<TLeft, TRight>(TLeft left, TRight right)
+		where TLeft : IToken
+		where TRight : IToken
 	{
-		int startIndex = Index;
-		if (!Eat<TLeft>())
-		{
-			Index = startIndex;
-			return false;
-		}
+		if (Eat(left) is var startResult and not Result.Passable)
+			return startResult;
 		
 		while (true)
 		{
 			if (IsAtEnd)
-				return false;
+				return new Result.TokenRuleFailed($"Expected {typeof(TRight).Name}, got EOF", this);
 			
-			if (Eat<TRight>())
-				return true;
+			if (Eat(right) is Result.Passable endResult)
+				return endResult;
 			
 			if (EatAnyMatches())
 				continue;
@@ -143,11 +141,16 @@ public class Lexer(string contents)
 		}
 	}
 	
+	public Result EatMatches<TLeft, TRight>()
+		where TLeft : IToken, new()
+		where TRight : IToken, new()
+		=> EatMatches(new TLeft(), new TRight());
+	
 	public bool EatAnyMatches()
 	{
-		return Eat<Tokens.String>() ||
-		       EatMatches<LeftParenthesis, RightParenthesis>() ||
-		       EatMatches<LeftBrace, RightBrace>();
+		return Eat<Tokens.String>() is Result.Passable ||
+		       EatMatches(new LiteralToken("{"), new LiteralToken("}")) is Result.Passable ||
+		       EatMatches(new LiteralToken("("), new LiteralToken(")")) is Result.Passable;
 	}
 	
 	private void RecalculateLine()
@@ -181,4 +184,10 @@ public class Lexer(string contents)
 			lastIndexAtLastLineCalculated = Index;
 		}
 	}
+	
+	public char this[int index] => contents[index];
+	public string this[Range range] => contents[range];
+	public int Length => contents.Length;
+	public char Current => contents[Index];
+	public bool Next() => ++Index < contents.Length;
 }

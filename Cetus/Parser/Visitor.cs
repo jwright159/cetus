@@ -6,7 +6,7 @@ using LLVMSharp.Interop;
 
 namespace Cetus.Parser;
 
-public partial class Visitor
+public class Visitor
 {
 	public LLVMModuleRef Module { get; }
 	public LLVMBuilderRef Builder { get; }
@@ -63,8 +63,7 @@ public partial class Visitor
 		TypedValueValue messageValue = new(StringType, Builder.BuildGlobalStringPtr(message, "message"));
 		FunctionArgs functionArgs = new(functionType.Parameters);
 		functionArgs["args"] = new TypedValueCompiler<List<TypedValue>>(new TypedTypeCompilerValue().List(), args.Prepend(messageValue).ToList());
-		FunctionCallContext functionCall = new(functionType, functionArgs);
-		functionCall.Call(program.Call);
+		functionType.Call(program.Call, functionArgs);
 	}
 	
 	public void Optimize()

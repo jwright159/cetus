@@ -1,13 +1,12 @@
 ﻿using Cetus.Parser.Types;
-using Cetus.Parser.Types.Function;
 using Cetus.Parser.Values;
 using LLVMSharp.Interop;
 
 namespace Cetus.Parser.Tokens;
 
-public class Closure() : TokenSplit(new LiteralToken("{"), new LiteralToken(";"), new LiteralToken("}"), new ParameterExpressionToken("statements")), TypedValue, IHasIdentifiers
+public class Closure(bool actuallyParse) : IToken, TypedValue, IHasIdentifiers
 {
-	public List<FunctionCallContext> Statements;
+	public List<FunctionCall> Statements;
 	public ProgramContext Program { get; set; }
 	public IDictionary<string, TypedValue> Identifiers { get; set; }
 	public ICollection<TypedTypeFunction> Functions { get; set; }
@@ -18,6 +17,35 @@ public class Closure() : TokenSplit(new LiteralToken("{"), new LiteralToken(";")
 	
 	public TypedType Type { get; }
 	public LLVMValueRef LLVMValue { get; }
+	
+	public Result Eat(Lexer lexer)
+	{
+		if (actuallyParse)
+		{
+			IToken token = new TokenSplit(new LiteralToken("{"), new LiteralToken(";"), new LiteralToken("}"), new ParameterExpressionToken("statements"));
+			return lexer.Eat(token);
+		}
+		else
+		{
+			int startIndex = lexer.Index;
+			
+			Result startResult = lexer.Eat(new LiteralToken("{"));
+			if (startResult is not Result.Passable)
+			{
+				lexer.Index = startIndex;
+				return startResult;
+			}
+			
+			Result? endResult = lexer.SkipToMatches(new LiteralToken("}"), false);
+			if (endResult is not Result.Passable)
+			{
+				lexer.Index = startIndex;
+				return endResult;
+			}
+			
+			return new Result.Ok();
+		}
+	}
 	
 	public void Parse(IHasIdentifiers context)
 	{
@@ -37,7 +65,7 @@ public class Closure() : TokenSplit(new LiteralToken("{"), new LiteralToken(";")
 			LLVMBasicBlockRef block = originalBlock.Parent.AppendBasicBlock("closureBlock");
 			visitor.Builder.PositionAtEnd(block);
 			
-			foreach (FunctionCallContext statement in Statements)
+			foreach (FunctionCall statement in Statements)
 				statement.Visit(this, null, visitor);
 			
 			visitor.Builder.PositionAtEnd(originalBlock);
@@ -65,7 +93,7 @@ public class Closure() : TokenSplit(new LiteralToken("{"), new LiteralToken(";")
 					Identifiers.Add(name, new TypedValueValue(value.Type, element));
 				}
 				
-				foreach (FunctionCallContext statement in Statements)
+				foreach (FunctionCall statement in Statements)
 					statement.Visit(this, null, visitor);
 			}
 			

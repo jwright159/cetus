@@ -19,19 +19,20 @@ public class Double : TypedValue, IToken
 		LLVMValue = LLVMValueRef.CreateConstReal(LLVMTypeRef.Double, Value);
 	}
 	
-	public bool Eat(string contents, ref int index)
+	public Result Eat(Lexer lexer)
 	{
-		if (char.IsDigit(contents[index]))
+		int startIndex = lexer.Index;
+		
+		if (char.IsDigit(lexer.Current))
 		{
-			int i;
 			bool dot = false;
-			for (i = index; i < contents.Length && (char.IsDigit(contents[i]) || contents[i] == '.'); i++)
+			for (lexer.Index++; lexer.Index < lexer.Length && (char.IsDigit(lexer.Current) || lexer.Current == '.'); lexer.Index++)
 			{
-				if (contents[i] == '.')
+				if (lexer.Current == '.')
 				{
 					if (dot)
 					{
-						i--;
+						lexer.Index--;
 						break;
 					}
 					else
@@ -40,13 +41,12 @@ public class Double : TypedValue, IToken
 			}
 			
 			if (!dot)
-				return false;
+				return new Result.TokenRuleFailed($"Expected decimal point, got {lexer.Current}", lexer, startIndex);
 			
-			Value = double.Parse(contents[index..i]);
-			index = i;
-			return true;
+			Value = double.Parse(lexer[startIndex..lexer.Index]);
+			return new Result.Ok();
 		}
 		
-		return false;
+		return new Result.TokenRuleFailed($"Expected digit, got {lexer.Current}", lexer, startIndex);
 	}
 }

@@ -5,24 +5,16 @@ using LLVMSharp.Interop;
 
 namespace Cetus.Parser;
 
-public class TypeIdentifier : TypedValue
+public class TypeIdentifier(string name, TypeIdentifier? innerType = null) : TypedValue
 {
-	public string Name { get; }
+	public string Name { get; } = name;
 	public TypedType? Type { get; private set; }
 	public LLVMValueRef LLVMValue { get; }
-	public TypeIdentifier? InnerType { get; }
+	public TypeIdentifier? InnerType { get; } = innerType;
 	
-	public TypeIdentifier(string name, TypeIdentifier? innerType = null)
+	public TypeIdentifier(TypedType type) : this(type.Name, type.InnerType is not null ? new TypeIdentifier(type.InnerType) : null)
 	{
-		Name = name;
-		InnerType = innerType;
-	}
-	
-	public TypeIdentifier(TypedType type)
-	{
-		Name = type.Name;
 		Type = type;
-		InnerType = type.InnerType is not null ? new TypeIdentifier(type.InnerType) : null;
 	}
 	
 	public void Parse(IHasIdentifiers context)

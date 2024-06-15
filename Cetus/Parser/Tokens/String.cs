@@ -19,27 +19,25 @@ public class String : TypedValue, IToken
 		LLVMValue = visitor.Builder.BuildGlobalStringPtr(Value, Value.Length == 0 ? "emptyString" : Value);
 	}
 	
-	public bool Eat(string contents, ref int index)
+	public Result Eat(Lexer lexer)
 	{
-		if (contents[index] == '"')
+		int startIndex = lexer.Index;
+		
+		if (lexer.Current == '"')
 		{
-			int i;
-			for (i = index + 1; i < contents.Length && contents[i] != '"'; i++)
-			{
-				if (contents[i] == '\\')
-					i++;
-			}
+			for (lexer.Index++; !lexer.IsAtEnd && lexer.Current != '"'; lexer.Index++)
+				if (lexer.Current == '\\')
+					lexer.Index++;
 			
-			if (contents[i] == '"')
-				i++;
+			if (lexer.Current == '"')
+				lexer.Index++;
 			else
-				return false;
+				return new Result.TokenRuleFailed("Expected '\"', got EOF", lexer, startIndex);
 			
-			Value = System.Text.RegularExpressions.Regex.Unescape(contents[(index + 1)..(i - 1)]);
-			index = i;
-			return true;
+			Value = System.Text.RegularExpressions.Regex.Unescape(lexer[(startIndex + 1)..(lexer.Index - 1)]);
+			return new Result.Ok();
 		}
 		
-		return false;
+		return new Result.TokenRuleFailed($"Expected '\"', got {lexer.Current}", lexer, startIndex);
 	}
 }

@@ -19,19 +19,20 @@ public class Float : TypedValue, IToken
 		LLVMValue = LLVMValueRef.CreateConstReal(LLVMTypeRef.Float, Value);
 	}
 	
-	public bool Eat(string contents, ref int index)
+	public Result Eat(Lexer lexer)
 	{
-		if (char.IsDigit(contents[index]))
+		int startIndex = lexer.Index;
+		
+		if (char.IsDigit(lexer.Current))
 		{
-			int i;
 			bool dot = false;
-			for (i = index; i < contents.Length && (char.IsDigit(contents[i]) || contents[i] == '.'); i++)
+			for (lexer.Index++; !lexer.IsAtEnd && (char.IsDigit(lexer.Current) || lexer.Current == '.'); lexer.Index++)
 			{
-				if (contents[i] == '.')
+				if (lexer.Current == '.')
 				{
 					if (dot)
 					{
-						i--;
+						lexer.Index--;
 						break;
 					}
 					else
@@ -39,16 +40,15 @@ public class Float : TypedValue, IToken
 				}
 			}
 			
-			if (contents[i] == 'f')
-				i++;
+			if (lexer.Current == 'f')
+				lexer.Index++;
 			else
-				return false;
+				return new Result.TokenRuleFailed($"Expected 'f', got {lexer.Current}", lexer, startIndex);
 			
-			Value = float.Parse(contents[index..(i - 1)]);
-			index = i;
-			return true;
+			Value = float.Parse(lexer[startIndex..(lexer.Index - 1)]);
+			return new Result.Ok();
 		}
 		
-		return false;
+		return new Result.TokenRuleFailed($"Expected digit, got {lexer.Current}", lexer, startIndex);
 	}
 }

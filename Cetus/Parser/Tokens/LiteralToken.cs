@@ -2,26 +2,16 @@
 
 public class LiteralToken(string token) : IToken
 {
-	public bool Eat(string contents, ref int index)
+	public Result Eat(Lexer lexer)
 	{
-		if (contents[index..].StartsWith(token))
+		if (lexer[lexer.Index..].StartsWith(token))
 		{
-			index += token.Length;
-			return true;
+			lexer.Index += token.Length;
+			return new Result.Ok();
 		}
 		
-		return false;
+		return new Result.TokenRuleFailed($"Expected '{token}', got {lexer.Current}", lexer);
 	}
 	
-	public override string ToString() => token;
+	public override string ToString() => $"'{token}'";
 }
-
-public class Semicolon() : LiteralToken(";");
-
-public class LeftParenthesis() : LiteralToken("(");
-
-public class RightParenthesis() : LiteralToken(")");
-
-public class LeftBrace() : LiteralToken("{");
-
-public class RightBrace() : LiteralToken("}");

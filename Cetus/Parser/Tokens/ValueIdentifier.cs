@@ -2,15 +2,23 @@
 using Cetus.Parser.Values;
 using LLVMSharp.Interop;
 
-namespace Cetus.Parser;
+namespace Cetus.Parser.Tokens;
 
-public class ValueIdentifierContext(string name) : TypedValue
+public class ValueIdentifierContext : IToken, TypedValue
 {
-	public string Name => name;
+	public string Name { get; private set; }
 	public TypedValue Value;
 	
 	public TypedType Type { get; }
 	public LLVMValueRef LLVMValue { get; }
+	
+	public Result Eat(Lexer lexer)
+	{
+		Result result = lexer.Eat(out Word word);
+		if (result is Result.Passable)
+			Name = word.Value;
+		return result;
+	}
 	
 	public void Parse(IHasIdentifiers context)
 	{

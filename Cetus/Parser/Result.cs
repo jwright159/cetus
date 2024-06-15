@@ -26,6 +26,13 @@ public interface Result
 	/// </summary>
 	public class TokenRuleFailed(string message, int line, int column) : Failure
 	{
+		public TokenRuleFailed(string message, Lexer lexer) : this(message, lexer.Line, lexer.Column) { }
+		
+		public TokenRuleFailed(string message, Lexer lexer, int startIndex) : this(message, lexer.Line, lexer.Column)
+		{
+			lexer.Index = startIndex;
+		}
+		
 		public override string ToString() => $"TokenRule failed at ({line}, {column}): {message}";
 	}
 	

@@ -2,8 +2,10 @@
 
 public class PassToken : IToken
 {
-	public bool Eat(string contents, ref int index)
+	public Result Eat(Lexer lexer)
 	{
-		return true;
+		return new Result.Ok();
 	}
+	
+	public override string ToString() => "[true]";
 }

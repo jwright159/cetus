@@ -2,19 +2,19 @@
 
 public class Word : IToken
 {
-	public bool Eat(string contents, ref int index)
+	public string Value { get; private set; }
+	
+	public Result Eat(Lexer lexer)
 	{
-		if (char.IsLetter(contents[index]) || contents[index] == '_')
+		int startIndex = lexer.Index;
+		
+		if (char.IsLetter(lexer.Current) || lexer.Current == '_')
 		{
-			int i = index;
-			while (i < contents.Length && (char.IsLetterOrDigit(contents[i]) || contents[i] == '_')) i++;
-			Value = contents[index..i];
-			index = i;
-			return true;
+			while (!lexer.IsAtEnd && (char.IsLetterOrDigit(lexer.Current) || lexer.Current == '_')) lexer.Index++;
+			Value = lexer[startIndex..lexer.Index];
+			return new Result.Ok();
 		}
 		
-		return false;
+		return new Result.TokenRuleFailed($"Expected word, got {lexer.Current}", lexer, startIndex);
 	}
-	
-	public string Value { get; private set; }
 }

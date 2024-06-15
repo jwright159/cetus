@@ -62,6 +62,7 @@ public partial class Parser(Lexer lexer)
 		
 		Console.WriteLine("Parsing...");
 		ParseProgram(program);
+		Console.WriteLine("Transforming...");
 		TransformProgram(program);
 		return program;
 		
@@ -86,9 +87,10 @@ public partial class Parser(Lexer lexer)
 	
 	private void ParseProgram(ProgramContext program)
 	{
-		Result result = ParseFunctionCall(program.Phases[CompilationPhase.Program], out FunctionCallContext programCall);
+		FunctionCall programCall = new(program.Phases[CompilationPhase.Program], 0);
+		Result result = lexer.Eat(programCall);
 		if (result is not Result.Ok)
-			throw new Exception(result.ToString());
+			throw new Exception("Parsing failed\n" + result);
 		if (programCall.FunctionType is not DefineProgram)
 			throw new Exception($"Parsed program is a {programCall.FunctionType}, not a program definition");
 		program.Call = (DefineProgramCall)programCall.Call(program.Phases[CompilationPhase.Program]);

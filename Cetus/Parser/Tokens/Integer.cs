@@ -1,4 +1,5 @@
-﻿using Cetus.Parser.Types;
+﻿using System.Globalization;
+using Cetus.Parser.Types;
 using Cetus.Parser.Values;
 using LLVMSharp.Interop;
 
@@ -19,39 +20,40 @@ public abstract class Integer : TypedValue, IToken
 		LLVMValue = LLVMValueRef.CreateConstInt(LLVMTypeRef.Int32, (ulong)Value, true);
 	}
 	
-	public abstract bool Eat(string contents, ref int index);
+	public abstract Result Eat(Lexer lexer);
 }
 
 public class DecimalInteger : Integer
 {
-	public override bool Eat(string contents, ref int index)
+	public override Result Eat(Lexer lexer)
 	{
-		if (char.IsDigit(contents[index]))
+		int startIndex = lexer.Index;
+		
+		if (char.IsDigit(lexer.Current))
 		{
-			int i = index;
-			while (i < contents.Length && char.IsDigit(contents[i])) i++;
-			Value = int.Parse(contents[index..i]);
-			index = i;
-			return true;
+			while (!lexer.IsAtEnd && char.IsDigit(lexer.Current)) lexer.Index++;
+			Value = int.Parse(lexer[startIndex..lexer.Index]);
+			return new Result.Ok();
 		}
 		
-		return false;
+		return new Result.TokenRuleFailed($"Expected digit, got {lexer.Current}", lexer, startIndex);
 	}
 }
 
 public class HexInteger : Integer
 {
-	public override bool Eat(string contents, ref int index)
+	public override Result Eat(Lexer lexer)
 	{
-		if (contents.Length > index + 2 && contents[index..(index+2)] == "0x")
+		int startIndex = lexer.Index;
+		lexer.Index += 2;
+		
+		if (!lexer.IsAtEnd && lexer[startIndex..lexer.Index] == "0x")
 		{
-			int i = index + 2;
-			while (i < contents.Length && char.IsDigit(contents[i])) i++;
-			Value = int.Parse(contents[(index + 1)..i]);
-			index = i;
-			return true;
+			while (!lexer.IsAtEnd && char.IsDigit(lexer.Current)) lexer.Index++;
+			Value = int.Parse(lexer[(startIndex + 2)..lexer.Index], NumberStyles.HexNumber);
+			return new Result.Ok();
 		}
 		
-		return false;
+		return new Result.TokenRuleFailed($"Expected '0x', got {lexer.Current}", lexer, startIndex);
 	}
 }

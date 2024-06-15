@@ -2,8 +2,10 @@
 
 public class EOFToken : IToken
 {
-	public bool Eat(string contents, ref int index)
+	public Result Eat(Lexer lexer)
 	{
-		return index >= contents.Length;
+		return lexer.IsAtEnd ? new Result.Ok() : new Result.TokenRuleFailed($"Expected EOF, got {lexer.Current}", lexer);
 	}
+
+	public override string ToString() => "[EOF]";
 }

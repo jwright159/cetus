@@ -19,7 +19,7 @@ public class DefineFunction : TypedTypeFunctionBase
 		(Visitor.TypeIdentifierType.List(), "parameterTypes"),
 		(Visitor.CompilerStringType.List(), "parameterNames"),
 		(Visitor.CompilerStringType, "varArgParameterType"),
-		(Visitor.CompilerStringType, "varArgParameterType"),
+		(Visitor.CompilerStringType, "varArgParameterName"),
 		(new TypedTypeCompilerClosure(Visitor.VoidType), "body"),
 	], null);
 	public override float Priority => 80;

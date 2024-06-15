@@ -15,11 +15,11 @@ public class DefineProgram : TypedTypeFunctionBase
 	public override TypedValue Call(IHasIdentifiers context, FunctionArgs args)
 	{
 		return new DefineProgramCall(
-			((TypedValueCompiler<List<FunctionCallContext>>)args["statements"]).CompilerValue);
+			((TypedValueCompiler<List<FunctionCall>>)args["statements"]).CompilerValue);
 	}
 }
 
-public class DefineProgramCall(List<FunctionCallContext> statements) : TypedValue, IHasIdentifiers
+public class DefineProgramCall(List<FunctionCall> statements) : TypedValue, IHasIdentifiers
 {
 	public TypedType Type => Visitor.VoidType;
 	public LLVMValueRef LLVMValue => Visitor.Void.LLVMValue;
