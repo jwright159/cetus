@@ -44,21 +44,18 @@ public partial class Parser(Lexer lexer)
 		AddType(Visitor.BoolType);
 		AddType(Visitor.TypeType);
 		
-		IToken fieldToken = new TokenString([new ParameterValueToken("fieldTypes"), new ParameterValueToken("fieldNames")]);
-		IToken parameterToken = new TokenString([new ParameterValueToken("parameterTypes"), new ParameterValueToken("parameterNames")]);
-		IToken varArgParameterToken = new TokenString([new ParameterValueToken("varArgParameterType"), new LiteralToken("..."), new ParameterValueToken("varArgParameterName")]);
-		AddFunction(CompilationPhase.Program, Functions.DefineProgram, 100, new TokenSplit(new PassToken(), new LiteralToken(";"), new EOFToken(), new ParameterExpressionToken("statements")));
-		AddFunction(CompilationPhase.Program, Functions.DefineStruct, 90, new TokenString([new ParameterValueToken("name"), new TokenSplit(new LiteralToken("{"), new LiteralToken(";"), new  LiteralToken("}"), new TokenOptions([fieldToken, new ParameterExpressionToken("functions")]))]));
-		AddFunction(CompilationPhase.Program, Functions.DefineFunction, 80, new TokenString([new ParameterValueToken("returnType"), new ParameterValueToken("name"), new TokenSplit(new LiteralToken("("), new LiteralToken(","), new LiteralToken(")"), new TokenOptions([parameterToken, varArgParameterToken])), new TokenOptional(new ParameterExpressionToken("body"))]));
+		AddFunction(CompilationPhase.Program, new DefineProgram());
+		AddFunction(CompilationPhase.Program, new DefineStruct());
+		AddFunction(CompilationPhase.Program, new DefineFunction());
 		
-		AddFunction(CompilationPhase.Function, Functions.Declare, 100, new TokenString([new LiteralToken("Declare"), new ParameterValueToken("type"), new ParameterValueToken("name")]));
-		AddFunction(CompilationPhase.Function, Functions.Define, 100, new TokenString([new ParameterValueToken("type"), new ParameterValueToken("name"), new LiteralToken("="), new ParameterExpressionToken("value")]));
-		AddFunction(CompilationPhase.Function, Functions.Assign, 100, new TokenString([new ParameterExpressionToken("target"), new LiteralToken("="), new ParameterExpressionToken("value")]));
-		AddFunction(CompilationPhase.Function, Functions.Return, 100, new TokenString([new LiteralToken("Return"), new TokenOptional(new ParameterExpressionToken("value"))]));
-		AddFunction(CompilationPhase.Function, Functions.Add, 30, new TokenString([new ParameterExpressionToken("a"), new LiteralToken("+"), new ParameterExpressionToken("b")]));
-		AddFunction(CompilationPhase.Function, Functions.LessThan, 40, new TokenString([new ParameterExpressionToken("a"), new LiteralToken("<"), new ParameterExpressionToken("b")]));
-		AddFunction(CompilationPhase.Function, Functions.While, 100, new TokenString([new LiteralToken("While"), new LiteralToken("("), new ParameterExpressionToken("condition"), new LiteralToken(")"), new ParameterExpressionToken("body")]));
-		AddFunction(CompilationPhase.Function, Functions.Call, 10, new TokenString([new ParameterExpressionToken("function"), new TokenSplit(new LiteralToken("("), new LiteralToken(","), new LiteralToken(")"), new ParameterExpressionToken("arguments"))]));
+		AddFunction(CompilationPhase.Function, new Declare());
+		AddFunction(CompilationPhase.Function, new Define());
+		AddFunction(CompilationPhase.Function, new Assign());
+		AddFunction(CompilationPhase.Function, new Types.Function.Return());
+		AddFunction(CompilationPhase.Function, new Add());
+		AddFunction(CompilationPhase.Function, new LessThan());
+		AddFunction(CompilationPhase.Function, new While());
+		AddFunction(CompilationPhase.Function, new Call());
 		
 		AddValue("True", Visitor.TrueValue);
 		AddValue("False", Visitor.FalseValue);
@@ -75,7 +72,7 @@ public partial class Parser(Lexer lexer)
 			program.Phases[CompilationPhase.Program].Identifiers.Add(type.Name, new TypedValueType(type));
 		}
 		
-		void AddFunction(CompilationPhase context, TypedTypeFunction function, float priority, IToken? pattern = null)
+		void AddFunction(CompilationPhase context, TypedTypeFunction function)
 		{
 			program.Phases[context].Functions.Add(function);
 			program.Phases[context].Identifiers.Add(function.Name, new TypedValueType(function));
@@ -108,20 +105,4 @@ public enum CompilationPhase
 {
 	Program,
 	Function,
-}
-
-public static class Functions
-{
-	public static readonly DefineProgram DefineProgram = new();
-	public static readonly DefineStruct DefineStruct = new();
-	public static readonly DefineFunction DefineFunction = new();
-	
-	public static readonly TypedTypeFunction Declare = new Declare();
-	public static readonly TypedTypeFunction Define = new Define();
-	public static readonly TypedTypeFunction Assign = new Assign();
-	public static readonly TypedTypeFunction Return = new Types.Function.Return();
-	public static readonly TypedTypeFunction Add = new Add();
-	public static readonly TypedTypeFunction LessThan = new LessThan();
-	public static readonly TypedTypeFunction While = new While();
-	public static readonly TypedTypeFunction Call = new Call();
 }

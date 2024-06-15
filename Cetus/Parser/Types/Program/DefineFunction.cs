@@ -5,8 +5,25 @@ using LLVMSharp.Interop;
 
 namespace Cetus.Parser.Types.Program;
 
-public class DefineFunction() : TypedTypeFunctionBase("DefineFunction", new TypedTypeCompilerValue(), new FunctionParameters([(Visitor.CompilerStringType, "name"), (Visitor.TypeIdentifierType, "returnType"), (Visitor.TypeIdentifierType.List(), "parameterTypes"), (Visitor.CompilerStringType.List(), "parameterNames"), (Visitor.CompilerStringType, "varArgParameterType"), (Visitor.CompilerStringType, "varArgParameterType"), (new TypedTypeCompilerClosure(Visitor.VoidType), "body")], null))
+public class DefineFunction : TypedTypeFunctionBase
 {
+	public override string Name => "DefineFunction";
+	public override IToken Pattern => new TokenString([new ParameterValueToken("returnType"), new ParameterValueToken("name"), new TokenSplit(new LiteralToken("("), new LiteralToken(","), new LiteralToken(")"), new TokenOptions([
+		new TokenString([new ParameterValueToken("parameterTypes"), new ParameterValueToken("parameterNames")]),
+		new TokenString([new ParameterValueToken("varArgParameterType"), new LiteralToken("..."), new ParameterValueToken("varArgParameterName")]),
+	])), new TokenOptional(new ParameterExpressionToken("body"))]);
+	public override TypeIdentifier ReturnType => new(new TypedTypeCompilerValue());
+	public override FunctionParameters Parameters => new([
+		(Visitor.CompilerStringType, "name"),
+		(Visitor.TypeIdentifierType, "returnType"),
+		(Visitor.TypeIdentifierType.List(), "parameterTypes"),
+		(Visitor.CompilerStringType.List(), "parameterNames"),
+		(Visitor.CompilerStringType, "varArgParameterType"),
+		(Visitor.CompilerStringType, "varArgParameterType"),
+		(new TypedTypeCompilerClosure(Visitor.VoidType), "body"),
+	], null);
+	public override float Priority => 80;
+	
 	public override TypedValue Call(IHasIdentifiers context, FunctionArgs args)
 	{
 		return new DefineFunctionCall(
@@ -51,7 +68,7 @@ public class DefineFunctionCall(IHasIdentifiers parent, string name, TypeIdentif
 	
 	public void Visit(IHasIdentifiers context, TypedType? typeHint, Visitor visitor)
 	{
-		Type = new DefinedFunctionCall(name, this, returnType.Type, parameters.Parameters.Select(param => (param.Type.Type, param.Name)).ToArray(), parameters.VarArg is not null ? (parameters.VarArg.Type.Type, parameters.VarArg.Name) : null);
+		Type = new DefinedFunctionCall(name, this, returnType, new FunctionParameters(parameters.Parameters.Select(param => (param.Type.Type, param.Name)).ToArray(), parameters.VarArg is not null ? (parameters.VarArg.Type.Type, parameters.VarArg.Name) : null));
 		LLVMValueRef functionValue = visitor.Module.AddFunction(name, Type.LLVMType);
 		Value = new TypedValueValue(Type, functionValue);
 		Identifiers.Add(name, Value);

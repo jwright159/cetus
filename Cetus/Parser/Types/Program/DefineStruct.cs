@@ -5,8 +5,22 @@ using LLVMSharp.Interop;
 
 namespace Cetus.Parser.Types.Program;
 
-public class DefineStruct() : TypedTypeFunctionBase("DefineStruct", Visitor.VoidType, new FunctionParameters([(Visitor.CompilerStringType, "name"), (Visitor.AnyFunctionType.List(), "functions"), (Visitor.TypeIdentifierType.List(), "fieldTypes"), (Visitor.CompilerStringType.List(), "fieldNames")], null))
+public class DefineStruct : TypedTypeFunctionBase
 {
+	public override string Name => "DefineStruct";
+	public override IToken Pattern => new TokenString([new ParameterValueToken("name"), new TokenSplit(new LiteralToken("{"), new LiteralToken(";"), new LiteralToken("}"), new TokenOptions([
+		new TokenString([new ParameterValueToken("fieldTypes"), new ParameterValueToken("fieldNames")]),
+		new ParameterExpressionToken("functions"),
+	]))]);
+	public override TypeIdentifier ReturnType => new(Visitor.VoidType);
+	public override FunctionParameters Parameters => new([
+		(Visitor.CompilerStringType, "name"),
+		(Visitor.AnyFunctionType.List(), "functions"),
+		(Visitor.TypeIdentifierType.List(), "fieldTypes"),
+		(Visitor.CompilerStringType.List(), "fieldNames"),
+	], null);
+	public override float Priority => 90;
+	
 	public override TypedValue Call(IHasIdentifiers context, FunctionArgs args)
 	{
 		return new DefineStructCall(
@@ -41,7 +55,7 @@ public class DefineStructCall(IHasIdentifiers parent, string name, List<(TypeIde
 			field.TypeIdentifier = fieldType;
 			field.Name = fieldName;
 			field.Index = Fields.Count;
-			field.Getter = new GetterContext(this, field);
+			field.Getter = new Getter(this, field);
 			
 			Fields.Add(field);
 			Functions.Add(field.Getter);

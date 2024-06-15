@@ -1,11 +1,19 @@
-﻿using LLVMSharp.Interop;
+﻿using Cetus.Parser.Tokens;
+using Cetus.Parser.Types;
+using LLVMSharp.Interop;
 
-namespace Cetus.Parser.Types.Function;
+namespace Cetus.Parser;
 
-public class Getter(GetterContext getter) : TypedTypeFunctionSimple(getter.Name, getter.Field.Type.Pointer(), [(getter.Struct.Pointer(), "value")], null)
+public class Getter(TypedType @struct, StructFieldContext field) : TypedTypeFunctionSimple
 {
+	public override string Name => $"{@struct.Name}.Get_{field.Name}";
+	public override IToken Pattern { get; } = new TokenString([new ParameterExpressionToken(field.Name), new LiteralToken("."), new LiteralToken(field.Name)]);
+	public override TypeIdentifier ReturnType => field.TypeIdentifier;
+	public override FunctionParameters Parameters { get; } = new([(field.TypeIdentifier.Type.Pointer(), field.Name)], null);
+	public override float Priority => 0;
+	
 	public override LLVMValueRef Visit(IHasIdentifiers context, TypedType? typeHint, Visitor visitor, FunctionArgs args)
 	{
-		return visitor.Builder.BuildStructGEP2(getter.Struct.LLVMType, args["value"].LLVMValue, (uint)getter.Field.Index, getter.Field.Name + "Ptr");
+		return visitor.Builder.BuildStructGEP2(@struct.LLVMType, args["value"].LLVMValue, (uint)field.Index, field.Name + "Ptr");
 	}
 }

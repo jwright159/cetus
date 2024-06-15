@@ -16,26 +16,26 @@ public interface TypedTypeFunction : TypedType
 	public TypedValue Call(IHasIdentifiers context, FunctionArgs args);
 }
 
-public abstract class TypedTypeFunctionBase(string name, TypedType returnType, FunctionParameters parameters) : TypedTypeFunction
+public abstract class TypedTypeFunctionBase : TypedTypeFunction
 {
-	public LLVMTypeRef LLVMType => LLVMTypeRef.CreateFunction(returnType.LLVMType, parameters.Parameters.Select(param => param.Type.Type.LLVMType).ToArray(), Parameters.VarArg is not null);
-	public string Name => name;
+	public LLVMTypeRef LLVMType => LLVMTypeRef.CreateFunction(ReturnType.Type.LLVMType, Parameters.Parameters.Select(param => param.Type.Type.LLVMType).ToArray(), Parameters.VarArg is not null);
+	public abstract string Name { get; }
 	public TypedType? Type { get; }
 	public TypedValue? Value { get; }
-	public IToken? Pattern { get; }
-	public TypeIdentifier ReturnType => new(returnType);
-	public FunctionParameters Parameters => parameters;
-	public float Priority { get; }
-	public override string ToString() => name;
+	public abstract IToken? Pattern { get; }
+	public abstract TypeIdentifier ReturnType { get; }
+	public abstract FunctionParameters Parameters { get; }
+	public abstract float Priority { get; }
+	public override string ToString() => $"{ReturnType} {Name}{Parameters}";
 	
 	public abstract TypedValue Call(IHasIdentifiers context, FunctionArgs args);
 }
 
-public abstract class TypedTypeFunctionSimple(string name, TypedType returnType, (TypedType Type, string Name)[] parameters, (TypedType Type, string Name)? varArg) : TypedTypeFunctionBase(name, returnType, new FunctionParameters(parameters, varArg))
+public abstract class TypedTypeFunctionSimple : TypedTypeFunctionBase
 {
 	public override TypedValue Call(IHasIdentifiers context, FunctionArgs args)
 	{
-		return new ParseOnlyCall(returnType, (visitContext, visitTypeHint, visitVisitor) => Visit(visitContext, visitTypeHint, visitVisitor, args));
+		return new ParseOnlyCall(ReturnType.Type, (visitContext, visitTypeHint, visitVisitor) => Visit(visitContext, visitTypeHint, visitVisitor, args));
 	}
 	
 	public abstract LLVMValueRef Visit(IHasIdentifiers context, TypedType? typeHint, Visitor visitor, FunctionArgs args);

@@ -1,10 +1,17 @@
-﻿using Cetus.Parser.Values;
+﻿using Cetus.Parser.Tokens;
+using Cetus.Parser.Values;
 using LLVMSharp.Interop;
 
 namespace Cetus.Parser.Types.Program;
 
-public class DefineProgram() : TypedTypeFunctionBase("DefineProgram", Visitor.VoidType, new FunctionParameters([(Visitor.AnyFunctionCall.List(), "statements")], null))
+public class DefineProgram : TypedTypeFunctionBase
 {
+	public override string Name => "DefineProgram";
+	public override IToken Pattern => new TokenSplit(new PassToken(), new LiteralToken(";"), new EOFToken(), new ParameterExpressionToken("statements"));
+	public override TypeIdentifier ReturnType => new(Visitor.VoidType);
+	public override FunctionParameters Parameters => new([(Visitor.AnyFunctionCall.List(), "statements")], null);
+	public override float Priority => 100;
+	
 	public override TypedValue Call(IHasIdentifiers context, FunctionArgs args)
 	{
 		return new DefineProgramCall(

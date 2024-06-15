@@ -1,10 +1,17 @@
-﻿using Cetus.Parser.Values;
+﻿using Cetus.Parser.Tokens;
+using Cetus.Parser.Values;
 using LLVMSharp.Interop;
 
 namespace Cetus.Parser.Types.Function;
 
-public class Call() : TypedTypeFunctionSimple("Call", Visitor.AnyValueType, [(Visitor.AnyFunctionType, "function"), (Visitor.AnyValueType.List(), "arguments")], null)
+public class Call : TypedTypeFunctionSimple
 {
+	public override string Name => "Call";
+	public override IToken Pattern => new TokenString([new ParameterExpressionToken("function"), new TokenSplit(new LiteralToken("("), new LiteralToken(","), new LiteralToken(")"), new ParameterExpressionToken("arguments"))]);
+	public override TypeIdentifier ReturnType => new(Visitor.AnyValueType);
+	public override FunctionParameters Parameters => new([(Visitor.AnyFunctionType, "function"), (Visitor.AnyValueType.List(), "arguments")], null);
+	public override float Priority => 10;
+	
 	public override LLVMValueRef Visit(IHasIdentifiers context, TypedType? typeHint, Visitor visitor, FunctionArgs args)
 	{
 		TypedValue function = args["function"];

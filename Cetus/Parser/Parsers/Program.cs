@@ -57,7 +57,7 @@ public class StructFieldContext
 	public TypeIdentifier TypeIdentifier;
 	public string Name;
 	public int Index;
-	public GetterContext Getter;
+	public Getter Getter;
 	
 	public override string ToString() => $"{Type} {Name}";
 }
