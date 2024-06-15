@@ -14,7 +14,7 @@ public abstract class Integer : TypedValue, IToken
 	
 	public void Transform(IHasIdentifiers context, TypedType? typeHint) { }
 	
-	public void Visit(IHasIdentifiers context, TypedType? typeHint, LLVMBuilderRef builder)
+	public void Visit(IHasIdentifiers context, TypedType? typeHint, Visitor visitor)
 	{
 		LLVMValue = LLVMValueRef.CreateConstInt(LLVMTypeRef.Int32, (ulong)Value, true);
 	}

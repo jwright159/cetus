@@ -22,7 +22,7 @@ public class ValueIdentifierContext(string name) : TypedValue
 		
 	}
 	
-	public void Visit(IHasIdentifiers context, TypedType? typeHint, LLVMBuilderRef builder)
+	public void Visit(IHasIdentifiers context, TypedType? typeHint, Visitor visitor)
 	{
 		if (typeHint is TypedTypeCompilerString)
 		{
@@ -34,6 +34,6 @@ public class ValueIdentifierContext(string name) : TypedValue
 			throw new Exception($"Identifier '{Name}' not found");
 		
 		if (typeHint is not null)
-			Value = Value.CoersePointer(typeHint, builder, Name);
+			Value = Value.CoersePointer(typeHint, visitor, Name);
 	}
 }

@@ -9,5 +9,5 @@ public interface TypedValue
 	public LLVMValueRef LLVMValue { get; }
 	public void Parse(IHasIdentifiers context);
 	public void Transform(IHasIdentifiers context, TypedType? typeHint);
-	public void Visit(IHasIdentifiers context, TypedType? typeHint, LLVMBuilderRef builder);
+	public void Visit(IHasIdentifiers context, TypedType? typeHint, Visitor visitor);
 }

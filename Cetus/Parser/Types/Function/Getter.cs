@@ -4,8 +4,8 @@ namespace Cetus.Parser.Types.Function;
 
 public class Getter(GetterContext getter) : TypedTypeFunctionSimple(getter.Name, getter.Field.Type.Pointer(), [(getter.Struct.Pointer(), "value")], null)
 {
-	public override LLVMValueRef Visit(IHasIdentifiers context, LLVMBuilderRef builder, TypedType? typeHint, FunctionArgs args)
+	public override LLVMValueRef Visit(IHasIdentifiers context, TypedType? typeHint, Visitor visitor, FunctionArgs args)
 	{
-		return builder.BuildStructGEP2(getter.Struct.LLVMType, args["value"].LLVMValue, (uint)getter.Field.Index, getter.Field.Name + "Ptr");
+		return visitor.Builder.BuildStructGEP2(getter.Struct.LLVMType, args["value"].LLVMValue, (uint)getter.Field.Index, getter.Field.Name + "Ptr");
 	}
 }

@@ -5,7 +5,7 @@ using LLVMSharp.Interop;
 
 namespace Cetus.Parser.Types.Program;
 
-public class DefineStruct() : TypedTypeFunction("DefineStruct", Visitor.VoidType, [(Visitor.CompilerStringType, "name"), (Visitor.AnyFunctionType.List(), "functions"), (Visitor.TypeIdentifierType.List(), "fieldTypes"), (Visitor.CompilerStringType.List(), "fieldNames")], null)
+public class DefineStruct() : TypedTypeFunctionBase("DefineStruct", Visitor.VoidType, new FunctionParameters([(Visitor.CompilerStringType, "name"), (Visitor.AnyFunctionType.List(), "functions"), (Visitor.TypeIdentifierType.List(), "fieldTypes"), (Visitor.CompilerStringType.List(), "fieldNames")], null))
 {
 	public override TypedValue Call(IHasIdentifiers context, FunctionArgs args)
 	{
@@ -24,11 +24,11 @@ public class DefineStructCall(IHasIdentifiers parent, string name, List<(TypeIde
 	public LLVMTypeRef LLVMType => Type.LLVMType;
 	public List<StructFieldContext> Fields = [];
 	public IDictionary<string, TypedValue> Identifiers { get; set; } = new NestedDictionary<string, TypedValue>(parent.Identifiers);
-	public ICollection<IFunctionContext> Functions { get; set; } = new NestedCollection<IFunctionContext>(parent.Functions);
+	public ICollection<TypedTypeFunction> Functions { get; set; } = new NestedCollection<TypedTypeFunction>(parent.Functions);
 	public ICollection<TypedType> Types { get; set; } = new NestedCollection<TypedType>(parent.Types);
-	public List<IFunctionContext>? FinalizedFunctions { get; set; }
-	public Dictionary<IFunctionContext, LateCompilerFunctionContext> FunctionGetters = new();
-	public Dictionary<IFunctionContext, LateCompilerFunctionContext> FunctionCallers = new();
+	public List<TypedTypeFunction>? FinalizedFunctions { get; set; }
+	public Dictionary<TypedTypeFunction, LateCompilerFunctionContext> FunctionGetters = new();
+	public Dictionary<TypedTypeFunction, LateCompilerFunctionContext> FunctionCallers = new();
 	
 	public void Parse(IHasIdentifiers context)
 	{
@@ -47,8 +47,8 @@ public class DefineStructCall(IHasIdentifiers parent, string name, List<(TypeIde
 			Functions.Add(field.Getter);
 		}
 		
-		NestedCollection<IFunctionContext> functions = (NestedCollection<IFunctionContext>)Functions;
-		foreach (IFunctionContext function in functions.ThisList)
+		NestedCollection<TypedTypeFunction> functions = (NestedCollection<TypedTypeFunction>)Functions;
+		foreach (TypedTypeFunction function in functions.ThisList)
 		{
 			{
 				LateCompilerFunctionContext getterFunction = new(
@@ -56,7 +56,7 @@ public class DefineStructCall(IHasIdentifiers parent, string name, List<(TypeIde
 					$"{Name}.Get_{function.Name}",
 					0,
 					new TokenString([new ParameterValueToken("type"), new LiteralToken("."), new LiteralToken(function.Name)]),
-					new FunctionParametersContext { Parameters = [new FunctionParameterContext(new TypeIdentifier("Type", new TypeIdentifier(Name)), "type")] });
+					new FunctionParameters { Parameters = [new FunctionParameter(new TypeIdentifier("Type", new TypeIdentifier(Name)), "type")] });
 				FunctionGetters.Add(function, getterFunction);
 				context.Functions.Add(getterFunction);
 			}
@@ -68,7 +68,7 @@ public class DefineStructCall(IHasIdentifiers parent, string name, List<(TypeIde
 					$"{Name}.Call_{function.Name}",
 					0,
 					new TokenString([new ParameterValueToken("this"), new LiteralToken("."), new LiteralToken(function.Name)]),
-					new FunctionParametersContext { Parameters = [new FunctionParameterContext(new TypeIdentifier { Name = Name }, "this")] });
+					new FunctionParameters { Parameters = [new FunctionParameter(new TypeIdentifier(Name), "this")] });
 				FunctionCallers.Add(function, callerFunction);
 				context.Functions.Add(callerFunction);
 			}
@@ -79,24 +79,24 @@ public class DefineStructCall(IHasIdentifiers parent, string name, List<(TypeIde
 	{
 		foreach (StructFieldContext field in Fields)
 		{
-			field.Type = context.Types.First(type => type.Name == field.TypeIdentifier.Name).Type;
+			field.Type = context.Types.First(type => type.Name == field.TypeIdentifier.Name);
 		}
 		
-		foreach (IFunctionContext function in Functions)
+		foreach (TypedTypeFunction function in Functions)
 		{
 			// convert returns/params
 			// also parse + transform closures
 			
 			
 			if (FunctionGetters.TryGetValue(function, out LateCompilerFunctionContext? getterFunction))
-				getterFunction.Type = new MethodGetter(this, (TypedTypeFunction)function.Type);
+				getterFunction.Type = new MethodGetter(this, function);
 			
 			if (FunctionCallers.TryGetValue(function, out LateCompilerFunctionContext? callerFunction))
-				callerFunction.Type = new MethodCaller(this, (TypedTypeFunction)function.Type);
+				callerFunction.Type = new MethodCaller(this, function);
 		}
 	}
 	
-	public void Visit(IHasIdentifiers context, TypedType? typeHint, LLVMBuilderRef builder)
+	public void Visit(IHasIdentifiers context, TypedType? typeHint, Visitor visitor)
 	{
 		Type.LLVMType.StructSetBody(Fields.Select(field => field.Type.LLVMType).ToArray(), false);
 	}

@@ -18,7 +18,7 @@ public class TypedValueValue(TypedType type, LLVMValueRef value) : TypedValue
 		
 	}
 	
-	public void Visit(IHasIdentifiers context, TypedType? typeHint, LLVMBuilderRef builder)
+	public void Visit(IHasIdentifiers context, TypedType? typeHint, Visitor visitor)
 	{
 		
 	}

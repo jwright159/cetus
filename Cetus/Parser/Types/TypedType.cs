@@ -45,11 +45,11 @@ public static class TypedTypeExtensions
 	
 	public static TypedTypePointer Pointer(this TypedType type) => new(type);
 	
-	public static TypedValue CoersePointer(this TypedValue value, TypedType typeHint, LLVMBuilderRef builder, string name)
+	public static TypedValue CoersePointer(this TypedValue value, TypedType typeHint, Visitor visitor, string name)
 	{
 		if (typeHint is not TypedTypePointer && value.Type is TypedTypePointer resultTypePointer)
 		{
-			LLVMValueRef valueValue = builder.BuildLoad2(resultTypePointer.InnerType.LLVMType, value.LLVMValue, "loadtmp");
+			LLVMValueRef valueValue = visitor.Builder.BuildLoad2(resultTypePointer.InnerType.LLVMType, value.LLVMValue, "loadtmp");
 			value = new TypedValueValue(resultTypePointer.InnerType, valueValue);
 		}
 		

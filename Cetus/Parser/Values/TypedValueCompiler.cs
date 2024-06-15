@@ -19,7 +19,7 @@ public class TypedValueCompiler<TValue>(TypedType type, TValue value) : TypedVal
 		
 	}
 	
-	public void Visit(IHasIdentifiers context, TypedType? typeHint, LLVMBuilderRef builder)
+	public void Visit(IHasIdentifiers context, TypedType? typeHint, Visitor visitor)
 	{
 		
 	}

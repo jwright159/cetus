@@ -8,25 +8,25 @@ namespace Cetus.Parser;
 public interface IHasIdentifiers
 {
 	public IDictionary<string, TypedValue> Identifiers { get; set; }
-	public ICollection<IFunctionContext> Functions { get; set; }
+	public ICollection<TypedTypeFunction> Functions { get; set; }
 	public ICollection<TypedType> Types { get; set; }
-	public List<IFunctionContext>? FinalizedFunctions { get; set; }
+	public List<TypedTypeFunction>? FinalizedFunctions { get; set; }
 }
 
 public class IdentifiersBase : IHasIdentifiers
 {
 	public IDictionary<string, TypedValue> Identifiers { get; set; } = new Dictionary<string, TypedValue>();
-	public ICollection<IFunctionContext> Functions { get; set; } = new List<IFunctionContext>();
+	public ICollection<TypedTypeFunction> Functions { get; set; } = new List<TypedTypeFunction>();
 	public ICollection<TypedType> Types { get; set; } = new List<TypedType>();
-	public List<IFunctionContext>? FinalizedFunctions { get; set; }
+	public List<TypedTypeFunction>? FinalizedFunctions { get; set; }
 }
 
 public class IdentifiersNest(IHasIdentifiers @base) : IHasIdentifiers
 {
 	public IDictionary<string, TypedValue> Identifiers { get; set; } = new NestedDictionary<string, TypedValue>(@base.Identifiers);
-	public ICollection<IFunctionContext> Functions { get; set; } = new NestedCollection<IFunctionContext>(@base.Functions);
+	public ICollection<TypedTypeFunction> Functions { get; set; } = new NestedCollection<TypedTypeFunction>(@base.Functions);
 	public ICollection<TypedType> Types { get; set; } = new NestedCollection<TypedType>(@base.Types);
-	public List<IFunctionContext>? FinalizedFunctions { get; set; }
+	public List<TypedTypeFunction>? FinalizedFunctions { get; set; }
 }
 
 public static class IHasIdentifiersExtensions
@@ -34,11 +34,11 @@ public static class IHasIdentifiersExtensions
 	public static void NestFrom(this IHasIdentifiers child, IHasIdentifiers parent)
 	{
 		child.Identifiers = new NestedDictionary<string, TypedValue>(parent.Identifiers);
-		child.Functions = new NestedCollection<IFunctionContext>(parent.Functions);
+		child.Functions = new NestedCollection<TypedTypeFunction>(parent.Functions);
 		child.Types = new NestedCollection<TypedType>(parent.Types);
 	}
 	
-	public static List<IFunctionContext> GetFinalizedFunctions(this IHasIdentifiers program)
+	public static List<TypedTypeFunction> GetFinalizedFunctions(this IHasIdentifiers program)
 	{
 		if (program.FinalizedFunctions is null)
 		{
@@ -62,33 +62,22 @@ public class StructFieldContext
 	public override string ToString() => $"{Type} {Name}";
 }
 
-public interface IFunctionContext
+public class FunctionParameters
 {
-	public string Name { get; }
-	public TypedType? Type { get; }
-	public TypedValue? Value { get; }
-	public IToken? Pattern { get; }
-	public TypeIdentifier ReturnType { get; }
-	public FunctionParametersContext Parameters { get; }
-	public float Priority { get; }
-}
-
-public class FunctionParametersContext
-{
-	public FunctionParametersContext() { }
+	public FunctionParameters() { }
 	
-	public FunctionParametersContext(IEnumerable<(TypedType Type, string Name)> parameters, (TypedType Type, string Name)? varArg)
+	public FunctionParameters(IEnumerable<(TypedType Type, string Name)> parameters, (TypedType Type, string Name)? varArg)
 	{
-		Parameters = parameters.Select(param => new FunctionParameterContext(new TypeIdentifier(param.Type), param.Name)).ToList();
-		VarArg = varArg is null ? null : new FunctionParameterContext(new TypeIdentifier(varArg.Value.Type), varArg.Value.Name);
+		Parameters = parameters.Select(param => new FunctionParameter(new TypeIdentifier(param.Type), param.Name)).ToList();
+		VarArg = varArg is null ? null : new FunctionParameter(new TypeIdentifier(varArg.Value.Type), varArg.Value.Name);
 	}
 	
-	public List<FunctionParameterContext> Parameters = [];
-	public FunctionParameterContext? VarArg;
+	public List<FunctionParameter> Parameters = [];
+	public FunctionParameter? VarArg;
 	
 	public int Count => Parameters.Count;
 	
-	public IEnumerable<FunctionParameterContext> ParamsOfCount(int count)
+	public IEnumerable<FunctionParameter> ParamsOfCount(int count)
 	{
 		if (VarArg is null)
 		{
@@ -104,25 +93,19 @@ public class FunctionParametersContext
 		}
 	}
 	
-	public IEnumerable<TReturn> ZipArgs<TReturn>(ICollection<TypedValue> arguments, Func<FunctionParameterContext, TypedValue, TReturn> zip)
+	public IEnumerable<TReturn> ZipArgs<TReturn>(ICollection<TypedValue> arguments, Func<FunctionParameter, TypedValue, TReturn> zip)
 	{
 		return ParamsOfCount(arguments.Count).Zip(arguments, zip);
 	}
 	
+	public IEnumerable<(TypedType Type, string Name)> TupleParams => Parameters.Select(param => (param.Type.Type, param.Name));
+	
 	public override string ToString() => $"({string.Join(", ", Parameters)}{(VarArg is not null ? $", {VarArg.Type}... {VarArg.Name}" : "")})";
 }
 
-public class FunctionParameterContext(TypeIdentifier type, string name)
+public class FunctionParameter(TypeIdentifier type, string name)
 {
 	public TypeIdentifier Type => type;
-	public string Name => name;
-	
-	public override string ToString() => $"{Type} {Name}";
-}
-
-public class FunctionParameter(TypedType type, string name)
-{
-	public TypedType Type => type;
 	public string Name => name;
 	
 	public override string ToString() => $"{Type} {Name}";

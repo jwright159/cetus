@@ -3,19 +3,20 @@ using LLVMSharp.Interop;
 
 namespace Cetus.Parser.Types.Function;
 
-public class MethodCaller(TypedType @struct, TypedTypeFunction calledFunction) : TypedTypeFunction($"{@struct.Name}.Call_{calledFunction.Name}", new Lambda(calledFunction), [(@struct, "value")], null)
+public class MethodCaller(TypedType @struct, TypedTypeFunction calledFunction) : TypedTypeFunctionSimple($"{@struct.Name}.Call_{calledFunction.Name}", new Lambda(calledFunction, null, null), [(@struct, "value")], null)
 {
-	public override TypedValue Call(LLVMBuilderRef builder, TypedValue function, IHasIdentifiers context, params TypedValue[] args)
+	public override LLVMValueRef Visit(IHasIdentifiers context, TypedType? typeHint, Visitor visitor, FunctionArgs args)
 	{
-		Lambda lambda = new(calledFunction, args[0]);
-		return new TypedValueType(lambda);
+		Lambda lambda = new(calledFunction, args.Keys[0], args["value"]);
+		return new TypedValueType(lambda).LLVMValue;
 	}
 	
-	private class Lambda(TypedTypeFunction calledFunction, TypedValue arg) : TypedTypeFunctionSimple($"{calledFunction.Name}_Lambda", calledFunction.ReturnType, calledFunction.Parameters.Skip(1).ToArray(), null)
+	private class Lambda(TypedTypeFunction calledFunction, string argName, TypedValue arg) : TypedTypeFunctionSimple($"{calledFunction.Name}_Lambda", calledFunction.ReturnType.Type, calledFunction.Parameters.TupleParams.Skip(1).ToArray(), null)
 	{
-		public override LLVMValueRef Visit(IHasIdentifiers context, LLVMBuilderRef builder, TypedType? typeHint, FunctionArgs args)
+		public override LLVMValueRef Visit(IHasIdentifiers context, TypedType? typeHint, Visitor visitor, FunctionArgs args)
 		{
-			return calledFunction.Call(builder, function, context, args.Prepend(arg).ToArray());
+			args[argName] = arg;
+			return calledFunction.Call(context, args).LLVMValue;
 		}
 	}
 }

@@ -10,9 +10,9 @@ public class Closure() : TokenSplit(new LiteralToken("{"), new LiteralToken(";")
 	public List<FunctionCallContext> Statements;
 	public ProgramContext Program { get; set; }
 	public IDictionary<string, TypedValue> Identifiers { get; set; }
-	public ICollection<IFunctionContext> Functions { get; set; }
+	public ICollection<TypedTypeFunction> Functions { get; set; }
 	public ICollection<TypedType> Types { get; set; }
-	public List<IFunctionContext>? FinalizedFunctions { get; set; }
+	public List<TypedTypeFunction>? FinalizedFunctions { get; set; }
 	public LLVMBasicBlockRef Block;
 	public TypedValue? ReturnValue;
 	
@@ -29,29 +29,30 @@ public class Closure() : TokenSplit(new LiteralToken("{"), new LiteralToken(";")
 		
 	}
 	
-	public void Visit(IHasIdentifiers context, TypedType? typeHint, LLVMBuilderRef builder)
+	public void Visit(IHasIdentifiers context, TypedType? typeHint, Visitor visitor)
 	{
 		if (typeHint is TypedTypeCompilerClosure)
 		{
-			LLVMBasicBlockRef originalBlock = builder.InsertBlock;
+			LLVMBasicBlockRef originalBlock = visitor.Builder.InsertBlock;
 			LLVMBasicBlockRef block = originalBlock.Parent.AppendBasicBlock("closureBlock");
-			builder.PositionAtEnd(block);
+			visitor.Builder.PositionAtEnd(block);
 			
-			VisitFunctionBlock(this, Statements);
+			foreach (FunctionCallContext statement in Statements)
+				statement.Visit(this, null, visitor);
 			
-			builder.PositionAtEnd(originalBlock);
+			visitor.Builder.PositionAtEnd(originalBlock);
 		}
 		else if (typeHint is TypedTypeClosurePointer pointer)
 		{
 			Dictionary<string, TypedValue> uniqueClosureIdentifiers = ((NestedDictionary<string, TypedValue>)context.Identifiers).ThisDict;
 			TypedTypeStruct closureEnvType = new(LLVMTypeRef.CreateStruct(uniqueClosureIdentifiers.Values.Select(type => type.Type.LLVMType).ToArray(), false));
 			
-			TypedTypeFunction functionType = pointer.BlockType ?? new DefinedFunctionCall("closure_block", ((TypedTypeCompilerClosure)typeHint).ReturnType, [(new TypedTypePointer(new TypedTypeChar()), "data")], null);
-			LLVMValueRef function = module.AddFunction("closure_block", functionType.LLVMType);
+			TypedTypeFunction functionType = pointer.BlockType;
+			LLVMValueRef function = visitor.Module.AddFunction("closure_block", functionType.LLVMType);
 			function.Linkage = LLVMLinkage.LLVMInternalLinkage;
 			
-			LLVMBasicBlockRef originalBlock = builder.InsertBlock;
-			builder.PositionAtEnd(function.AppendBasicBlock("entry"));
+			LLVMBasicBlockRef originalBlock = visitor.Builder.InsertBlock;
+			visitor.Builder.PositionAtEnd(function.AppendBasicBlock("entry"));
 			
 			// Unpack the closure environment in the function
 			{
@@ -59,35 +60,36 @@ public class Closure() : TokenSplit(new LiteralToken("{"), new LiteralToken(";")
 				int paramIndex = 0;
 				foreach ((string name, TypedValue value) in uniqueClosureIdentifiers)
 				{
-					LLVMValueRef elementPtr = builder.BuildStructGEP2(closureEnvType.LLVMType, closureEnvPtr, (uint)paramIndex++, name);
-					LLVMValueRef element = builder.BuildLoad2(value.Type.LLVMType, elementPtr, name);
+					LLVMValueRef elementPtr = visitor.Builder.BuildStructGEP2(closureEnvType.LLVMType, closureEnvPtr, (uint)paramIndex++, name);
+					LLVMValueRef element = visitor.Builder.BuildLoad2(value.Type.LLVMType, elementPtr, name);
 					Identifiers.Add(name, new TypedValueValue(value.Type, element));
 				}
 				
-				VisitFunctionBlock(this, Statements);
+				foreach (FunctionCallContext statement in Statements)
+					statement.Visit(this, null, visitor);
 			}
 			
 			TypedTypeStruct closureStructType = new(LLVMTypeRef.CreateStruct([LLVMTypeRef.CreatePointer(functionType.LLVMType, 0), LLVMTypeRef.CreatePointer(LLVMTypeRef.Int8, 0)], false));
 			TypedTypeClosurePointer closureType = new(closureStructType, functionType);
 			
-			builder.PositionAtEnd(originalBlock);
-			LLVMValueRef closurePtr = builder.BuildAlloca(closureType.Type.LLVMType, "closure");
+			visitor.Builder.PositionAtEnd(originalBlock);
+			LLVMValueRef closurePtr = visitor.Builder.BuildAlloca(closureType.Type.LLVMType, "closure");
 			
 			// Pack the closure for the function
 			{
-				LLVMValueRef functionPtr = builder.BuildStructGEP2(closureType.Type.LLVMType, closurePtr, 0, "function");
-				builder.BuildStore(function, functionPtr);
+				LLVMValueRef functionPtr = visitor.Builder.BuildStructGEP2(closureType.Type.LLVMType, closurePtr, 0, "function");
+				visitor.Builder.BuildStore(function, functionPtr);
 				
-				LLVMValueRef closureEnvPtr = builder.BuildStructGEP2(closureType.Type.LLVMType, closurePtr, 1, "closure_env_ptr");
-				LLVMValueRef closureEnv = builder.BuildAlloca(closureEnvType.LLVMType, "closure_env");
+				LLVMValueRef closureEnvPtr = visitor.Builder.BuildStructGEP2(closureType.Type.LLVMType, closurePtr, 1, "closure_env_ptr");
+				LLVMValueRef closureEnv = visitor.Builder.BuildAlloca(closureEnvType.LLVMType, "closure_env");
 				int paramIndex = 0;
 				foreach ((string name, TypedValue value) in uniqueClosureIdentifiers)
 				{
-					LLVMValueRef elementPtr = builder.BuildStructGEP2(closureEnvType.LLVMType, closureEnv, (uint)paramIndex++, name);
-					builder.BuildStore(value.LLVMValue, elementPtr);
+					LLVMValueRef elementPtr = visitor.Builder.BuildStructGEP2(closureEnvType.LLVMType, closureEnv, (uint)paramIndex++, name);
+					visitor.Builder.BuildStore(value.LLVMValue, elementPtr);
 				}
-				LLVMValueRef closureEnvCasted = builder.BuildBitCast(closureEnv, LLVMTypeRef.CreatePointer(LLVMTypeRef.Int8, 0), "closure_env_casted");
-				builder.BuildStore(closureEnvCasted, closureEnvPtr);
+				LLVMValueRef closureEnvCasted = visitor.Builder.BuildBitCast(closureEnv, LLVMTypeRef.CreatePointer(LLVMTypeRef.Int8, 0), "closure_env_casted");
+				visitor.Builder.BuildStore(closureEnvCasted, closureEnvPtr);
 			}
 		}
 		else

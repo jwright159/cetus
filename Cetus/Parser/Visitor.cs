@@ -8,8 +8,8 @@ namespace Cetus.Parser;
 
 public partial class Visitor
 {
-	private LLVMModuleRef module;
-	private LLVMBuilderRef builder;
+	public LLVMModuleRef Module { get; }
+	public LLVMBuilderRef Builder { get; }
 	
 	public static readonly TypedTypeVoid VoidType = new();
 	public static readonly TypedTypeInt IntType = new();
@@ -38,8 +38,8 @@ public partial class Visitor
 		LLVM.InitializeX86TargetMC();
 		LLVM.InitializeX86AsmPrinter();
 		
-		module = LLVMModuleRef.CreateWithName("mainModule");
-		builder = LLVMBuilderRef.Create(module.Context);
+		Module = LLVMModuleRef.CreateWithName("mainModule");
+		Builder = LLVMBuilderRef.Create(Module.Context);
 	}
 	
 	public void Visit(ProgramContext program)
@@ -47,12 +47,12 @@ public partial class Visitor
 		Console.WriteLine("Visiting...");
 		VisitProgram(program);
 		Dump();
-		module.TryVerify(LLVMVerifierFailureAction.LLVMPrintMessageAction, out string _);
+		Module.TryVerify(LLVMVerifierFailureAction.LLVMPrintMessageAction, out string _);
 	}
 	
 	private void VisitProgram(ProgramContext program)
 	{
-		program.Call.Visit(program.Call, null, builder);
+		program.Call.Visit(program.Call, null, this);
 	}
 	
 	[UsedImplicitly]
@@ -60,10 +60,10 @@ public partial class Visitor
 	{
 		TypedValue function = program.Call.Identifiers["printf"];
 		TypedTypeFunction functionType = (TypedTypeFunction)function.Type;
-		TypedValueValue messageValue = new(StringType, builder.BuildGlobalStringPtr(message, "message"));
+		TypedValueValue messageValue = new(StringType, Builder.BuildGlobalStringPtr(message, "message"));
 		FunctionArgs functionArgs = new(functionType.Parameters);
-		functionArgs["args"] = args.Prepend(messageValue).ToArray();
-		FunctionCallContext functionCall = new(new TypedValueType(functionType), functionArgs);
+		functionArgs["args"] = new TypedValueCompiler<List<TypedValue>>(new TypedTypeCompilerValue().List(), args.Prepend(messageValue).ToList());
+		FunctionCallContext functionCall = new(functionType, functionArgs);
 		functionCall.Call(program.Call);
 	}
 	
@@ -75,19 +75,19 @@ public partial class Visitor
 		passManager.AddPromoteMemoryToRegisterPass();
 		passManager.AddGVNPass();
 		passManager.AddCFGSimplificationPass();
-		passManager.Run(module);
+		passManager.Run(Module);
 		passManager.Dispose();
 	}
 	
 	public void Dispose()
 	{
-		module.Dispose();
-		builder.Dispose();
+		Module.Dispose();
+		Builder.Dispose();
 	}
 	
 	public void Dump()
 	{
-		module.Dump();
+		Module.Dump();
 	}
 	
 	public void Compile(ProgramContext program, string filename = "main")
@@ -96,7 +96,7 @@ public partial class Visitor
 		LLVMTargetRef target = LLVMTargetRef.GetTargetFromTriple(targetTriple);
 		LLVMTargetMachineRef targetMachine = target.CreateTargetMachine(targetTriple, "generic", "", LLVMCodeGenOptLevel.LLVMCodeGenLevelDefault, LLVMRelocMode.LLVMRelocDefault, LLVMCodeModel.LLVMCodeModelDefault);
 		
-		targetMachine.EmitToFile(module, filename + ".s", LLVMCodeGenFileType.LLVMAssemblyFile);
+		targetMachine.EmitToFile(Module, filename + ".s", LLVMCodeGenFileType.LLVMAssemblyFile);
 		
 		CompileSFileToExe(filename + ".s", filename + ".exe", program.Libraries);
 	}

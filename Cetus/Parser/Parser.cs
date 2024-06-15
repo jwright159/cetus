@@ -3,18 +3,25 @@ using Cetus.Parser.Types;
 using Cetus.Parser.Types.Function;
 using Cetus.Parser.Types.Program;
 using Cetus.Parser.Values;
+using LLVMSharp.Interop;
 
 namespace Cetus.Parser;
 
-public class LateCompilerFunctionContext(TypeIdentifier returnType, string name, float priority, IToken? pattern, FunctionParametersContext parameters) : IFunctionContext
+public class LateCompilerFunctionContext(TypeIdentifier returnType, string name, float priority, IToken? pattern, FunctionParameters parameters) : TypedTypeFunction
 {
+	public LLVMTypeRef LLVMType { get; }
 	public string Name => name;
 	public TypedType? Type { get; set; }
 	public TypedValue? Value => Type is null ? null : new TypedValueType(Type);
 	public TypeIdentifier ReturnType => returnType;
-	public FunctionParametersContext Parameters => parameters;
+	public FunctionParameters Parameters => parameters;
 	public float Priority => priority;
 	public IToken? Pattern => pattern;
+	
+	public TypedValue Call(IHasIdentifiers context, FunctionArgs args)
+	{
+		throw new NotImplementedException();
+	}
 	
 	public override string ToString() => $"{ReturnType} {Name}{Parameters}";
 }
@@ -85,8 +92,8 @@ public partial class Parser(Lexer lexer)
 		Result result = ParseFunctionCall(program.Phases[CompilationPhase.Program], out FunctionCallContext programCall);
 		if (result is not Result.Ok)
 			throw new Exception(result.ToString());
-		if (programCall.Function.Type is not DefineProgram)
-			throw new Exception($"Parsed program is a {programCall.Function.Type}, not a program definition");
+		if (programCall.FunctionType is not DefineProgram)
+			throw new Exception($"Parsed program is a {programCall.FunctionType}, not a program definition");
 		program.Call = (DefineProgramCall)programCall.Call(program.Phases[CompilationPhase.Program]);
 		program.Call.Parse(program.Call);
 	}

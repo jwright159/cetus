@@ -4,32 +4,43 @@ using LLVMSharp.Interop;
 
 namespace Cetus.Parser.Types;
 
-public abstract class TypedTypeFunction(string name, TypedType returnType, (TypedType Type, string Name)[] parameters, (TypedType Type, string Name)? varArg) : TypedType, IFunctionContext
+public interface TypedTypeFunction : TypedType
 {
-	public LLVMTypeRef LLVMType => LLVMTypeRef.CreateFunction(returnType.LLVMType, parameters.Select(param => param.Type.LLVMType).ToArray(), IsVarArg);
+	public TypedType? Type { get; }
+	public TypedValue? Value { get; }
+	public IToken? Pattern { get; }
+	public TypeIdentifier ReturnType { get; }
+	public FunctionParameters Parameters { get; }
+	public float Priority { get; }
+	
+	public TypedValue Call(IHasIdentifiers context, FunctionArgs args);
+}
+
+public abstract class TypedTypeFunctionBase(string name, TypedType returnType, FunctionParameters parameters) : TypedTypeFunction
+{
+	public LLVMTypeRef LLVMType => LLVMTypeRef.CreateFunction(returnType.LLVMType, parameters.Parameters.Select(param => param.Type.Type.LLVMType).ToArray(), Parameters.VarArg is not null);
 	public string Name => name;
 	public TypedType? Type { get; }
 	public TypedValue? Value { get; }
 	public IToken? Pattern { get; }
 	public TypeIdentifier ReturnType => new(returnType);
-	public FunctionParametersContext Parameters { get; } = new(parameters, varArg);
+	public FunctionParameters Parameters => parameters;
 	public float Priority { get; }
-	public bool IsVarArg => varArg is not null;
 	public override string ToString() => name;
 	
 	public abstract TypedValue Call(IHasIdentifiers context, FunctionArgs args);
 }
 
-public abstract class TypedTypeFunctionSimple(string name, TypedType returnType, (TypedType Type, string Name)[] parameters, (TypedType Type, string Name)? varArg) : TypedTypeFunction(name, returnType, parameters, varArg)
+public abstract class TypedTypeFunctionSimple(string name, TypedType returnType, (TypedType Type, string Name)[] parameters, (TypedType Type, string Name)? varArg) : TypedTypeFunctionBase(name, returnType, new FunctionParameters(parameters, varArg))
 {
 	public override TypedValue Call(IHasIdentifiers context, FunctionArgs args)
 	{
-		return new ParseOnlyCall(returnType, (visitContext, visitTypeHint, visitBuilder) => Visit(visitContext, visitBuilder, visitTypeHint, args));
+		return new ParseOnlyCall(returnType, (visitContext, visitTypeHint, visitVisitor) => Visit(visitContext, visitTypeHint, visitVisitor, args));
 	}
 	
-	public abstract LLVMValueRef Visit(IHasIdentifiers context, LLVMBuilderRef builder, TypedType? typeHint, FunctionArgs args);
+	public abstract LLVMValueRef Visit(IHasIdentifiers context, TypedType? typeHint, Visitor visitor, FunctionArgs args);
 	
-	private class ParseOnlyCall(TypedType returnType, Func<IHasIdentifiers, TypedType?, LLVMBuilderRef, LLVMValueRef> visit) : TypedValue
+	private class ParseOnlyCall(TypedType returnType, Func<IHasIdentifiers, TypedType?, Visitor, LLVMValueRef> visit) : TypedValue
 	{
 		public TypedType Type => returnType;
 		public LLVMValueRef LLVMValue { get; private set; }
@@ -44,21 +55,34 @@ public abstract class TypedTypeFunctionSimple(string name, TypedType returnType,
 			
 		}
 		
-		public void Visit(IHasIdentifiers context, TypedType? typeHint, LLVMBuilderRef builder)
+		public void Visit(IHasIdentifiers context, TypedType? typeHint, Visitor visitor)
 		{
-			LLVMValue = visit(context, typeHint, builder);
+			LLVMValue = visit(context, typeHint, visitor);
 		}
 	}
 }
 
 public class FunctionArgs
 {
+	public List<string> Keys = [];
 	private Dictionary<string, (TypeIdentifier Type, TypedValue? Value)> args = new();
 	
-	public FunctionArgs(FunctionParametersContext parameters)
+	public FunctionArgs(FunctionParameters parameters)
 	{
-		foreach (FunctionParameterContext parameter in parameters.Parameters)
-			args[parameter.Name] = (parameter.Type, null);
+		foreach (FunctionParameter param in parameters.Parameters)
+		{
+			Keys.Add(param.Name);
+			args[param.Name] = (param.Type, null);
+		}
+	}
+	
+	public FunctionArgs(FunctionParameters parameters, ICollection<TypedValue> arguments)
+	{
+		foreach ((FunctionParameter param, TypedValue arg) in parameters.ZipArgs(arguments, (param, arg) => (param, arg)))
+		{
+			Keys.Add(param.Name);
+			args[param.Name] = (param.Type, arg);
+		}
 	}
 	
 	public TypedValue this[string key]
@@ -89,9 +113,9 @@ public class FunctionArgs
 			value.Transform(context, type.Type);
 	}
 	
-	public void Visit(IHasIdentifiers context, LLVMBuilderRef builder)
+	public void Visit(IHasIdentifiers context, Visitor visitor)
 	{
 		foreach ((TypeIdentifier type, TypedValue? value) in args.Values)
-			value.Visit(context, type.Type, builder);
+			value.Visit(context, type.Type, visitor);
 	}
 }

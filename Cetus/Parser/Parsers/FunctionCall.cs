@@ -5,10 +5,9 @@ using LLVMSharp.Interop;
 
 namespace Cetus.Parser;
 
-public class FunctionCallContext(TypedValue fuction, FunctionArgs args) : TypedValue
+public class FunctionCallContext(TypedTypeFunction fuctionType, FunctionArgs args) : TypedValue
 {
-	public TypedTypeFunction FunctionType => (TypedTypeFunction)fuction.Type;
-	public TypedValue Function => fuction;
+	public TypedTypeFunction FunctionType => fuctionType;
 	public TypedType Type => FunctionType.ReturnType.Type;
 	public LLVMValueRef LLVMValue { get; private set; }
 	public FunctionArgs Arguments => args;
@@ -23,7 +22,7 @@ public class FunctionCallContext(TypedValue fuction, FunctionArgs args) : TypedV
 		
 	}
 	
-	public void Visit(IHasIdentifiers context, TypedType? typeHint, LLVMBuilderRef builder)
+	public void Visit(IHasIdentifiers context, TypedType? typeHint, Visitor visitor)
 	{
 		
 	}
@@ -40,13 +39,13 @@ public partial class Parser
 	{
 		int startIndex = lexer.Index;
 		
-		foreach (IFunctionContext function in program.GetFinalizedFunctions().Skip(order))
+		foreach (TypedTypeFunction function in program.GetFinalizedFunctions().Skip(order))
 		{
 			order++;
 			IToken token = function.Pattern!;
 			FunctionArgs arguments = new(function.Parameters);
 			
-			if (!ParseToken(program, function, token, arguments, order))
+			if (!ParseToken(program, token, arguments, order))
 			{
 				lexer.Index = startIndex;
 				continue;
@@ -62,7 +61,7 @@ public partial class Parser
 		return new Result.TokenRuleFailed("Expected function call", lexer.Line, lexer.Column);
 	}
 	
-	public bool ParseToken(IHasIdentifiers context, IFunctionContext function, IToken token, FunctionArgs arguments, int order)
+	public bool ParseToken(IHasIdentifiers context, IToken token, FunctionArgs arguments, int order)
 	{
 		if (token is ParameterExpressionToken expressionToken)
 		{
@@ -76,29 +75,14 @@ public partial class Parser
 		
 		if (token is ParameterValueToken valueToken)
 		{
-			if (ParseValueIdentifier(out TypedValue value) is Result.Failure)
+			if (!lexer.Eat(out Word? value))
 			{
 				return false;
 			}
-			arguments[valueToken.ParameterName] = value;
+			arguments[valueToken.ParameterName] = new ValueIdentifierContext(value.Value);
 			return true;
 		}
 		
 		return lexer.Eat(token);
-	}
-}
-
-internal static class EnumerableExtensions
-{
-	public static IEnumerable<TResult> Enumerate<TSource, TResult>(this IEnumerable<TSource> source, Func<int, TSource, TResult> selector, int index = 0)
-	{
-		foreach (TSource item in source)
-			yield return selector(index++, item);
-	}
-	
-	public static IEnumerable<(int, TSource)> Enumerate<TSource>(this IEnumerable<TSource> source, int index = 0)
-	{
-		foreach (TSource item in source)
-			yield return (index++, item);
 	}
 }

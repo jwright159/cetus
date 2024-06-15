@@ -14,7 +14,7 @@ public class Float : TypedValue, IToken
 	
 	public void Transform(IHasIdentifiers context, TypedType? typeHint) { }
 	
-	public void Visit(IHasIdentifiers context, TypedType? typeHint, LLVMBuilderRef builder)
+	public void Visit(IHasIdentifiers context, TypedType? typeHint, Visitor visitor)
 	{
 		LLVMValue = LLVMValueRef.CreateConstReal(LLVMTypeRef.Float, Value);
 	}

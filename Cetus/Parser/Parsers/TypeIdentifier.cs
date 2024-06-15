@@ -39,7 +39,7 @@ public class TypeIdentifier : TypedValue
 		
 		if (Name == "Closure")
 		{
-			DefinedFunctionCall functionType = new("block", InnerType?.Type ?? Visitor.VoidType, [(new TypedTypePointer(new TypedTypeChar()), "data")], null);
+			DefinedFunctionCall functionType = new("block", this, InnerType?.Type ?? Visitor.VoidType, [(new TypedTypePointer(new TypedTypeChar()), "data")], null);
 			TypedTypeStruct closureStructType = new(LLVMTypeRef.CreateStruct([LLVMTypeRef.CreatePointer(functionType.LLVMType, 0), LLVMTypeRef.CreatePointer(LLVMTypeRef.Int8, 0)], false));
 			Type = new TypedTypeClosurePointer(closureStructType, functionType);
 		}
@@ -59,7 +59,7 @@ public class TypeIdentifier : TypedValue
 		}
 	}
 	
-	public void Visit(IHasIdentifiers context, TypedType? typeHint, LLVMBuilderRef builder)
+	public void Visit(IHasIdentifiers context, TypedType? typeHint, Visitor visitor)
 	{
 		
 	}

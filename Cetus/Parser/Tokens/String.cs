@@ -14,9 +14,9 @@ public class String : TypedValue, IToken
 	
 	public void Transform(IHasIdentifiers context, TypedType? typeHint) { }
 	
-	public void Visit(IHasIdentifiers context, TypedType? typeHint, LLVMBuilderRef builder)
+	public void Visit(IHasIdentifiers context, TypedType? typeHint, Visitor visitor)
 	{
-		LLVMValue = builder.BuildGlobalStringPtr(Value, Value.Length == 0 ? "emptyString" : Value);
+		LLVMValue = visitor.Builder.BuildGlobalStringPtr(Value, Value.Length == 0 ? "emptyString" : Value);
 	}
 	
 	public bool Eat(string contents, ref int index)

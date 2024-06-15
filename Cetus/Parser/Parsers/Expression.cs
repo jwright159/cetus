@@ -22,15 +22,15 @@ public class Expression : TypedValue
 		
 	}
 	
-	public void Visit(IHasIdentifiers context, TypedType? typeHint, LLVMBuilderRef builder)
+	public void Visit(IHasIdentifiers context, TypedType? typeHint, Visitor visitor)
 	{
-		LLVMBasicBlockRef originalBlock = builder.InsertBlock;
+		LLVMBasicBlockRef originalBlock = visitor.Builder.InsertBlock;
 		LLVMBasicBlockRef block = originalBlock.Parent.AppendBasicBlock("closureBlock");
-		builder.PositionAtEnd(block);
+		visitor.Builder.PositionAtEnd(block);
 		
 		// Visit something here
 		
-		builder.PositionAtEnd(originalBlock);
+		visitor.Builder.PositionAtEnd(originalBlock);
 	}
 }
 

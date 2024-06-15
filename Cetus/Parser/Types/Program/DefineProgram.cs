@@ -3,7 +3,7 @@ using LLVMSharp.Interop;
 
 namespace Cetus.Parser.Types.Program;
 
-public class DefineProgram() : TypedTypeFunction("DefineProgram", Visitor.VoidType, [(Visitor.AnyFunctionCall.List(), "statements")], null)
+public class DefineProgram() : TypedTypeFunctionBase("DefineProgram", Visitor.VoidType, new FunctionParameters([(Visitor.AnyFunctionCall.List(), "statements")], null))
 {
 	public override TypedValue Call(IHasIdentifiers context, FunctionArgs args)
 	{
@@ -17,9 +17,9 @@ public class DefineProgramCall(List<FunctionCallContext> statements) : TypedValu
 	public TypedType Type => Visitor.VoidType;
 	public LLVMValueRef LLVMValue => Visitor.Void.LLVMValue;
 	public IDictionary<string, TypedValue> Identifiers { get; set; }
-	public ICollection<IFunctionContext> Functions { get; set; }
+	public ICollection<TypedTypeFunction> Functions { get; set; }
 	public ICollection<TypedType> Types { get; set; }
-	public List<IFunctionContext>? FinalizedFunctions { get; set; }
+	public List<TypedTypeFunction>? FinalizedFunctions { get; set; }
 	
 	public void Parse(IHasIdentifiers context)
 	{
@@ -31,7 +31,7 @@ public class DefineProgramCall(List<FunctionCallContext> statements) : TypedValu
 		
 	}
 	
-	public void Visit(IHasIdentifiers context, TypedType? typeHint, LLVMBuilderRef builder)
+	public void Visit(IHasIdentifiers context, TypedType? typeHint, Visitor visitor)
 	{
 		
 	}
