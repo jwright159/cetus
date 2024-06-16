@@ -52,18 +52,18 @@ public class Visitor
 	
 	private void VisitProgram(ProgramContext program)
 	{
-		program.Call.Visit(program.Call, null, this);
+		program.Call.Visit(program.Phases[CompilationPhase.Program], null, this);
 	}
 	
 	[UsedImplicitly]
 	private void Printf(string message, ProgramContext program, params TypedValue[] args)
 	{
-		TypedValue function = program.Call.Identifiers["printf"];
+		TypedValue function = program.Phases[CompilationPhase.Program].Identifiers["printf"];
 		TypedTypeFunction functionType = (TypedTypeFunction)function.Type;
 		TypedValueValue messageValue = new(StringType, Builder.BuildGlobalStringPtr(message, "message"));
 		FunctionArgs functionArgs = new(functionType.Parameters);
 		functionArgs["args"] = new TypedValueCompiler<List<TypedValue>>(new TypedTypeCompilerValue().List(), args.Prepend(messageValue).ToList());
-		functionType.Call(program.Call, functionArgs);
+		functionType.Call(program.Phases[CompilationPhase.Program], functionArgs);
 	}
 	
 	public void Optimize()

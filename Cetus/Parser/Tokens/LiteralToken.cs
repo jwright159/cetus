@@ -4,7 +4,7 @@ public class LiteralToken(string token) : IToken
 {
 	public Result Eat(Lexer lexer)
 	{
-		if (lexer[lexer.Index..].StartsWith(token))
+		if (lexer.StartsWith(token))
 		{
 			lexer.Index += token.Length;
 			return new Result.Ok();

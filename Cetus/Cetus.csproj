@@ -33,10 +33,6 @@
         <None Update="recursive.cetus">
           <CopyToOutputDirectory>Always</CopyToOutputDirectory>
         </None>
-        
-        <None Update="recursive - plans.cetus">
-          <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-        </None>
     </ItemGroup>
 
 </Project>

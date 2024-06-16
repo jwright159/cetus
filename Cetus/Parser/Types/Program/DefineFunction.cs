@@ -22,12 +22,12 @@ public class DefineFunction : TypedTypeFunctionBase
 		(Visitor.CompilerStringType, "varArgParameterName"),
 		(new TypedTypeCompilerClosure(Visitor.VoidType), "body"),
 	], null);
-	public override float Priority => 80;
+	public override float Priority => 800;
 	
 	public override TypedValue Call(IHasIdentifiers context, FunctionArgs args)
 	{
 		return new DefineFunctionCall(
-			context,
+			context.Program.Phases[CompilationPhase.Function],
 			((ValueIdentifier)args["name"]).Name,
 			new TypeIdentifier(((ValueIdentifier)args["returnType"]).Name),
 			new FunctionParameters(
@@ -49,10 +49,11 @@ public class DefineFunctionCall(IHasIdentifiers parent, string name, TypeIdentif
 	public TypedValue? Value { get; set; }
 	public IToken? Pattern { get; set; }
 	public Closure? Body => body;
-	public IDictionary<string, TypedValue> Identifiers { get; set; } = new NestedDictionary<string, TypedValue>(parent.Identifiers);
-	public ICollection<TypedTypeFunction> Functions { get; set; } = new NestedCollection<TypedTypeFunction>(parent.Functions);
-	public ICollection<TypedType> Types { get; set; } = new NestedCollection<TypedType>(parent.Types);
+	public IDictionary<string, TypedValue> Identifiers { get; } = new NestedDictionary<string, TypedValue>(parent.Identifiers);
+	public ICollection<TypedTypeFunction> Functions { get; } = new NestedCollection<TypedTypeFunction>(parent.Functions);
+	public ICollection<TypedType> Types { get; } = new NestedCollection<TypedType>(parent.Types);
 	public List<TypedTypeFunction>? FinalizedFunctions { get; set; }
+	public ProgramContext Program => parent.Program;
 	
 	public void Parse(IHasIdentifiers context)
 	{
@@ -61,7 +62,8 @@ public class DefineFunctionCall(IHasIdentifiers parent, string name, TypeIdentif
 	
 	public void Transform(IHasIdentifiers context, TypedType? typeHint)
 	{
-		
+		parameters.Transform(this);
+		returnType.Transform(this, Visitor.TypeType);
 	}
 	
 	public void Visit(IHasIdentifiers context, TypedType? typeHint, Visitor visitor)
@@ -84,8 +86,10 @@ public class DefineFunctionCall(IHasIdentifiers parent, string name, TypeIdentif
 		
 		if (body is not null)
 		{
-			body.Transform(this, null);
-			body.Visit(this, null, visitor);
+			TypedTypeCompilerClosure bodyType = new(returnType.Type);
+			body.Parse(this);
+			body.Transform(this, bodyType);
+			body.Visit(this, bodyType, visitor);
 		}
 	}
 	

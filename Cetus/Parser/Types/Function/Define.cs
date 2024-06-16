@@ -14,8 +14,9 @@ public class Define : TypedTypeFunctionSimple
 	
 	public override LLVMValueRef Visit(IHasIdentifiers context, TypedType? typeHint, Visitor visitor, FunctionArgs args)
 	{
+		args.Visit(context, visitor);
 		TypedType type = args["type"].Type;
-		string name = ((Tokens.String)args["name"]).Value;
+		string name = ((ValueIdentifier)args["name"]).Name;
 		TypedValue value = args["value"];
 		if (!value.IsOfType(type))
 			throw new Exception($"Type mismatch in assignment to '{name}', expected {type.LLVMType} but got {value.Type.LLVMType}");

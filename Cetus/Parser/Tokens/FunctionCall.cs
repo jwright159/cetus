@@ -4,7 +4,7 @@ using LLVMSharp.Interop;
 
 namespace Cetus.Parser.Tokens;
 
-public class FunctionCall(IHasIdentifiers parent, int order) : IToken, TypedValue
+public class FunctionCall(IHasIdentifiers parent, int order, float priorityThreshold) : IToken, TypedValue
 {
 	public TypedTypeFunction FunctionType { get; private set; }
 	public TypedType Type => FunctionType.ReturnType.Type;
@@ -15,13 +15,13 @@ public class FunctionCall(IHasIdentifiers parent, int order) : IToken, TypedValu
 	{
 		int startIndex = lexer.Index;
 		
-		foreach (TypedTypeFunction function in parent.GetFinalizedFunctions().Skip(order))
+		foreach (TypedTypeFunction function in parent.GetFinalizedFunctions().Where(func => func.Priority <= priorityThreshold).Skip(order))
 		{
 			order++;
 			IToken token = function.Pattern!;
 			FunctionArgs arguments = new(function.Parameters);
 			
-			Result result = lexer.Eat(token.Contextualize(parent, arguments, order));
+			Result result = lexer.Eat(token.Contextualize(parent, arguments, order, priorityThreshold));
 			if (result is not Result.Passable)
 			{
 				lexer.Index = startIndex;

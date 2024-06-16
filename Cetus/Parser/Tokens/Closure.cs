@@ -4,61 +4,67 @@ using LLVMSharp.Interop;
 
 namespace Cetus.Parser.Tokens;
 
-public class Closure(bool actuallyParse) : IToken, TypedValue, IHasIdentifiers
+public class Closure : IToken, TypedValue, IHasIdentifiers
 {
-	public List<FunctionCall> Statements;
-	public ProgramContext Program { get; set; }
-	public IDictionary<string, TypedValue> Identifiers { get; set; }
-	public ICollection<TypedTypeFunction> Functions { get; set; }
-	public ICollection<TypedType> Types { get; set; }
+	public List<TypedValue> Statements;
+	public IDictionary<string, TypedValue> Identifiers { get; private set; }
+	public ICollection<TypedTypeFunction> Functions { get; private set; }
+	public ICollection<TypedType> Types { get; private set; }
 	public List<TypedTypeFunction>? FinalizedFunctions { get; set; }
+	public ProgramContext Program { get; private set; }
 	public LLVMBasicBlockRef Block;
-	public TypedValue? ReturnValue;
 	
 	public TypedType Type { get; }
 	public LLVMValueRef LLVMValue { get; }
 	
+	private Lexer lexer;
 	private int lexerStartIndex;
 	
 	public Result Eat(Lexer lexer)
 	{
-		if (actuallyParse)
+		this.lexer = lexer;
+		
+		int startIndex = lexer.Index;
+		
+		Result startResult = lexer.Eat(new LiteralToken("{"));
+		if (startResult is not Result.Passable)
 		{
-			IToken token = new TokenSplit(new LiteralToken("{"), new LiteralToken(";"), new LiteralToken("}"), new ParameterStatementToken("statements"));
-			return lexer.Eat(token);
+			lexer.Index = startIndex;
+			return startResult;
 		}
-		else
+		
+		Result? endResult = lexer.SkipToMatches(new LiteralToken("}"), false);
+		if (endResult is not null and not Result.Passable)
 		{
-			int startIndex = lexer.Index;
-			
-			Result startResult = lexer.Eat(new LiteralToken("{"));
-			if (startResult is not Result.Passable)
-			{
-				lexer.Index = startIndex;
-				return startResult;
-			}
-			
-			Result? endResult = lexer.SkipToMatches(new LiteralToken("}"), false);
-			if (endResult is not null and not Result.Passable)
-			{
-				lexer.Index = startIndex;
-				return endResult;
-			}
-			
-			lexerStartIndex = startIndex;
-			
-			return new Result.Ok();
+			lexer.Index = startIndex;
+			return endResult;
 		}
+		
+		lexerStartIndex = startIndex;
+		
+		return new Result.Ok();
 	}
 	
 	public void Parse(IHasIdentifiers context)
 	{
+		Identifiers = new NestedDictionary<string, TypedValue>(context.Identifiers);
+		Functions = new NestedCollection<TypedTypeFunction>(context.Functions);
+		Types = new NestedCollection<TypedType>(context.Types);
+		Program = context.Program;
 		
+		FunctionArgs args = new(new FunctionParameters([(Visitor.AnyFunctionCall.List(), "statements")], null));
+		IToken token = new TokenSplit(new LiteralToken("{"), new LiteralToken(";"), new LiteralToken("}"), new ParameterStatementToken("statements")).Contextualize(context, args, 0, 100);
+		lexer.Index = lexerStartIndex;
+		Result result = lexer.Eat(token);
+		if (result is not Result.Ok)
+			throw new Exception("Parsing failed in closure\n" + result);
+		Statements = ((TypedValueCompiler<List<FunctionCall>>)args["statements"]).CompilerValue.Select(arg => arg.Call(context)).ToList();
+		Statements.ForEach(statement => statement.Parse(context));
 	}
 	
 	public void Transform(IHasIdentifiers context, TypedType? typeHint)
 	{
-		
+		Statements.ForEach(statement => statement.Transform(context, null));
 	}
 	
 	public void Visit(IHasIdentifiers context, TypedType? typeHint, Visitor visitor)
@@ -69,8 +75,7 @@ public class Closure(bool actuallyParse) : IToken, TypedValue, IHasIdentifiers
 			LLVMBasicBlockRef block = originalBlock.Parent.AppendBasicBlock("closureBlock");
 			visitor.Builder.PositionAtEnd(block);
 			
-			foreach (FunctionCall statement in Statements)
-				statement.Visit(this, null, visitor);
+			Statements.ForEach(statement => statement.Visit(this, null, visitor));
 			
 			visitor.Builder.PositionAtEnd(originalBlock);
 		}
@@ -97,8 +102,7 @@ public class Closure(bool actuallyParse) : IToken, TypedValue, IHasIdentifiers
 					Identifiers.Add(name, new TypedValueValue(value.Type, element));
 				}
 				
-				foreach (FunctionCall statement in Statements)
-					statement.Visit(this, null, visitor);
+				Statements.ForEach(statement => statement.Visit(this, null, visitor));
 			}
 			
 			TypedTypeStruct closureStructType = new(LLVMTypeRef.CreateStruct([LLVMTypeRef.CreatePointer(functionType.LLVMType, 0), LLVMTypeRef.CreatePointer(LLVMTypeRef.Int8, 0)], false));
@@ -126,6 +130,12 @@ public class Closure(bool actuallyParse) : IToken, TypedValue, IHasIdentifiers
 		}
 		else
 			throw new Exception("Expected closure");
+	}
+	
+	public IToken Contextualize(IHasIdentifiers context, FunctionArgs arguments, int order, float priorityThreshold)
+	{
+		
+		return this;
 	}
 	
 	public override string ToString() => $"Closure starting at index {lexerStartIndex}";

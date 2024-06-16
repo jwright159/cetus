@@ -11,7 +11,7 @@ public class TokenOptional(IToken token) : IToken
 		return new Result.Ok();
 	}
 	
-	public IToken Contextualize(IHasIdentifiers context, FunctionArgs arguments, int order) => new TokenOptional(token.Contextualize(context, arguments, order));
+	public IToken Contextualize(IHasIdentifiers context, FunctionArgs arguments, int order, float priorityThreshold) => new TokenOptional(token.Contextualize(context, arguments, order, priorityThreshold));
 	
 	public override string ToString() => token + "?";
 }

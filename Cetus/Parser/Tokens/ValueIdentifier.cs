@@ -9,8 +9,8 @@ public class ValueIdentifier : IToken, TypedValue
 	public string Name { get; private set; }
 	public TypedValue Value;
 	
-	public TypedType Type { get; }
-	public LLVMValueRef LLVMValue { get; }
+	public TypedType Type => Value.Type;
+	public LLVMValueRef LLVMValue => Value.LLVMValue;
 	
 	public Result Eat(Lexer lexer)
 	{

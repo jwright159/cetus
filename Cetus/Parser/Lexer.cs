@@ -190,6 +190,7 @@ public class Lexer(string contents)
 	public string this[Range range] => contents[range];
 	public int Length => contents.Length;
 	public char Current => contents[Index];
+	public bool StartsWith(string str) => contents[Index..].StartsWith(str);
 	
 	public override string ToString() => IsAtEnd ? "Lexer at EOF" : $"Lexer at \"{contents[Index..Math.Min(Index + 20, Length)]}...\"";
 }

@@ -31,7 +31,7 @@ public partial class Parser(Lexer lexer)
 	public ProgramContext Parse()
 	{
 		ProgramContext program = new();
-		program.Phases.Add(CompilationPhase.Program, new IdentifiersBase());
+		program.Phases.Add(CompilationPhase.Program, new IdentifiersBase(program));
 		program.Phases.Add(CompilationPhase.Function, new IdentifiersNest(program.Phases[CompilationPhase.Program]));
 		
 		AddType(Visitor.VoidType);
@@ -39,7 +39,7 @@ public partial class Parser(Lexer lexer)
 		AddType(Visitor.DoubleType);
 		AddType(Visitor.CharType);
 		AddType(Visitor.IntType);
-		AddType(Visitor.StringType);
+		AddType(Visitor.StringType, "String");
 		AddType(Visitor.CompilerStringType);
 		AddType(Visitor.BoolType);
 		AddType(Visitor.TypeType);
@@ -67,10 +67,10 @@ public partial class Parser(Lexer lexer)
 		return program;
 		
 		
-		void AddType(TypedType type)
+		void AddType(TypedType type, string? name = null)
 		{
 			program.Phases[CompilationPhase.Program].Types.Add(type);
-			program.Phases[CompilationPhase.Program].Identifiers.Add(type.Name, new TypedValueType(type));
+			program.Phases[CompilationPhase.Program].Identifiers.Add(name ?? type.Name, new TypedValueType(type));
 		}
 		
 		void AddFunction(CompilationPhase context, TypedTypeFunction function)
@@ -87,19 +87,19 @@ public partial class Parser(Lexer lexer)
 	
 	private void ParseProgram(ProgramContext program)
 	{
-		FunctionCall programCall = new(program.Phases[CompilationPhase.Program], 0);
+		FunctionCall programCall = new(program.Phases[CompilationPhase.Program], 0, float.MaxValue);
 		Result result = lexer.Eat(programCall);
 		if (result is not Result.Ok)
 			throw new Exception("Parsing failed\n" + result);
 		if (programCall.FunctionType is not DefineProgram)
 			throw new Exception($"Parsed program is a {programCall.FunctionType}, not a program definition");
 		program.Call = (DefineProgramCall)programCall.Call(program.Phases[CompilationPhase.Program]);
-		program.Call.Parse(program.Call);
+		program.Call.Parse(program.Phases[CompilationPhase.Program]);
 	}
 	
 	private void TransformProgram(ProgramContext program)
 	{
-		program.Call.Transform(program.Call, null);
+		program.Call.Transform(program.Phases[CompilationPhase.Program], null);
 	}
 }
 

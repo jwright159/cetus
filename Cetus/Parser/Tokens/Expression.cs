@@ -4,17 +4,17 @@ using LLVMSharp.Interop;
 
 namespace Cetus.Parser.Tokens;
 
-public class Expression(IHasIdentifiers parent, int order) : IToken, TypedValue
+public class Expression(IHasIdentifiers parent, int order, float priorityThreshold) : IToken, TypedValue
 {
 	public LLVMBasicBlockRef Block;
 	public TypedValue ReturnValue;
 	
-	public TypedType Type { get; }
-	public LLVMValueRef LLVMValue { get; }
+	public TypedType Type => ReturnValue.Type;
+	public LLVMValueRef LLVMValue => ReturnValue.LLVMValue;
 	
 	public Result Eat(Lexer lexer)
 	{
-		FunctionCall functionCall = new(parent, order);
+		FunctionCall functionCall = new(parent, order, priorityThreshold);
 		if (lexer.Eat(functionCall) is Result.Passable functionCallResult)
 		{
 			ReturnValue = functionCall;
@@ -51,8 +51,7 @@ public class Expression(IHasIdentifiers parent, int order) : IToken, TypedValue
 			return stringResult;
 		}
 		
-		Closure closure = new(false);
-		if (lexer.Eat(closure) is Result.Passable closureResult)
+		if (lexer.Eat(out Closure closure) is Result.Passable closureResult)
 		{
 			ReturnValue = closure;
 			return closureResult;
@@ -83,7 +82,7 @@ public class Expression(IHasIdentifiers parent, int order) : IToken, TypedValue
 		LLVMBasicBlockRef block = originalBlock.Parent.AppendBasicBlock("closureBlock");
 		visitor.Builder.PositionAtEnd(block);
 		
-		// Visit something here
+		ReturnValue.Visit(context, typeHint, visitor);
 		
 		visitor.Builder.PositionAtEnd(originalBlock);
 	}

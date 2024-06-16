@@ -19,7 +19,7 @@ public class DefineStruct : TypedTypeFunctionBase
 		(Visitor.TypeIdentifierType.List(), "fieldTypes"),
 		(Visitor.CompilerStringType.List(), "fieldNames"),
 	], null);
-	public override float Priority => 90;
+	public override float Priority => 900;
 	
 	public override TypedValue Call(IHasIdentifiers context, FunctionArgs args)
 	{
@@ -41,6 +41,7 @@ public class DefineStructCall(IHasIdentifiers parent, string name, List<(TypeIde
 	public ICollection<TypedTypeFunction> Functions { get; set; } = new NestedCollection<TypedTypeFunction>(parent.Functions);
 	public ICollection<TypedType> Types { get; set; } = new NestedCollection<TypedType>(parent.Types);
 	public List<TypedTypeFunction>? FinalizedFunctions { get; set; }
+	public ProgramContext Program => parent.Program;
 	public Dictionary<TypedTypeFunction, LateCompilerFunctionContext> FunctionGetters = new();
 	public Dictionary<TypedTypeFunction, LateCompilerFunctionContext> FunctionCallers = new();
 	
