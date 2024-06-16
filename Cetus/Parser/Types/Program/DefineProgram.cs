@@ -14,33 +14,35 @@ public class DefineProgram : TypedTypeFunctionBase
 	
 	public override TypedValue Call(IHasIdentifiers context, FunctionArgs args)
 	{
+		List<FunctionCall> statements = ((TypedValueCompiler<List<FunctionCall>>)args["statements"]).CompilerValue;
+		Console.WriteLine("STATEMENTS: [\n\t" + string.Join(",\n", statements).Replace("\n", "\n\t") + "\n]");
 		return new DefineProgramCall(
-			((TypedValueCompiler<List<FunctionCall>>)args["statements"]).CompilerValue);
+			context,
+			statements.Select(statement => statement.Call(context)).ToList());
 	}
 }
 
-public class DefineProgramCall(List<FunctionCall> statements) : TypedValue, IHasIdentifiers
+public class DefineProgramCall(IHasIdentifiers parent, List<TypedValue> statements) : TypedValue, IHasIdentifiers
 {
 	public TypedType Type => Visitor.VoidType;
 	public LLVMValueRef LLVMValue => Visitor.Void.LLVMValue;
-	public IDictionary<string, TypedValue> Identifiers { get; set; }
-	public ICollection<TypedTypeFunction> Functions { get; set; }
-	public ICollection<TypedType> Types { get; set; }
+	public IDictionary<string, TypedValue> Identifiers { get; set; } = new NestedDictionary<string, TypedValue>(parent.Identifiers);
+	public ICollection<TypedTypeFunction> Functions { get; set; } = new NestedCollection<TypedTypeFunction>(parent.Functions);
+	public ICollection<TypedType> Types { get; set; } = new NestedCollection<TypedType>(parent.Types);
 	public List<TypedTypeFunction>? FinalizedFunctions { get; set; }
 	
 	public void Parse(IHasIdentifiers context)
 	{
-		Console.WriteLine("Parse DefineProgram");
-		Console.WriteLine("[\n\t" + string.Join(",\n", statements).Replace("\n", "\n\t") + "\n]");
+		statements.ForEach(statement => statement.Parse(this));
 	}
 	
 	public void Transform(IHasIdentifiers context, TypedType? typeHint)
 	{
-		Console.WriteLine("Transform DefineProgram");
+		statements.ForEach(statement => statement.Transform(this, null));
 	}
 	
 	public void Visit(IHasIdentifiers context, TypedType? typeHint, Visitor visitor)
 	{
-		Console.WriteLine("Visit DefineProgram");
+		statements.ForEach(statement => statement.Visit(this, null, visitor));
 	}
 }

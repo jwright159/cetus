@@ -63,7 +63,11 @@ public class StructFieldContext
 
 public class FunctionParameters
 {
-	public FunctionParameters() { }
+	public FunctionParameters(IEnumerable<FunctionParameter> parameters, FunctionParameter? varArg)
+	{
+		Parameters = parameters.ToList();
+		VarArg = varArg;
+	}
 	
 	public FunctionParameters(IEnumerable<(TypedType Type, string Name)> parameters, (TypedType Type, string Name)? varArg)
 	{

@@ -25,8 +25,8 @@ public class DefineStruct : TypedTypeFunctionBase
 	{
 		return new DefineStructCall(
 			context,
-			((TypedValueCompiler<string>)args["name"]).CompilerValue,
-			((TypedValueCompiler<List<TypedValueCompiler<TypeIdentifier>>>)args["fieldTypes"]).CompilerValue.Zip(((TypedValueCompiler<List<TypedValueCompiler<string>>>)args["fieldNames"]).CompilerValue, (type, name) => (type.CompilerValue, name.CompilerValue)).ToList());
+			((ValueIdentifier)args["name"]).Name,
+			((TypedValueCompiler<List<ValueIdentifier>>)args["fieldTypes"]).CompilerValue.Zip(((TypedValueCompiler<List<ValueIdentifier>>)args["fieldNames"]).CompilerValue, (type, name) => (new TypeIdentifier(type.Name), name.Name)).ToList());
 	}
 }
 
@@ -70,7 +70,7 @@ public class DefineStructCall(IHasIdentifiers parent, string name, List<(TypeIde
 					$"{Name}.Get_{function.Name}",
 					0,
 					new TokenString([new ParameterValueToken("type"), new LiteralToken("."), new LiteralToken(function.Name)]),
-					new FunctionParameters { Parameters = [new FunctionParameter(new TypeIdentifier("Type", new TypeIdentifier(Name)), "type")] });
+					new FunctionParameters([new FunctionParameter(new TypeIdentifier("Type", new TypeIdentifier(Name)), "type")], null));
 				FunctionGetters.Add(function, getterFunction);
 				context.Functions.Add(getterFunction);
 			}
@@ -82,7 +82,7 @@ public class DefineStructCall(IHasIdentifiers parent, string name, List<(TypeIde
 					$"{Name}.Call_{function.Name}",
 					0,
 					new TokenString([new ParameterValueToken("this"), new LiteralToken("."), new LiteralToken(function.Name)]),
-					new FunctionParameters { Parameters = [new FunctionParameter(new TypeIdentifier(Name), "this")] });
+					new FunctionParameters([new FunctionParameter(new TypeIdentifier(Name), "this")], null));
 				FunctionCallers.Add(function, callerFunction);
 				context.Functions.Add(callerFunction);
 			}

@@ -28,18 +28,16 @@ public class DefineFunction : TypedTypeFunctionBase
 	{
 		return new DefineFunctionCall(
 			context,
-			((Tokens.String)args["name"]).Value,
-			((TypedValueCompiler<TypeIdentifier>)args["returnType"]).CompilerValue,
-			new FunctionParameters
-			{
-				Parameters = ((TypedValueCompiler<List<TypedValueCompiler<TypeIdentifier>>>)args["parameterTypes"]).CompilerValue.Zip(((TypedValueCompiler<List<Tokens.String>>)args["parameterNames"]).CompilerValue, (type, name) => new FunctionParameter(type.CompilerValue, name.Value)).ToList(),
-				VarArg = new FunctionParameter(((TypedValueCompiler<TypeIdentifier>)args["varArgParameterType"]).CompilerValue, ((Tokens.String)args["varArgParameterName"]).Value),
-			},
-			((TypedValueCompiler<Closure>)args["body"]).CompilerValue);
+			((ValueIdentifier)args["name"]).Name,
+			new TypeIdentifier(((ValueIdentifier)args["returnType"]).Name),
+			new FunctionParameters(
+				args["parameterTypes"] is not null ? ((TypedValueCompiler<List<ValueIdentifier>>)args["parameterTypes"]).CompilerValue.Zip(((TypedValueCompiler<List<ValueIdentifier>>)args["parameterNames"]).CompilerValue, (type, name) => new FunctionParameter(new TypeIdentifier(type.Name), name.Name)) : [],
+				args["varArgParameterType"] is not null ? new FunctionParameter(new TypeIdentifier(((ValueIdentifier)args["varArgParameterType"]).Name), ((ValueIdentifier)args["varArgParameterName"]).Name) : null),
+			args["body"] is not null ? (Closure)((Expression)args["body"]).ReturnValue : null);
 	}
 }
 
-public class DefineFunctionCall(IHasIdentifiers parent, string name, TypeIdentifier returnType, FunctionParameters parameters, Closure body) : TypedValue, TypedTypeFunction, IHasIdentifiers
+public class DefineFunctionCall(IHasIdentifiers parent, string name, TypeIdentifier returnType, FunctionParameters parameters, Closure? body) : TypedValue, TypedTypeFunction, IHasIdentifiers
 {
 	public LLVMTypeRef LLVMType { get; }
 	public string Name => name;
@@ -50,7 +48,7 @@ public class DefineFunctionCall(IHasIdentifiers parent, string name, TypeIdentif
 	public LLVMValueRef LLVMValue { get; }
 	public TypedValue? Value { get; set; }
 	public IToken? Pattern { get; set; }
-	public Closure Body => body;
+	public Closure? Body => body;
 	public IDictionary<string, TypedValue> Identifiers { get; set; } = new NestedDictionary<string, TypedValue>(parent.Identifiers);
 	public ICollection<TypedTypeFunction> Functions { get; set; } = new NestedCollection<TypedTypeFunction>(parent.Functions);
 	public ICollection<TypedType> Types { get; set; } = new NestedCollection<TypedType>(parent.Types);
@@ -84,8 +82,11 @@ public class DefineFunctionCall(IHasIdentifiers parent, string name, TypeIdentif
 			Identifiers.Add(parameterName, new TypedValueValue(parameterType, param));
 		}
 		
-		body.Transform(this, null);
-		body.Visit(this, null, visitor);
+		if (body is not null)
+		{
+			body.Transform(this, null);
+			body.Visit(this, null, visitor);
+		}
 	}
 	
 	public TypedValue Call(IHasIdentifiers context, FunctionArgs args)
