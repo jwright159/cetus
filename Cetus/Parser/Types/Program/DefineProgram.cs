@@ -28,7 +28,12 @@ public class DefineProgramCall(List<TypedValue> statements) : TypedValue
 	
 	public void Parse(IHasIdentifiers context)
 	{
-		statements.ForEach(statement => statement.Parse(context));
+		statements.ForEach(statement =>
+		{
+			statement.Parse(context);
+			if (statement is DefineFunctionCall function)
+				context.Identifiers.Add(function.Name, statement);
+		});
 	}
 	
 	public void Transform(IHasIdentifiers context, TypedType? typeHint)

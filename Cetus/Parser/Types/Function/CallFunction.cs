@@ -14,7 +14,7 @@ public class CallFunction : TypedTypeFunctionBase
 	
 	public override TypedValue Call(IHasIdentifiers context, FunctionArgs args)
 	{
-		return new CallFunctionCall(() => ReturnType.Type, (visitContext, visitTypeHint, visitVisitor) => Visit(visitContext, visitTypeHint, visitVisitor, args));
+		return new CallFunctionCall((visitContext, visitTypeHint, visitVisitor) => Visit(visitContext, visitTypeHint, visitVisitor, args));
 	}
 	
 	public LLVMValueRef Visit(IHasIdentifiers context, TypedType? typeHint, Visitor visitor, FunctionArgs args)
@@ -53,6 +53,7 @@ public class CallFunction : TypedTypeFunctionBase
 		
 		FunctionArgs functionArgs = new(functionType.Parameters, arguments);
 		TypedValue result = functionType.Call(context, functionArgs);
+		result.Visit(context, null, visitor);
 		
 		if (typeHint is not null)
 			result = result.CoersePointer(typeHint, visitor, functionType.Name);
@@ -60,9 +61,9 @@ public class CallFunction : TypedTypeFunctionBase
 		return result.LLVMValue;
 	}
 	
-	private class CallFunctionCall(Func<TypedType> returnType, Func<IHasIdentifiers, TypedType?, Visitor, LLVMValueRef> visit) : TypedValue
+	private class CallFunctionCall(Func<IHasIdentifiers, TypedType?, Visitor, LLVMValueRef> visit) : TypedValue
 	{
-		public TypedType Type => returnType();
+		public TypedType Type { get; private set; }
 		public LLVMValueRef LLVMValue { get; private set; }
 		
 		public void Parse(IHasIdentifiers context)
@@ -77,6 +78,7 @@ public class CallFunction : TypedTypeFunctionBase
 		
 		public void Visit(IHasIdentifiers context, TypedType? typeHint, Visitor visitor)
 		{
+			Type = typeHint;
 			LLVMValue = visit(context, typeHint, visitor);
 		}
 	}

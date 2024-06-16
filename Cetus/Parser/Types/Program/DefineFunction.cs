@@ -64,12 +64,13 @@ public class DefineFunctionCall(IHasIdentifiers parent, string name, TypeIdentif
 	{
 		parameters.Transform(this);
 		returnType.Transform(this, Visitor.TypeType);
+		Type = new DefinedFunctionCall(name, this, returnType, new FunctionParameters(parameters.Parameters.Select(param => (param.Type.Type, param.Name)).ToArray(), parameters.VarArg is not null ? (parameters.VarArg.Type.Type, parameters.VarArg.Name) : null));
 	}
 	
 	public void Visit(IHasIdentifiers context, TypedType? typeHint, Visitor visitor)
 	{
-		Type = new DefinedFunctionCall(name, this, returnType, new FunctionParameters(parameters.Parameters.Select(param => (param.Type.Type, param.Name)).ToArray(), parameters.VarArg is not null ? (parameters.VarArg.Type.Type, parameters.VarArg.Name) : null));
 		LLVMValueRef functionValue = visitor.Module.AddFunction(name, Type.LLVMType);
+		visitor.Builder.PositionAtEnd(functionValue.AppendBasicBlock("entry"));
 		Value = new TypedValueValue(Type, functionValue);
 		Identifiers.Add(name, Value);
 		
@@ -86,16 +87,15 @@ public class DefineFunctionCall(IHasIdentifiers parent, string name, TypeIdentif
 		
 		if (body is not null)
 		{
-			TypedTypeCompilerClosure bodyType = new(returnType.Type);
 			body.Parse(this);
-			body.Transform(this, bodyType);
-			body.Visit(this, bodyType, visitor);
+			body.Transform(this, null);
+			body.Visit(this, null, visitor);
 		}
 	}
 	
 	public TypedValue Call(IHasIdentifiers context, FunctionArgs args)
 	{
-		throw new NotImplementedException();
+		return ((DefinedFunctionCall)Type).Call(context, args);
 	}
 	
 	public override string ToString() => $"{ReturnType} {Name}{Parameters}";

@@ -129,7 +129,7 @@ public class Closure : IToken, TypedValue, IHasIdentifiers
 			}
 		}
 		else
-			throw new Exception("Expected closure");
+			Statements.ForEach(statement => statement.Visit(this, null, visitor));
 	}
 	
 	public IToken Contextualize(IHasIdentifiers context, FunctionArgs arguments, int order, float priorityThreshold)

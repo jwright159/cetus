@@ -67,6 +67,8 @@ public class DefineStructCall(IHasIdentifiers parent, string name, List<(TypeIde
 		thisFunctions = functionCalls.Select(functionCall => (DefineFunctionCall)functionCall.Call(this)).ToList();
 		foreach (DefineFunctionCall function in thisFunctions)
 		{
+			function.Parse(context);
+			
 			{
 				LateCompilerFunctionContext getterFunction = new(
 					new TypeIdentifier($"{Name}.{function.Name}"),
