@@ -28,6 +28,8 @@ public class LateCompilerFunctionContext(TypeIdentifier returnType, string name,
 
 public partial class Parser(Lexer lexer)
 {
+	public const float ExpressionPriorityThreshold = 100;
+	
 	public ProgramContext Parse()
 	{
 		ProgramContext program = new();

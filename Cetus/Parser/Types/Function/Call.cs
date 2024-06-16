@@ -7,7 +7,7 @@ namespace Cetus.Parser.Types.Function;
 public class Call : TypedTypeFunctionSimple
 {
 	public override string Name => "Call";
-	public override IToken Pattern => new TokenString([new ParameterExpressionToken("function"), new TokenSplit(new LiteralToken("("), new LiteralToken(","), new LiteralToken(")"), new ParameterExpressionToken("arguments"))]);
+	public override IToken Pattern => new TokenString([new ParameterExpressionToken("function"), new TokenSplit(new LiteralToken("("), new LiteralToken(","), new LiteralToken(")"), new ParameterExpressionToken("arguments", Parser.ExpressionPriorityThreshold))]);
 	public override TypeIdentifier ReturnType => new(Visitor.AnyValueType);
 	public override FunctionParameters Parameters => new([(Visitor.AnyFunctionType, "function"), (Visitor.AnyValueType.List(), "arguments")], null);
 	public override float Priority => 10;

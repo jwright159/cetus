@@ -2,14 +2,14 @@
 
 namespace Cetus.Parser.Tokens;
 
-public class ParameterExpressionToken(string name) : IToken
+public class ParameterExpressionToken(string name, float? usedPriorityThreshold = null) : IToken
 {
 	public Result Eat(Lexer lexer)
 	{
 		throw new InvalidOperationException("Parameter token was not contextualized");
 	}
 	
-	public IToken Contextualize(IHasIdentifiers context, FunctionArgs arguments, int order, float priorityThreshold) => new ParameterExpressionTokenContextualized(name, context, arguments, order, priorityThreshold);
+	public IToken Contextualize(IHasIdentifiers context, FunctionArgs arguments, int order, float priorityThreshold) => new ParameterExpressionTokenContextualized(name, context, arguments, usedPriorityThreshold.HasValue ? 0 : order, usedPriorityThreshold ?? priorityThreshold);
 	
 	public override string ToString() => $"${name}";
 }

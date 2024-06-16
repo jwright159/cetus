@@ -26,11 +26,12 @@ public class DefineStruct : TypedTypeFunctionBase
 		return new DefineStructCall(
 			context,
 			((ValueIdentifier)args["name"]).Name,
-			((TypedValueCompiler<List<ValueIdentifier>>)args["fieldTypes"]).CompilerValue.Zip(((TypedValueCompiler<List<ValueIdentifier>>)args["fieldNames"]).CompilerValue, (type, name) => (new TypeIdentifier(type.Name), name.Name)).ToList());
+			((TypedValueCompiler<List<ValueIdentifier>>)args["fieldTypes"]).CompilerValue.Zip(((TypedValueCompiler<List<ValueIdentifier>>)args["fieldNames"]).CompilerValue, (type, name) => (new TypeIdentifier(type.Name), name.Name)).ToList(),
+			((TypedValueCompiler<List<FunctionCall>>)args["functions"]).CompilerValue);
 	}
 }
 
-public class DefineStructCall(IHasIdentifiers parent, string name, List<(TypeIdentifier Type, string Name)> fields) : TypedValue, TypedType, IHasIdentifiers
+public class DefineStructCall(IHasIdentifiers parent, string name, List<(TypeIdentifier Type, string Name)> fields, List<FunctionCall> functionCalls) : TypedValue, TypedType, IHasIdentifiers
 {
 	public string Name => name;
 	public TypedType Type { get; } = new TypedTypeStruct(LLVMContextRef.Global.CreateNamedStruct(name));
@@ -62,9 +63,10 @@ public class DefineStructCall(IHasIdentifiers parent, string name, List<(TypeIde
 			Functions.Add(field.Getter);
 		}
 		
-		NestedCollection<TypedTypeFunction> functions = (NestedCollection<TypedTypeFunction>)Functions;
-		foreach (TypedTypeFunction function in functions.ThisList)
+		foreach (FunctionCall functionCall in functionCalls)
 		{
+			DefineFunctionCall function = (DefineFunctionCall)functionCall.Call(this);
+			
 			{
 				LateCompilerFunctionContext getterFunction = new(
 					new TypeIdentifier($"{Name}.{function.Name}"),

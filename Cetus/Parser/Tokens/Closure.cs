@@ -53,7 +53,7 @@ public class Closure : IToken, TypedValue, IHasIdentifiers
 		Program = context.Program;
 		
 		FunctionArgs args = new(new FunctionParameters([(Visitor.AnyFunctionCall.List(), "statements")], null));
-		IToken token = new TokenSplit(new LiteralToken("{"), new LiteralToken(";"), new LiteralToken("}"), new ParameterStatementToken("statements")).Contextualize(context, args, 0, 100);
+		IToken token = new TokenSplit(new LiteralToken("{"), new LiteralToken(";"), new LiteralToken("}"), new ParameterStatementToken("statements")).Contextualize(context, args, 0, Parser.ExpressionPriorityThreshold);
 		lexer.Index = lexerStartIndex;
 		Result result = lexer.Eat(token);
 		if (result is not Result.Ok)
