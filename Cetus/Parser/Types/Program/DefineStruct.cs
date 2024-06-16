@@ -10,7 +10,7 @@ public class DefineStruct : TypedTypeFunctionBase
 	public override string Name => "DefineStruct";
 	public override IToken Pattern => new TokenString([new ParameterValueToken("name"), new TokenSplit(new LiteralToken("{"), new LiteralToken(";"), new LiteralToken("}"), new TokenOptions([
 		new ParameterStatementToken("functions"),
-		new TokenString([new ParameterValueToken("fieldTypes"), new ParameterValueToken("fieldNames")]),
+		new TokenString([new ParameterTypeToken("fieldTypes"), new ParameterValueToken("fieldNames")]),
 	]))]);
 	public override TypeIdentifier ReturnType => new(Visitor.VoidType);
 	public override FunctionParameters Parameters => new([
@@ -26,7 +26,7 @@ public class DefineStruct : TypedTypeFunctionBase
 		return new DefineStructCall(
 			context,
 			((ValueIdentifier)args["name"]).Name,
-			((TypedValueCompiler<List<ValueIdentifier>>)args["fieldTypes"]).CompilerValue.Zip(((TypedValueCompiler<List<ValueIdentifier>>)args["fieldNames"]).CompilerValue, (type, name) => (new TypeIdentifier(type.Name), name.Name)).ToList(),
+			((TypedValueCompiler<List<TypeIdentifier>>)args["fieldTypes"]).CompilerValue.Zip(((TypedValueCompiler<List<ValueIdentifier>>)args["fieldNames"]).CompilerValue, (type, name) => (type, name.Name)).ToList(),
 			((TypedValueCompiler<List<FunctionCall>>)args["functions"]).CompilerValue);
 	}
 }

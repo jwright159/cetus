@@ -12,7 +12,7 @@ public class While : TypedTypeFunctionSimple
 	public override FunctionParameters Parameters => new([(new TypedTypeCompilerExpression(Visitor.BoolType), "condition"), (new TypedTypeCompilerClosure(Visitor.VoidType), "body")], null);
 	public override float Priority => 100;
 	
-	public override LLVMValueRef Visit(IHasIdentifiers context, TypedType? typeHint, Visitor visitor, FunctionArgs args)
+	public override LLVMValueRef? Visit(IHasIdentifiers context, TypedType? typeHint, Visitor visitor, FunctionArgs args)
 	{
 		Expression condition = (Expression)args["condition"];
 		Closure body = (Closure)((Expression)args["body"]).ReturnValue;
@@ -27,6 +27,6 @@ public class While : TypedTypeFunctionSimple
 		visitor.Builder.BuildBr(condition.Block);
 		
 		visitor.Builder.PositionAtEnd(merge);
-		return Visitor.Void.LLVMValue;
+		return null;
 	}
 }

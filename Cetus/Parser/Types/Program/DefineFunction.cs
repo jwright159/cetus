@@ -8,9 +8,9 @@ namespace Cetus.Parser.Types.Program;
 public class DefineFunction : TypedTypeFunctionBase
 {
 	public override string Name => "DefineFunction";
-	public override IToken Pattern => new TokenString([new ParameterValueToken("returnType"), new ParameterValueToken("name"), new TokenSplit(new LiteralToken("("), new LiteralToken(","), new LiteralToken(")"), new TokenOptions([
-		new TokenString([new ParameterValueToken("parameterTypes"), new ParameterValueToken("parameterNames")]),
-		new TokenString([new ParameterValueToken("varArgParameterType"), new LiteralToken("..."), new ParameterValueToken("varArgParameterName")]),
+	public override IToken Pattern => new TokenString([new ParameterTypeToken("returnType"), new ParameterValueToken("name"), new TokenSplit(new LiteralToken("("), new LiteralToken(","), new LiteralToken(")"), new TokenOptions([
+		new TokenString([new ParameterTypeToken("parameterTypes"), new ParameterValueToken("parameterNames")]),
+		new TokenString([new ParameterTypeToken("varArgParameterType"), new LiteralToken("..."), new ParameterValueToken("varArgParameterName")]),
 	])), new TokenOptional(new ParameterExpressionToken("body"))]);
 	public override TypeIdentifier ReturnType => new(new TypedTypeCompilerValue());
 	public override FunctionParameters Parameters => new([
@@ -29,10 +29,10 @@ public class DefineFunction : TypedTypeFunctionBase
 		return new DefineFunctionCall(
 			context.Program.Phases[CompilationPhase.Function],
 			((ValueIdentifier)args["name"]).Name,
-			new TypeIdentifier(((ValueIdentifier)args["returnType"]).Name),
+			(TypeIdentifier)args["returnType"],
 			new FunctionParameters(
-				args["parameterTypes"] is not null ? ((TypedValueCompiler<List<ValueIdentifier>>)args["parameterTypes"]).CompilerValue.Zip(((TypedValueCompiler<List<ValueIdentifier>>)args["parameterNames"]).CompilerValue, (type, name) => new FunctionParameter(new TypeIdentifier(type.Name), name.Name)) : [],
-				args["varArgParameterType"] is not null ? new FunctionParameter(new TypeIdentifier(((ValueIdentifier)args["varArgParameterType"]).Name), ((ValueIdentifier)args["varArgParameterName"]).Name) : null),
+				args["parameterTypes"] is not null ? ((TypedValueCompiler<List<TypeIdentifier>>)args["parameterTypes"]).CompilerValue.Zip(((TypedValueCompiler<List<ValueIdentifier>>)args["parameterNames"]).CompilerValue, (type, name) => new FunctionParameter(type, name.Name)) : [],
+				args["varArgParameterType"] is not null ? new FunctionParameter((TypeIdentifier)args["varArgParameterType"], ((ValueIdentifier)args["varArgParameterName"]).Name) : null),
 			args["body"] is not null ? (Closure)((Expression)args["body"]).ReturnValue : null);
 	}
 }

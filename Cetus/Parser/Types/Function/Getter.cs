@@ -12,7 +12,7 @@ public class Getter(TypedType @struct, StructFieldContext field) : TypedTypeFunc
 	public override FunctionParameters Parameters { get; } = new([(field.TypeIdentifier.Type.Pointer(), field.Name)], null);
 	public override float Priority => 0;
 	
-	public override LLVMValueRef Visit(IHasIdentifiers context, TypedType? typeHint, Visitor visitor, FunctionArgs args)
+	public override LLVMValueRef? Visit(IHasIdentifiers context, TypedType? typeHint, Visitor visitor, FunctionArgs args)
 	{
 		return visitor.Builder.BuildStructGEP2(@struct.LLVMType, args["value"].LLVMValue, (uint)field.Index, field.Name + "Ptr");
 	}

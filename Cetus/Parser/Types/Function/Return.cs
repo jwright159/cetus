@@ -11,7 +11,7 @@ public class Return : TypedTypeFunctionSimple
 	public override FunctionParameters Parameters => new([(Visitor.IntType, "value")], null);
 	public override float Priority => 100;
 	
-	public override LLVMValueRef Visit(IHasIdentifiers context, TypedType? typeHint, Visitor visitor, FunctionArgs args)
+	public override LLVMValueRef? Visit(IHasIdentifiers context, TypedType? typeHint, Visitor visitor, FunctionArgs args)
 	{
 		return args["value"] is null ? visitor.Builder.BuildRetVoid() : visitor.Builder.BuildRet(args["value"].LLVMValue);
 	}

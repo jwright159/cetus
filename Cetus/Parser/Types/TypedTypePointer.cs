@@ -2,10 +2,17 @@
 
 namespace Cetus.Parser.Types;
 
-public class TypedTypePointer(TypedType baseType) : TypedType
+public class TypedTypePointer : TypedTypeWithInnerType
 {
-	public LLVMTypeRef LLVMType => LLVMTypeRef.CreatePointer(baseType.LLVMType, 0);
+	public TypedTypePointer(TypedType innerType)
+	{
+		InnerType = innerType;
+	}
+	
+	public TypedTypePointer() { }
+	
+	public LLVMTypeRef LLVMType => LLVMTypeRef.CreatePointer(InnerType.LLVMType, 0);
 	public string Name => "Pointer";
-	public TypedType InnerType => baseType;
+	public TypedType InnerType { get; set; }
 	public override string ToString() => Name;
 }

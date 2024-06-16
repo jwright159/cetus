@@ -12,7 +12,7 @@ public class DefinedFunctionCall(string name, TypedValue function, TypeIdentifie
 	public override FunctionParameters Parameters => parameters;
 	public override float Priority => 0;
 	
-	public override LLVMValueRef Visit(IHasIdentifiers context, TypedType? typeHint, Visitor visitor, FunctionArgs args)
+	public override LLVMValueRef? Visit(IHasIdentifiers context, TypedType? typeHint, Visitor visitor, FunctionArgs args)
 	{
 		return visitor.Builder.BuildCall2(LLVMType, function.LLVMValue, parameters.Parameters.Select(param => args[param.Name].LLVMValue).ToArray(), ReturnType.Type is TypedTypeVoid ? "" : Name + "Call");
 	}

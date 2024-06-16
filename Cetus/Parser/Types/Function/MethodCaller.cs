@@ -12,7 +12,7 @@ public class MethodCaller(TypedType @struct, TypedTypeFunction calledFunction) :
 	public override FunctionParameters Parameters => new([(@struct, "value")], null);
 	public override float Priority => 0;
 	
-	public override LLVMValueRef Visit(IHasIdentifiers context, TypedType? typeHint, Visitor visitor, FunctionArgs args)
+	public override LLVMValueRef? Visit(IHasIdentifiers context, TypedType? typeHint, Visitor visitor, FunctionArgs args)
 	{
 		Lambda lambda = new(calledFunction, args.Keys[0], args["value"]);
 		return new TypedValueType(lambda).LLVMValue;
@@ -26,7 +26,7 @@ public class MethodCaller(TypedType @struct, TypedTypeFunction calledFunction) :
 		public override FunctionParameters Parameters => new(calledFunction.Parameters.TupleParams.Skip(1).ToArray(), null);
 		public override float Priority => 0;
 		
-		public override LLVMValueRef Visit(IHasIdentifiers context, TypedType? typeHint, Visitor visitor, FunctionArgs args)
+		public override LLVMValueRef? Visit(IHasIdentifiers context, TypedType? typeHint, Visitor visitor, FunctionArgs args)
 		{
 			args[argName] = arg;
 			return calledFunction.Call(context, args).LLVMValue;

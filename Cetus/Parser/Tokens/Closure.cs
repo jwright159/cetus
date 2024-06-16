@@ -74,8 +74,8 @@ public class Closure : IToken, TypedValue, IHasIdentifiers
 		if (typeHint is TypedTypeCompilerClosure)
 		{
 			LLVMBasicBlockRef originalBlock = visitor.Builder.InsertBlock;
-			LLVMBasicBlockRef block = originalBlock.Parent.AppendBasicBlock("closureBlock");
-			visitor.Builder.PositionAtEnd(block);
+			Block = originalBlock.Parent.AppendBasicBlock("closureBlock");
+			visitor.Builder.PositionAtEnd(Block);
 			
 			Statements.ForEach(statement => statement.Visit(this, null, visitor));
 			
@@ -91,7 +91,8 @@ public class Closure : IToken, TypedValue, IHasIdentifiers
 			function.Linkage = LLVMLinkage.LLVMInternalLinkage;
 			
 			LLVMBasicBlockRef originalBlock = visitor.Builder.InsertBlock;
-			visitor.Builder.PositionAtEnd(function.AppendBasicBlock("entry"));
+			Block = function.AppendBasicBlock("entry");
+			visitor.Builder.PositionAtEnd(Block);
 			
 			// Unpack the closure environment in the function
 			{

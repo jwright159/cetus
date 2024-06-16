@@ -38,9 +38,9 @@ public abstract class TypedTypeFunctionSimple : TypedTypeFunctionBase
 		return new SimpleCall(ReturnType.Type, args, Visit);
 	}
 	
-	public abstract LLVMValueRef Visit(IHasIdentifiers context, TypedType? typeHint, Visitor visitor, FunctionArgs args);
+	public abstract LLVMValueRef? Visit(IHasIdentifiers context, TypedType? typeHint, Visitor visitor, FunctionArgs args);
 	
-	private class SimpleCall(TypedType returnType, FunctionArgs args, Func<IHasIdentifiers, TypedType?, Visitor, FunctionArgs, LLVMValueRef> visit) : TypedValue
+	private class SimpleCall(TypedType returnType, FunctionArgs args, Func<IHasIdentifiers, TypedType?, Visitor, FunctionArgs, LLVMValueRef?> visit) : TypedValue
 	{
 		public TypedType Type => returnType;
 		public LLVMValueRef LLVMValue { get; private set; }
@@ -58,7 +58,7 @@ public abstract class TypedTypeFunctionSimple : TypedTypeFunctionBase
 		public void Visit(IHasIdentifiers context, TypedType? typeHint, Visitor visitor)
 		{
 			args.Visit(context, visitor);
-			LLVMValue = visit(context, typeHint, visitor, args);
+			LLVMValue = visit(context, typeHint, visitor, args) ?? default;
 		}
 	}
 }
@@ -139,10 +139,10 @@ public class FunctionArgs
 				case TypedTypeCompilerList<TypedTypeCompilerTypeIdentifier>:
 					if (arg.Value is null)
 					{
-						arg.Value = new TypedValueCompiler<List<ValueIdentifier>>(arg.Type.Type, []);
+						arg.Value = new TypedValueCompiler<List<TypeIdentifier>>(arg.Type.Type, []);
 						args[key] = arg;
 					}
-					((TypedValueCompiler<List<ValueIdentifier>>)arg.Value).CompilerValue.Add((ValueIdentifier)value);
+					((TypedValueCompiler<List<TypeIdentifier>>)arg.Value).CompilerValue.Add((TypeIdentifier)value);
 					break;
 				
 				default:

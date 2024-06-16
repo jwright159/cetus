@@ -7,7 +7,11 @@ public interface TypedType
 {
 	public LLVMTypeRef LLVMType { get; }
 	public string Name { get; }
-	public TypedType? InnerType => null;
+}
+
+public interface TypedTypeWithInnerType : TypedType
+{
+	public TypedType? InnerType { get; set; }
 }
 
 public static class TypedTypeExtensions

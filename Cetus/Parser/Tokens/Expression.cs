@@ -79,8 +79,8 @@ public class Expression(IHasIdentifiers parent, int order, float priorityThresho
 	public void Visit(IHasIdentifiers context, TypedType? typeHint, Visitor visitor)
 	{
 		LLVMBasicBlockRef originalBlock = visitor.Builder.InsertBlock;
-		LLVMBasicBlockRef block = originalBlock.Parent.AppendBasicBlock("closureBlock");
-		visitor.Builder.PositionAtEnd(block);
+		Block = originalBlock.Parent.AppendBasicBlock("closureBlock");
+		visitor.Builder.PositionAtEnd(Block);
 		
 		ReturnValue.Visit(context, typeHint, visitor);
 		

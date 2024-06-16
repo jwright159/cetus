@@ -45,6 +45,7 @@ public partial class Parser(Lexer lexer)
 		AddType(Visitor.CompilerStringType);
 		AddType(Visitor.BoolType);
 		AddType(Visitor.TypeType);
+		AddType(new TypedTypePointer());
 		
 		AddFunction(CompilationPhase.Program, new DefineProgram());
 		AddFunction(CompilationPhase.Program, new DefineStruct());

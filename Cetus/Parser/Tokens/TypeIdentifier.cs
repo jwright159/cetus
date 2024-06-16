@@ -1,20 +1,49 @@
-﻿using Cetus.Parser.Types;
+﻿using Cetus.Parser.Tokens;
+using Cetus.Parser.Types;
 using Cetus.Parser.Types.Function;
 using Cetus.Parser.Values;
 using LLVMSharp.Interop;
 
 namespace Cetus.Parser;
 
-public class TypeIdentifier(string name, TypeIdentifier? innerType = null) : TypedValue
+public class TypeIdentifier : TypedValue, IToken
 {
-	public string Name { get; } = name;
+	public string Name { get; private set; }
 	public TypedType? Type { get; private set; }
-	public LLVMValueRef LLVMValue { get; }
-	public TypeIdentifier? InnerType { get; } = innerType;
+	public LLVMValueRef LLVMValue => throw new Exception("TypeIdentifier does not have an LLVMValue");
+	public TypeIdentifier? InnerType { get; private set; }
 	
-	public TypeIdentifier(TypedType type) : this(type.Name, type.InnerType is not null ? new TypeIdentifier(type.InnerType) : null)
+	public TypeIdentifier() { }
+	
+	public TypeIdentifier(string name, TypeIdentifier? innerType = null)
+	{
+		Name = name;
+		InnerType = innerType;
+	}
+	
+	public TypeIdentifier(TypedType type) : this(type.Name, type is TypedTypeWithInnerType { InnerType: not null } withInnerType ? new TypeIdentifier(withInnerType.InnerType) : null)
 	{
 		Type = type;
+	}
+	
+	public Result Eat(Lexer lexer)
+	{
+		List<Result> results = [];
+		
+		Result nameResult = lexer.Eat(out Word name);
+		results.Add(nameResult);
+		if (nameResult is Result.Passable)
+			Name = name.Value;
+		
+		// This sucks! Implement type patterns
+		if (lexer.Eat(new LiteralToken("[")) is Result.Passable)
+		{
+			results.Add(lexer.Eat(out TypeIdentifier innerType));
+			InnerType = innerType;
+			results.Add(lexer.Eat(new LiteralToken("]")));
+		}
+		
+		return Result.WrapPassable("Invalid type identifier", results.ToArray());
 	}
 	
 	public void Parse(IHasIdentifiers context)
@@ -49,6 +78,9 @@ public class TypeIdentifier(string name, TypeIdentifier? innerType = null) : Typ
 			
 			Type = value.Type;
 		}
+		
+		if (InnerType is not null)
+			((TypedTypeWithInnerType)Type).InnerType = InnerType?.Type;
 	}
 	
 	public void Visit(IHasIdentifiers context, TypedType? typeHint, Visitor visitor)

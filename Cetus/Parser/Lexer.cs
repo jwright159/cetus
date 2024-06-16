@@ -151,6 +151,7 @@ public class Lexer(string contents)
 	{
 		return Eat<Tokens.String>() is Result.Passable ||
 		       EatMatches(new LiteralToken("{"), new LiteralToken("}")) is Result.Passable ||
+		       EatMatches(new LiteralToken("["), new LiteralToken("]")) is Result.Passable ||
 		       EatMatches(new LiteralToken("("), new LiteralToken(")")) is Result.Passable;
 	}
 	
