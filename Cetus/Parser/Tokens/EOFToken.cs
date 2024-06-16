@@ -6,6 +6,6 @@ public class EOFToken : IToken
 	{
 		return lexer.IsAtEnd ? new Result.Ok() : new Result.TokenRuleFailed($"Expected EOF, got {lexer.Current}", lexer);
 	}
-
+	
 	public override string ToString() => "[EOF]";
 }
