@@ -4,17 +4,23 @@ using LLVMSharp.Interop;
 
 namespace Cetus.Parser.Types.Function;
 
-public class Call : TypedTypeFunctionSimple
+public class CallFunction : TypedTypeFunctionBase
 {
 	public override string Name => "Call";
 	public override IToken Pattern => new TokenString([new ParameterExpressionToken("function"), new TokenSplit(new LiteralToken("("), new LiteralToken(","), new LiteralToken(")"), new ParameterExpressionToken("arguments", Parser.ExpressionPriorityThreshold))]);
-	public override TypeIdentifier ReturnType => new(Visitor.AnyValueType);
+	public override TypeIdentifier ReturnType => throw new Exception("Can't get return type of Call directly");
 	public override FunctionParameters Parameters => new([(Visitor.AnyFunctionType, "function"), (Visitor.AnyValueType.List(), "arguments")], null);
 	public override float Priority => 10;
 	
-	public override LLVMValueRef Visit(IHasIdentifiers context, TypedType? typeHint, Visitor visitor, FunctionArgs args)
+	public override TypedValue Call(IHasIdentifiers context, FunctionArgs args)
 	{
-		TypedValue function = args["function"];
+		return new CallFunctionCall(() => ReturnType.Type, (visitContext, visitTypeHint, visitVisitor) => Visit(visitContext, visitTypeHint, visitVisitor, args));
+	}
+	
+	public LLVMValueRef Visit(IHasIdentifiers context, TypedType? typeHint, Visitor visitor, FunctionArgs args)
+	{
+		args.Visit(context, visitor);
+		TypedValue function = ((Expression)args["function"]).ReturnValue;
 		List<TypedValue> arguments = ((TypedValueCompiler<List<TypedValue>>)args["arguments"]).CompilerValue;
 		TypedTypeFunction functionType;
 		if (function.Type is TypedTypeClosurePointer closurePtr)
@@ -42,7 +48,7 @@ public class Call : TypedTypeFunctionSimple
 		
 		foreach ((TypedType type, TypedValue argument) in functionType.Parameters
 			         .ZipArgs(arguments, (param, arg) => (param.Type.Type, Arg: arg))
-			         .Where(pair => pair.Arg.IsOfType(pair.Type)))
+			         .Where(pair => !pair.Arg.IsOfType(pair.Type)))
 			throw new Exception($"Argument type mismatch in call to '{functionType.Name}', expected {type} but got {argument.Type.LLVMType}");
 		
 		FunctionArgs functionArgs = new(functionType.Parameters, arguments);
@@ -52,5 +58,26 @@ public class Call : TypedTypeFunctionSimple
 			result = result.CoersePointer(typeHint, visitor, functionType.Name);
 		
 		return result.LLVMValue;
+	}
+	
+	private class CallFunctionCall(Func<TypedType> returnType, Func<IHasIdentifiers, TypedType?, Visitor, LLVMValueRef> visit) : TypedValue
+	{
+		public TypedType Type => returnType();
+		public LLVMValueRef LLVMValue { get; private set; }
+		
+		public void Parse(IHasIdentifiers context)
+		{
+			
+		}
+		
+		public void Transform(IHasIdentifiers context, TypedType? typeHint)
+		{
+			
+		}
+		
+		public void Visit(IHasIdentifiers context, TypedType? typeHint, Visitor visitor)
+		{
+			LLVMValue = visit(context, typeHint, visitor);
+		}
 	}
 }

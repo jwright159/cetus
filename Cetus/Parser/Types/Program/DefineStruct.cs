@@ -43,8 +43,9 @@ public class DefineStructCall(IHasIdentifiers parent, string name, List<(TypeIde
 	public ICollection<TypedType> Types { get; set; } = new NestedCollection<TypedType>(parent.Types);
 	public List<TypedTypeFunction>? FinalizedFunctions { get; set; }
 	public ProgramContext Program => parent.Program;
-	public Dictionary<TypedTypeFunction, LateCompilerFunctionContext> FunctionGetters = new();
-	public Dictionary<TypedTypeFunction, LateCompilerFunctionContext> FunctionCallers = new();
+	private List<DefineFunctionCall> thisFunctions;
+	public Dictionary<DefineFunctionCall, LateCompilerFunctionContext> FunctionGetters = new();
+	public Dictionary<DefineFunctionCall, LateCompilerFunctionContext> FunctionCallers = new();
 	
 	public void Parse(IHasIdentifiers context)
 	{
@@ -63,10 +64,9 @@ public class DefineStructCall(IHasIdentifiers parent, string name, List<(TypeIde
 			Functions.Add(field.Getter);
 		}
 		
-		foreach (FunctionCall functionCall in functionCalls)
+		thisFunctions = functionCalls.Select(functionCall => (DefineFunctionCall)functionCall.Call(this)).ToList();
+		foreach (DefineFunctionCall function in thisFunctions)
 		{
-			DefineFunctionCall function = (DefineFunctionCall)functionCall.Call(this);
-			
 			{
 				LateCompilerFunctionContext getterFunction = new(
 					new TypeIdentifier($"{Name}.{function.Name}"),
@@ -99,11 +99,9 @@ public class DefineStructCall(IHasIdentifiers parent, string name, List<(TypeIde
 			field.Type = context.Types.First(type => type.Name == field.TypeIdentifier.Name);
 		}
 		
-		foreach (TypedTypeFunction function in Functions)
+		foreach (DefineFunctionCall function in thisFunctions)
 		{
-			// convert returns/params
-			// also parse + transform closures
-			
+			function.Transform(this, null);
 			
 			if (FunctionGetters.TryGetValue(function, out LateCompilerFunctionContext? getterFunction))
 				getterFunction.Type = new MethodGetter(this, function);

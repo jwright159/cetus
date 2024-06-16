@@ -17,7 +17,7 @@ public class Define : TypedTypeFunctionSimple
 		args.Visit(context, visitor);
 		TypedType type = args["type"].Type;
 		string name = ((ValueIdentifier)args["name"]).Name;
-		TypedValue value = args["value"];
+		TypedValue value = ((Expression)args["value"]).ReturnValue;
 		if (!value.IsOfType(type))
 			throw new Exception($"Type mismatch in assignment to '{name}', expected {type.LLVMType} but got {value.Type.LLVMType}");
 		LLVMValueRef variable = visitor.Builder.BuildAlloca(type.LLVMType, name);

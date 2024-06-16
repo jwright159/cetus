@@ -84,8 +84,16 @@ public class Expression(IHasIdentifiers parent, int order, float priorityThresho
 		
 		ReturnValue.Visit(context, typeHint, visitor);
 		
+		if (ReturnValue is FunctionCall call)
+		{
+			ReturnValue = call.Call(context);
+			ReturnValue.Parse(context);
+			ReturnValue.Transform(context, typeHint);
+			ReturnValue.Visit(context, typeHint, visitor);
+		}
+		
 		visitor.Builder.PositionAtEnd(originalBlock);
 	}
 	
-	public override string ToString() => ReturnValue.ToString();
+	public override string ToString() => $"{ReturnValue}";
 }

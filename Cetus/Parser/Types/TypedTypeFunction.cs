@@ -117,6 +117,15 @@ public class FunctionArgs
 					((TypedValueCompiler<List<FunctionCall>>)arg.Value).CompilerValue.Add((FunctionCall)value);
 					break;
 				
+				case TypedTypeCompilerList<TypedTypeCompilerAnyValue>:
+					if (arg.Value is null)
+					{
+						arg.Value = new TypedValueCompiler<List<TypedValue>>(arg.Type.Type, []);
+						args[key] = arg;
+					}
+					((TypedValueCompiler<List<TypedValue>>)arg.Value).CompilerValue.Add(value);
+					break;
+				
 				case TypedTypeCompilerList<TypedTypeCompilerString>:
 					if (arg.Value is null)
 					{

@@ -20,7 +20,7 @@ public class LateCompilerFunctionContext(TypeIdentifier returnType, string name,
 	
 	public TypedValue Call(IHasIdentifiers context, FunctionArgs args)
 	{
-		throw new NotImplementedException();
+		return ((TypedTypeFunction)Type).Call(context, args);
 	}
 	
 	public override string ToString() => $"{ReturnType} {Name}{Parameters}";
@@ -57,7 +57,7 @@ public partial class Parser(Lexer lexer)
 		AddFunction(CompilationPhase.Function, new Add());
 		AddFunction(CompilationPhase.Function, new LessThan());
 		AddFunction(CompilationPhase.Function, new While());
-		AddFunction(CompilationPhase.Function, new Call());
+		AddFunction(CompilationPhase.Function, new CallFunction());
 		
 		AddValue("True", Visitor.TrueValue);
 		AddValue("False", Visitor.FalseValue);
