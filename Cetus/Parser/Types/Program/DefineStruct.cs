@@ -38,6 +38,7 @@ public class DefineStructCall(IHasIdentifiers parent, string name, List<(TypeIde
 	public LLVMValueRef LLVMValue => Visitor.Void.LLVMValue;
 	public LLVMTypeRef LLVMType => Type.LLVMType;
 	public List<StructFieldContext> Fields = [];
+	public IHasIdentifiers Base => parent;
 	public IDictionary<string, TypedValue> Identifiers { get; set; } = new NestedDictionary<string, TypedValue>(parent.Identifiers);
 	public ICollection<TypedTypeFunction> Functions { get; set; } = new NestedCollection<TypedTypeFunction>(parent.Functions);
 	public ICollection<TypedType> Types { get; set; } = new NestedCollection<TypedType>(parent.Types);

@@ -7,6 +7,7 @@ namespace Cetus.Parser.Tokens;
 public class Closure : IToken, TypedValue, IHasIdentifiers
 {
 	public List<TypedValue> Statements;
+	public IHasIdentifiers Base { get; private set; }
 	public IDictionary<string, TypedValue> Identifiers { get; private set; }
 	public ICollection<TypedTypeFunction> Functions { get; private set; }
 	public ICollection<TypedType> Types { get; private set; }
@@ -47,6 +48,7 @@ public class Closure : IToken, TypedValue, IHasIdentifiers
 	
 	public void Parse(IHasIdentifiers context)
 	{
+		Base = context;
 		Identifiers = new NestedDictionary<string, TypedValue>(context.Identifiers);
 		Functions = new NestedCollection<TypedTypeFunction>(context.Functions);
 		Types = new NestedCollection<TypedType>(context.Types);
@@ -59,12 +61,12 @@ public class Closure : IToken, TypedValue, IHasIdentifiers
 		if (result is not Result.Ok)
 			throw new Exception("Parsing failed in closure\n" + result);
 		Statements = ((TypedValueCompiler<List<FunctionCall>>)args["statements"]).CompilerValue.Select(arg => arg.Call(context)).ToList();
-		Statements.ForEach(statement => statement.Parse(context));
+		Statements.ForEach(statement => statement.Parse(this));
 	}
 	
 	public void Transform(IHasIdentifiers context, TypedType? typeHint)
 	{
-		Statements.ForEach(statement => statement.Transform(context, null));
+		Statements.ForEach(statement => statement.Transform(this, null));
 	}
 	
 	public void Visit(IHasIdentifiers context, TypedType? typeHint, Visitor visitor)
@@ -130,12 +132,6 @@ public class Closure : IToken, TypedValue, IHasIdentifiers
 		}
 		else
 			Statements.ForEach(statement => statement.Visit(this, null, visitor));
-	}
-	
-	public IToken Contextualize(IHasIdentifiers context, FunctionArgs arguments, int order, float priorityThreshold)
-	{
-		
-		return this;
 	}
 	
 	public override string ToString() => $"Closure starting at index {lexerStartIndex}";

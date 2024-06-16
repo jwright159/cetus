@@ -14,14 +14,10 @@ public class Define : TypedTypeFunctionSimple
 	
 	public override LLVMValueRef Visit(IHasIdentifiers context, TypedType? typeHint, Visitor visitor, FunctionArgs args)
 	{
-		// Types must be coersed manually
-		args["type"].Visit(context, Visitor.TypeType, visitor);
 		TypedType type = args["type"].Type;
-		args["name"].Visit(context, Visitor.CompilerStringType, visitor);
 		string name = ((ValueIdentifier)args["name"]).Name;
-		args["value"].Visit(context, type, visitor);
+		args["value"].Visit(context, type, visitor); // Value type must be coersed manually
 		TypedValue value = ((Expression)args["value"]).ReturnValue;
-		
 		if (!value.IsOfType(type))
 			throw new Exception($"Type mismatch in assignment to '{name}', expected {type.LLVMType} but got {value.Type.LLVMType}");
 		LLVMValueRef variable = visitor.Builder.BuildAlloca(type.LLVMType, name);

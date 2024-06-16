@@ -6,6 +6,7 @@ namespace Cetus.Parser;
 
 public interface IHasIdentifiers
 {
+	public IHasIdentifiers? Base { get; }
 	public IDictionary<string, TypedValue> Identifiers { get; }
 	public ICollection<TypedTypeFunction> Functions { get; }
 	public ICollection<TypedType> Types { get; }
@@ -15,18 +16,20 @@ public interface IHasIdentifiers
 
 public class IdentifiersBase(ProgramContext program) : IHasIdentifiers
 {
-	public IDictionary<string, TypedValue> Identifiers { get; set; } = new Dictionary<string, TypedValue>();
-	public ICollection<TypedTypeFunction> Functions { get; set; } = new List<TypedTypeFunction>();
-	public ICollection<TypedType> Types { get; set; } = new List<TypedType>();
+	public IHasIdentifiers? Base => null;
+	public IDictionary<string, TypedValue> Identifiers { get; } = new Dictionary<string, TypedValue>();
+	public ICollection<TypedTypeFunction> Functions { get; } = new List<TypedTypeFunction>();
+	public ICollection<TypedType> Types { get; } = new List<TypedType>();
 	public List<TypedTypeFunction>? FinalizedFunctions { get; set; }
 	public ProgramContext Program => program;
 }
 
 public class IdentifiersNest(IHasIdentifiers @base) : IHasIdentifiers
 {
-	public IDictionary<string, TypedValue> Identifiers { get; set; } = new NestedDictionary<string, TypedValue>(@base.Identifiers);
-	public ICollection<TypedTypeFunction> Functions { get; set; } = new NestedCollection<TypedTypeFunction>(@base.Functions);
-	public ICollection<TypedType> Types { get; set; } = new NestedCollection<TypedType>(@base.Types);
+	public IHasIdentifiers? Base => @base;
+	public IDictionary<string, TypedValue> Identifiers { get; } = new NestedDictionary<string, TypedValue>(@base.Identifiers);
+	public ICollection<TypedTypeFunction> Functions { get; } = new NestedCollection<TypedTypeFunction>(@base.Functions);
+	public ICollection<TypedType> Types { get; } = new NestedCollection<TypedType>(@base.Types);
 	public List<TypedTypeFunction>? FinalizedFunctions { get; set; }
 	public ProgramContext Program => @base.Program;
 }
@@ -81,13 +84,13 @@ public class FunctionParameters
 		if (VarArg is null)
 		{
 			if (count != Parameters.Count)
-				throw new ArgumentOutOfRangeException(nameof(count), "Count must equal the number of parameters");
+				throw new ArgumentOutOfRangeException(nameof(count), $"Count must equal the number of parameters ({Parameters.Count})");
 			return Parameters;
 		}
 		else
 		{
 			if (count < Parameters.Count)
-				throw new ArgumentOutOfRangeException(nameof(count), "Count must be greater than or equal to the number of parameters");
+				throw new ArgumentOutOfRangeException(nameof(count), $"Count must be greater than or equal to the number of parameters ({Parameters.Count})");
 			return Parameters.Concat(Enumerable.Repeat(VarArg, count - Parameters.Count));
 		}
 	}

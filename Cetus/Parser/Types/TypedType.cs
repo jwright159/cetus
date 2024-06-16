@@ -19,6 +19,11 @@ public static class TypedTypeExtensions
 			return value is TypedValueType;
 		}
 		
+		if (type is TypedTypeCompilerAnyFunction)
+		{
+			return value.Type is TypedTypeFunction;
+		}
+		
 		return TypesEqual(value.Type, type);
 	}
 	

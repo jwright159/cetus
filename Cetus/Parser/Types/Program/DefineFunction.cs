@@ -49,6 +49,7 @@ public class DefineFunctionCall(IHasIdentifiers parent, string name, TypeIdentif
 	public TypedValue? Value { get; set; }
 	public IToken? Pattern { get; set; }
 	public Closure? Body => body;
+	public IHasIdentifiers Base => parent;
 	public IDictionary<string, TypedValue> Identifiers { get; } = new NestedDictionary<string, TypedValue>(parent.Identifiers);
 	public ICollection<TypedTypeFunction> Functions { get; } = new NestedCollection<TypedTypeFunction>(parent.Functions);
 	public ICollection<TypedType> Types { get; } = new NestedCollection<TypedType>(parent.Types);
@@ -70,9 +71,7 @@ public class DefineFunctionCall(IHasIdentifiers parent, string name, TypeIdentif
 	public void Visit(IHasIdentifiers context, TypedType? typeHint, Visitor visitor)
 	{
 		LLVMValueRef functionValue = visitor.Module.AddFunction(name, Type.LLVMType);
-		visitor.Builder.PositionAtEnd(functionValue.AppendBasicBlock("entry"));
 		Value = new TypedValueValue(Type, functionValue);
-		Identifiers.Add(name, Value);
 		
 		functionValue.Linkage = LLVMLinkage.LLVMExternalLinkage;
 		
@@ -87,6 +86,7 @@ public class DefineFunctionCall(IHasIdentifiers parent, string name, TypeIdentif
 		
 		if (body is not null)
 		{
+			visitor.Builder.PositionAtEnd(functionValue.AppendBasicBlock("entry"));
 			body.Parse(this);
 			body.Transform(this, null);
 			body.Visit(this, null, visitor);

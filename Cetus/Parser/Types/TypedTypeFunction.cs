@@ -35,29 +35,30 @@ public abstract class TypedTypeFunctionSimple : TypedTypeFunctionBase
 {
 	public override TypedValue Call(IHasIdentifiers context, FunctionArgs args)
 	{
-		return new ParseOnlyCall(ReturnType.Type, (visitContext, visitTypeHint, visitVisitor) => Visit(visitContext, visitTypeHint, visitVisitor, args));
+		return new SimpleCall(ReturnType.Type, args, Visit);
 	}
 	
 	public abstract LLVMValueRef Visit(IHasIdentifiers context, TypedType? typeHint, Visitor visitor, FunctionArgs args);
 	
-	private class ParseOnlyCall(TypedType returnType, Func<IHasIdentifiers, TypedType?, Visitor, LLVMValueRef> visit) : TypedValue
+	private class SimpleCall(TypedType returnType, FunctionArgs args, Func<IHasIdentifiers, TypedType?, Visitor, FunctionArgs, LLVMValueRef> visit) : TypedValue
 	{
 		public TypedType Type => returnType;
 		public LLVMValueRef LLVMValue { get; private set; }
 		
 		public void Parse(IHasIdentifiers context)
 		{
-			
+			args.Parse(context);
 		}
 		
 		public void Transform(IHasIdentifiers context, TypedType? typeHint)
 		{
-			
+			args.Transform(context);
 		}
 		
 		public void Visit(IHasIdentifiers context, TypedType? typeHint, Visitor visitor)
 		{
-			LLVMValue = visit(context, typeHint, visitor);
+			args.Visit(context, visitor);
+			LLVMValue = visit(context, typeHint, visitor, args);
 		}
 	}
 }
@@ -154,19 +155,20 @@ public class FunctionArgs
 	public void Parse(IHasIdentifiers context)
 	{
 		foreach ((TypeIdentifier type, TypedValue? value) in args.Values)
-			value.Parse(context);
+			value?.Parse(context);
 	}
 	
 	public void Transform(IHasIdentifiers context)
 	{
 		foreach ((TypeIdentifier type, TypedValue? value) in args.Values)
-			value.Transform(context, type.Type);
+			value?.Transform(context, type.Type);
 	}
 	
 	public void Visit(IHasIdentifiers context, Visitor visitor)
 	{
 		foreach ((TypeIdentifier type, TypedValue? value) in args.Values)
-			value.Visit(context, type.Type, visitor);
+			if (type.Type is not TypedTypeCompilerAnyValue) // Gotta visit these manually later
+				value?.Visit(context, type.Type, visitor);
 	}
 	
 	public override string ToString() => "(\n\t" + string.Join(",\n", args.Select(arg => $"{arg.Key}: {arg.Value.Value}")).Replace("\n", "\n\t") + "\n)";

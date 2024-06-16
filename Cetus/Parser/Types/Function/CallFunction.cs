@@ -21,7 +21,7 @@ public class CallFunction : TypedTypeFunctionBase
 	{
 		args.Visit(context, visitor);
 		TypedValue function = ((Expression)args["function"]).ReturnValue;
-		List<TypedValue> arguments = ((TypedValueCompiler<List<TypedValue>>)args["arguments"]).CompilerValue;
+		List<TypedValue> arguments = []; 
 		TypedTypeFunction functionType;
 		if (function.Type is TypedTypeClosurePointer closurePtr)
 		{
@@ -42,6 +42,12 @@ public class CallFunction : TypedTypeFunctionBase
 		}
 		else
 			functionType = (TypedTypeFunction)function.Type;
+		
+		if (args["arguments"] is TypedValueCompiler<List<TypedValue>> providedArgs)
+			arguments.AddRange(providedArgs.CompilerValue);
+		foreach ((FunctionParameter param, TypedValue arg) in functionType.Parameters
+			         .ZipArgs(arguments, (param, arg) => (param, arg)))
+			arg.Visit(context, param.Type.Type, visitor);
 		
 		if (functionType.Parameters.VarArg is not null ? arguments.Count < functionType.Parameters.Count : arguments.Count != functionType.Parameters.Count)
 			throw new Exception($"Argument count mismatch in call to '{functionType.Name}', expected {(functionType.Parameters.VarArg is not null ? "at least " : "")}{functionType.Parameters.Count} but got {arguments.Count}");

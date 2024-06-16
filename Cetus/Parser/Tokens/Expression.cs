@@ -68,12 +68,12 @@ public class Expression(IHasIdentifiers parent, int order, float priorityThresho
 	
 	public void Parse(IHasIdentifiers context)
 	{
-		
+		ReturnValue.Parse(context);
 	}
 	
 	public void Transform(IHasIdentifiers context, TypedType? typeHint)
 	{
-		
+		ReturnValue.Transform(context, typeHint);
 	}
 	
 	public void Visit(IHasIdentifiers context, TypedType? typeHint, Visitor visitor)

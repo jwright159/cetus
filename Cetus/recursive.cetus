@@ -22,14 +22,14 @@ Foo
 Void main()
 {
 	Foo foo = Foo.New(2, 3);
-	printf("Starting at %i\n", foo.A());
+	printf("Starting at %i\n", Foo.A(foo));
 	
-	While (foo.A() < 6)
+	While (Foo.A(foo) < 6)
 	{
-		foo.A() = foo.A() + 1;
-		printf("Loop %i\n", foo.A());
+		Foo.A(foo) = Foo.A(foo) + 1;
+		printf("Loop %i\n", Foo.A(foo));
 	};
 	
-	printf("Ending at %i\n", foo.A());
+	printf("Ending at %i\n", Foo.A(foo));
 	Return;
 };

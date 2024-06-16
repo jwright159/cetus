@@ -14,8 +14,8 @@ public class While : TypedTypeFunctionSimple
 	
 	public override LLVMValueRef Visit(IHasIdentifiers context, TypedType? typeHint, Visitor visitor, FunctionArgs args)
 	{
-		Expression condition = ((TypedValueCompiler<Expression>)args["condition"]).CompilerValue;
-		Closure body = ((TypedValueCompiler<Closure>)args["body"]).CompilerValue;
+		Expression condition = (Expression)args["condition"];
+		Closure body = (Closure)((Expression)args["body"]).ReturnValue;
 		LLVMBasicBlockRef merge = visitor.Builder.InsertBlock.Parent.AppendBasicBlock("whileMerge");
 		
 		visitor.Builder.BuildBr(condition.Block);
