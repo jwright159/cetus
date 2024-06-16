@@ -9,8 +9,8 @@ public class DefineStruct : TypedTypeFunctionBase
 {
 	public override string Name => "DefineStruct";
 	public override IToken Pattern => new TokenString([new ParameterValueToken("name"), new TokenSplit(new LiteralToken("{"), new LiteralToken(";"), new LiteralToken("}"), new TokenOptions([
+		new ParameterStatementToken("functions"),
 		new TokenString([new ParameterValueToken("fieldTypes"), new ParameterValueToken("fieldNames")]),
-		new ParameterExpressionToken("functions"),
 	]))]);
 	public override TypeIdentifier ReturnType => new(Visitor.VoidType);
 	public override FunctionParameters Parameters => new([

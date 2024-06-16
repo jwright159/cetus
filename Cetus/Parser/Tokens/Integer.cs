@@ -54,6 +54,6 @@ public class HexInteger : Integer
 			return new Result.Ok();
 		}
 		
-		return new Result.TokenRuleFailed($"Expected '0x', got {lexer.Current}", lexer, startIndex);
+		return new Result.TokenRuleFailed($"Expected '0x', got {lexer.Contents[startIndex..(startIndex + 2)]}", lexer, startIndex);
 	}
 }

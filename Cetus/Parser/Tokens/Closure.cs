@@ -22,7 +22,7 @@ public class Closure(bool actuallyParse) : IToken, TypedValue, IHasIdentifiers
 	{
 		if (actuallyParse)
 		{
-			IToken token = new TokenSplit(new LiteralToken("{"), new LiteralToken(";"), new LiteralToken("}"), new ParameterExpressionToken("statements"));
+			IToken token = new TokenSplit(new LiteralToken("{"), new LiteralToken(";"), new LiteralToken("}"), new ParameterStatementToken("statements"));
 			return lexer.Eat(token);
 		}
 		else
@@ -37,7 +37,7 @@ public class Closure(bool actuallyParse) : IToken, TypedValue, IHasIdentifiers
 			}
 			
 			Result? endResult = lexer.SkipToMatches(new LiteralToken("}"), false);
-			if (endResult is not Result.Passable)
+			if (endResult is not null and not Result.Passable)
 			{
 				lexer.Index = startIndex;
 				return endResult;

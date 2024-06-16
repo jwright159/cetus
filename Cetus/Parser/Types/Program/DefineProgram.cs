@@ -7,7 +7,7 @@ namespace Cetus.Parser.Types.Program;
 public class DefineProgram : TypedTypeFunctionBase
 {
 	public override string Name => "DefineProgram";
-	public override IToken Pattern => new TokenSplit(new PassToken(), new LiteralToken(";"), new EOFToken(), new ParameterExpressionToken("statements"));
+	public override IToken Pattern => new TokenSplit(new PassToken(), new LiteralToken(";"), new EOFToken(), new ParameterStatementToken("statements"));
 	public override TypeIdentifier ReturnType => new(Visitor.VoidType);
 	public override FunctionParameters Parameters => new([(Visitor.AnyFunctionCall.List(), "statements")], null);
 	public override float Priority => 100;

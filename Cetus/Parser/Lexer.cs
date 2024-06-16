@@ -103,6 +103,7 @@ public class Lexer(string contents)
 	
 	public Result? SkipToMatches<T>(T token, bool failIfSkip = true) where T : IToken
 	{
+		int originalIndex = Index;
 		int originalLine = Line;
 		int originalColumn = Column;
 		if (Eat(token) is Result.Passable eatResult)
@@ -112,7 +113,7 @@ public class Lexer(string contents)
 		else
 		{
 			EatToMatches(token);
-			return failIfSkip ? Result.ComplexTokenRuleFailed($"Skipped to {token}", originalLine, originalColumn) : null;
+			return failIfSkip ? Result.ComplexTokenRuleFailed($"Skipped to {token} because {contents[originalIndex]} was found", originalLine, originalColumn) : null;
 		}
 	}
 	
@@ -189,5 +190,6 @@ public class Lexer(string contents)
 	public string this[Range range] => contents[range];
 	public int Length => contents.Length;
 	public char Current => contents[Index];
-	public bool Next() => ++Index < contents.Length;
+	
+	public override string ToString() => IsAtEnd ? "Lexer at EOF" : $"Lexer at \"{contents[Index..Math.Min(Index + 20, Length)]}...\"";
 }
