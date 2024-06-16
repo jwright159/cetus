@@ -97,7 +97,48 @@ public class FunctionArgs
 		{
 			if (!args.TryGetValue(key, out (TypeIdentifier Type, TypedValue? Value) arg))
 				throw new KeyNotFoundException($"Argument {key} does not exist");
-			args[key] = (arg.Type, value);
+			switch (arg.Type.Type)
+			{
+				case TypedTypeCompilerList<TypedTypeCompilerAnyFunctionCall>:
+					if (arg.Value is null)
+					{
+						arg.Value = new TypedValueCompiler<List<FunctionCall>>(arg.Type.Type, []);
+						args[key] = arg;
+					}
+					((TypedValueCompiler<List<FunctionCall>>)arg.Value).CompilerValue.Add((FunctionCall)value);
+					break;
+				
+				case TypedTypeCompilerList<TypedTypeCompilerAnyFunction>:
+					if (arg.Value is null)
+					{
+						arg.Value = new TypedValueCompiler<List<FunctionCall>>(arg.Type.Type, []);
+						args[key] = arg;
+					}
+					((TypedValueCompiler<List<FunctionCall>>)arg.Value).CompilerValue.Add((FunctionCall)value);
+					break;
+				
+				case TypedTypeCompilerList<TypedTypeCompilerString>:
+					if (arg.Value is null)
+					{
+						arg.Value = new TypedValueCompiler<List<ValueIdentifier>>(arg.Type.Type, []);
+						args[key] = arg;
+					}
+					((TypedValueCompiler<List<ValueIdentifier>>)arg.Value).CompilerValue.Add((ValueIdentifier)value);
+					break;
+				
+				case TypedTypeCompilerList<TypedTypeCompilerTypeIdentifier>:
+					if (arg.Value is null)
+					{
+						arg.Value = new TypedValueCompiler<List<ValueIdentifier>>(arg.Type.Type, []);
+						args[key] = arg;
+					}
+					((TypedValueCompiler<List<ValueIdentifier>>)arg.Value).CompilerValue.Add((ValueIdentifier)value);
+					break;
+				
+				default:
+					args[key] = (arg.Type, value);
+					break;
+			}
 		}
 	}
 	
@@ -118,4 +159,6 @@ public class FunctionArgs
 		foreach ((TypeIdentifier type, TypedValue? value) in args.Values)
 			value.Visit(context, type.Type, visitor);
 	}
+	
+	public override string ToString() => "(\n\t" + string.Join(",\n", args.Select(arg => $"{arg.Key}: {arg.Value.Value}")).Replace("\n", "\n\t") + "\n)";
 }

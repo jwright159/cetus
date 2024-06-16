@@ -30,16 +30,17 @@ public class DefineProgramCall(List<FunctionCall> statements) : TypedValue, IHas
 	
 	public void Parse(IHasIdentifiers context)
 	{
-		
+		Console.WriteLine("Parse DefineProgram");
+		Console.WriteLine("[\n\t" + string.Join(",\n", statements).Replace("\n", "\n\t") + "\n]");
 	}
 	
 	public void Transform(IHasIdentifiers context, TypedType? typeHint)
 	{
-		
+		Console.WriteLine("Transform DefineProgram");
 	}
 	
 	public void Visit(IHasIdentifiers context, TypedType? typeHint, Visitor visitor)
 	{
-		
+		Console.WriteLine("Visit DefineProgram");
 	}
 }

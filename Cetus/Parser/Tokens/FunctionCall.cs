@@ -56,4 +56,6 @@ public class FunctionCall(IHasIdentifiers parent, int order) : IToken, TypedValu
 	{
 		return FunctionType.Call(context, Arguments);
 	}
+	
+	public override string ToString() => $"{FunctionType.Name}{Arguments}";
 }

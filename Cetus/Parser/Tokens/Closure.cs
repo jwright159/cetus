@@ -18,6 +18,8 @@ public class Closure(bool actuallyParse) : IToken, TypedValue, IHasIdentifiers
 	public TypedType Type { get; }
 	public LLVMValueRef LLVMValue { get; }
 	
+	private int lexerStartIndex;
+	
 	public Result Eat(Lexer lexer)
 	{
 		if (actuallyParse)
@@ -42,6 +44,8 @@ public class Closure(bool actuallyParse) : IToken, TypedValue, IHasIdentifiers
 				lexer.Index = startIndex;
 				return endResult;
 			}
+			
+			lexerStartIndex = startIndex;
 			
 			return new Result.Ok();
 		}
@@ -123,4 +127,6 @@ public class Closure(bool actuallyParse) : IToken, TypedValue, IHasIdentifiers
 		else
 			throw new Exception("Expected closure");
 	}
+	
+	public override string ToString() => $"Closure starting at index {lexerStartIndex}";
 }

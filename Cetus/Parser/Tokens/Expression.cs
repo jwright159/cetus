@@ -58,7 +58,7 @@ public class Expression(IHasIdentifiers parent, int order) : IToken, TypedValue
 			return closureResult;
 		}
 		
-		if (lexer.Eat(out ValueIdentifierContext value) is Result.Passable valueResult)
+		if (lexer.Eat(out ValueIdentifier value) is Result.Passable valueResult)
 		{
 			ReturnValue = value;
 			return valueResult;
@@ -87,4 +87,6 @@ public class Expression(IHasIdentifiers parent, int order) : IToken, TypedValue
 		
 		visitor.Builder.PositionAtEnd(originalBlock);
 	}
+	
+	public override string ToString() => ReturnValue.ToString();
 }

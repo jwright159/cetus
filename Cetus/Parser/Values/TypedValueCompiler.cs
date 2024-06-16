@@ -1,4 +1,5 @@
-﻿using Cetus.Parser.Types;
+﻿using System.Collections;
+using Cetus.Parser.Types;
 using LLVMSharp.Interop;
 
 namespace Cetus.Parser.Values;
@@ -23,4 +24,8 @@ public class TypedValueCompiler<TValue>(TypedType type, TValue value) : TypedVal
 	{
 		
 	}
+	
+	public override string ToString() => CompilerValue is IEnumerable enumerable ? "[\n\t" + string.Join(",\n", StringsOf(enumerable)).Replace("\n", "\n\t") + "\n]" : CompilerValue.ToString();
+	
+	private static IEnumerable<string> StringsOf(IEnumerable enumerable) => from object? item in enumerable select item.ToString();
 }

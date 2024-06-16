@@ -4,7 +4,7 @@ using LLVMSharp.Interop;
 
 namespace Cetus.Parser.Tokens;
 
-public class ValueIdentifierContext : IToken, TypedValue
+public class ValueIdentifier : IToken, TypedValue
 {
 	public string Name { get; private set; }
 	public TypedValue Value;
@@ -44,4 +44,6 @@ public class ValueIdentifierContext : IToken, TypedValue
 		if (typeHint is not null)
 			Value = Value.CoersePointer(typeHint, visitor, Name);
 	}
+	
+	public override string ToString() => Name;
 }

@@ -18,7 +18,7 @@ public class DefineFunction : TypedTypeFunctionBase
 		(Visitor.TypeIdentifierType, "returnType"),
 		(Visitor.TypeIdentifierType.List(), "parameterTypes"),
 		(Visitor.CompilerStringType.List(), "parameterNames"),
-		(Visitor.CompilerStringType, "varArgParameterType"),
+		(Visitor.TypeIdentifierType, "varArgParameterType"),
 		(Visitor.CompilerStringType, "varArgParameterName"),
 		(new TypedTypeCompilerClosure(Visitor.VoidType), "body"),
 	], null);
