@@ -58,8 +58,15 @@ public static class TypedTypeExtensions
 	{
 		if (typeHint is not TypedTypePointer && value.Type is TypedTypePointer resultTypePointer)
 		{
-			LLVMValueRef valueValue = visitor.Builder.BuildLoad2(resultTypePointer.InnerType.LLVMType, value.LLVMValue, "loadtmp");
+			LLVMValueRef valueValue = visitor.Builder.BuildLoad2(resultTypePointer.InnerType.LLVMType, value.LLVMValue, name + "loadtmp");
 			value = new TypedValueValue(resultTypePointer.InnerType, valueValue);
+		}
+		
+		if (typeHint is TypedTypePointer typeHintPointer && value.Type is not TypedTypePointer)
+		{
+			LLVMValueRef valuePtr = visitor.Builder.BuildAlloca(typeHintPointer.InnerType.LLVMType, name + "storetmp");
+			visitor.Builder.BuildStore(value.LLVMValue, valuePtr);
+			value = new TypedValueValue(value.Type.Pointer(), valuePtr);
 		}
 		
 		if (!value.IsOfType(typeHint))

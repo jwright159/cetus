@@ -9,7 +9,7 @@ public class Getter(TypedType @struct, StructField field) : TypedTypeFunctionSim
 {
 	public override string Name => $"{@struct.Name}.Get_{field.Name}";
 	public override IToken Pattern { get; } = new TokenString([new ParameterExpressionToken("this"), new LiteralToken("."), new LiteralToken(field.Name)]);
-	public override TypeIdentifier ReturnType => field.TypeIdentifier;
+	public override TypeIdentifier ReturnType => field.TypeIdentifier.Pointer();
 	public override FunctionParameters Parameters { get; } = new([(@struct.Pointer(), "this")], null);
 	public override float Priority => 0;
 	

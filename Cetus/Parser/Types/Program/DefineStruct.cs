@@ -117,6 +117,8 @@ public class DefineStructCall(IHasIdentifiers parent, string name, List<(TypeIde
 		foreach (DefineFunctionCall function in thisFunctions)
 			function.Visit(this, null, visitor);
 	}
+	
+	public override string ToString() => Name;
 }
 
 public class StructField(TypeIdentifier type, string name, uint index) : TypedValue
