@@ -13,7 +13,7 @@ Foo
 		Return this;
 	};
 	
-	Pointer[Int] A(Foo this)
+	Pointer[Int] A(Pointer[Foo] this)
 	{
 		Return this.a;
 	};

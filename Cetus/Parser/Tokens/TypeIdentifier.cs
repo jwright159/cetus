@@ -81,7 +81,10 @@ public class TypeIdentifier : TypedValue, IToken
 		}
 		
 		if (InnerType is not null)
-			((TypedTypeWithInnerType)Type).InnerType = InnerType?.Type;
+		{
+			// Super not correct lol
+			Type = new TypedTypePointer(InnerType.Type);
+		}
 	}
 	
 	public void Visit(IHasIdentifiers context, TypedType? typeHint, Visitor visitor)

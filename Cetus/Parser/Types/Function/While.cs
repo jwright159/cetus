@@ -23,15 +23,14 @@ public class While : TypedTypeFunctionSimple
 		
 		LLVMBasicBlockRef entryBlock = visitor.Builder.InsertBlock;
 		LLVMBasicBlockRef conditionBlock = entryBlock.Parent.AppendBasicBlock("whileCondition");
-		condition.Visit(context, Parameters["condition"].Type, visitor);
-		body.Visit(context, Parameters["body"].Type, visitor);
-		LLVMBasicBlockRef mergeBlock =entryBlock.Parent.AppendBasicBlock("whileMerge");
 		
 		visitor.Builder.BuildBr(conditionBlock);
-		
 		visitor.Builder.PositionAtEnd(conditionBlock);
-		visitor.Builder.BuildCondBr(condition.ReturnValue.LLVMValue, body.Block, mergeBlock);
+		condition.Visit(context, Parameters["condition"].Type, visitor);
 		
+		body.Visit(context, Parameters["body"].Type, visitor);
+		LLVMBasicBlockRef mergeBlock = entryBlock.Parent.AppendBasicBlock("whileMerge");
+		visitor.Builder.BuildCondBr(condition.ReturnValue.LLVMValue, body.Block, mergeBlock);
 		visitor.Builder.PositionAtEnd(body.Block);
 		visitor.Builder.BuildBr(conditionBlock);
 		
