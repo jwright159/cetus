@@ -34,14 +34,16 @@ public abstract class TypedTypeFunctionBase : TypedTypeFunction
 
 public abstract class TypedTypeFunctionSimple : TypedTypeFunctionBase
 {
+	protected virtual bool AutoVisit => true;
+	
 	public override TypedValue Call(IHasIdentifiers context, FunctionArgs args)
 	{
-		return new SimpleCall(ReturnType.Type, args, Visit);
+		return new SimpleCall(ReturnType.Type, args, Visit, AutoVisit);
 	}
 	
 	public abstract LLVMValueRef? Visit(IHasIdentifiers context, TypedType? typeHint, Visitor visitor, FunctionArgs args);
 	
-	private class SimpleCall(TypedType returnType, FunctionArgs args, Func<IHasIdentifiers, TypedType?, Visitor, FunctionArgs, LLVMValueRef?> visit) : TypedValue
+	private class SimpleCall(TypedType returnType, FunctionArgs args, Func<IHasIdentifiers, TypedType?, Visitor, FunctionArgs, LLVMValueRef?> visit, bool autoVisit) : TypedValue
 	{
 		public TypedType Type => returnType;
 		public LLVMValueRef LLVMValue { get; private set; }
@@ -58,7 +60,8 @@ public abstract class TypedTypeFunctionSimple : TypedTypeFunctionBase
 		
 		public void Visit(IHasIdentifiers context, TypedType? typeHint, Visitor visitor)
 		{
-			args.Visit(context, visitor);
+			if (autoVisit)
+				args.Visit(context, visitor);
 			LLVMValue = visit(context, typeHint, visitor, args) ?? default;
 		}
 	}

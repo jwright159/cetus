@@ -12,26 +12,29 @@ public class While : TypedTypeFunctionSimple
 	public override TypeIdentifier ReturnType => new(Visitor.VoidType);
 	public override FunctionParameters Parameters => new([(new TypedTypeCompilerExpression(Visitor.BoolType), "condition"), (new TypedTypeCompilerClosure(Visitor.VoidType), "body")], null);
 	public override float Priority => 100;
+
+	protected override bool AutoVisit => false;
 	
 	public override LLVMValueRef? Visit(IHasIdentifiers context, TypedType? typeHint, Visitor visitor, FunctionArgs args)
 	{
-		// Expression condition = (Expression)args["condition"];
-		// Closure body = (Closure)((Expression)args["body"]).ReturnValue;
-		// LLVMBasicBlockRef merge = visitor.Builder.InsertBlock.Parent.AppendBasicBlock("whileMerge");
-		//
-		// // LLVMBasicBlockRef originalBlock = visitor.Builder.InsertBlock;
-		// // Block = originalBlock.Parent.AppendBasicBlock("closureBlock");
-		// // visitor.Builder.PositionAtEnd(Block);
-		//
-		// visitor.Builder.BuildBr(condition.Block);
-		//
-		// visitor.Builder.PositionAtEnd(condition.Block);
-		// visitor.Builder.BuildCondBr(condition.ReturnValue.LLVMValue, body.Block, merge);
-		//
-		// visitor.Builder.PositionAtEnd(body.Block);
-		// visitor.Builder.BuildBr(condition.Block);
-		//
-		// visitor.Builder.PositionAtEnd(merge);
+		Expression condition = (Expression)args["condition"];
+		Closure body = (Closure)((Expression)args["body"]).ReturnValue;
+		
+		LLVMBasicBlockRef entryBlock = visitor.Builder.InsertBlock;
+		LLVMBasicBlockRef conditionBlock = entryBlock.Parent.AppendBasicBlock("condition");
+		condition.Visit(context, Parameters["condition"].Type, visitor);
+		body.Visit(context, Parameters["body"].Type, visitor);
+		LLVMBasicBlockRef mergeBlock =entryBlock.Parent.AppendBasicBlock("whileMerge");
+		
+		visitor.Builder.BuildBr(conditionBlock);
+		
+		visitor.Builder.PositionAtEnd(conditionBlock);
+		visitor.Builder.BuildCondBr(condition.ReturnValue.LLVMValue, body.Block, mergeBlock);
+		
+		visitor.Builder.PositionAtEnd(body.Block);
+		visitor.Builder.BuildBr(conditionBlock);
+		
+		visitor.Builder.PositionAtEnd(mergeBlock);
 		return null;
 	}
 }

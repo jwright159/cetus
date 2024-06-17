@@ -147,6 +147,21 @@ public class FunctionParameters
 		VarArg?.Type.Transform(context, Visitor.TypeType);
 	}
 	
+	public TypeIdentifier this[string name]
+	{
+		get
+		{
+			FunctionParameter? parameter = Parameters.FirstOrDefault(param => param.Name == name);
+			if (parameter is not null)
+				return parameter.Type;
+			
+			if (VarArg is not null && VarArg.Name == name)
+				return VarArg.Type;
+			
+			throw new KeyNotFoundException($"Parameter {name} does not exist");
+		}
+	}
+	
 	public override string ToString() => $"({string.Join(", ", Parameters)}{(VarArg is not null ? $", {VarArg.Type}... {VarArg.Name}" : "")})";
 }
 
