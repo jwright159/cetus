@@ -8,13 +8,13 @@ namespace Cetus.Parser;
 public class Getter(TypedType @struct, StructField field) : TypedTypeFunctionSimple
 {
 	public override string Name => $"{@struct.Name}.Get_{field.Name}";
-	public override IToken Pattern { get; } = new TokenString([new ParameterExpressionToken(field.Name), new LiteralToken("."), new LiteralToken(field.Name)]);
+	public override IToken Pattern { get; } = new TokenString([new ParameterExpressionToken("this"), new LiteralToken("."), new LiteralToken(field.Name)]);
 	public override TypeIdentifier ReturnType => field.TypeIdentifier;
-	public override FunctionParameters Parameters { get; } = new([(field.TypeIdentifier.Type.Pointer(), field.Name)], null);
+	public override FunctionParameters Parameters { get; } = new([(field.TypeIdentifier.Type.Pointer(), "this")], null);
 	public override float Priority => 0;
 	
 	public override LLVMValueRef? Visit(IHasIdentifiers context, TypedType? typeHint, Visitor visitor, FunctionArgs args)
 	{
-		return visitor.Builder.BuildStructGEP2(@struct.LLVMType, args["value"].LLVMValue, (uint)field.Index, field.Name + "Ptr");
+		return visitor.Builder.BuildStructGEP2(@struct.LLVMType, args["this"].LLVMValue, (uint)field.Index, field.Name + "Ptr");
 	}
 }

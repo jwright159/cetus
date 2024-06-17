@@ -23,7 +23,7 @@ public class TokenString(IToken[] tokens) : IToken
 		return Result.WrapPassable($"Expected token string \"{this}\"", results.ToArray());
 	}
 	
-	public IToken Contextualize(IHasIdentifiers context, FunctionArgs arguments, int order, float priorityThreshold) => new TokenString(tokens.Select(token => token.Contextualize(context, arguments, order, priorityThreshold)).ToArray());
+	public IToken Contextualize(IHasIdentifiers context, FunctionArgs arguments, int order) => new TokenString(tokens.Select(token => token.Contextualize(context, arguments, order)).ToArray());
 	
 	public override string ToString() => string.Join(" ", tokens.Select(token => token.ToString()));
 }

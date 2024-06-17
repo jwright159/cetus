@@ -12,7 +12,7 @@ public class TokenOptions(IToken[] possibleTokens) : IToken
 		return new Result.TokenRuleFailed($"Expected token options \"{this}\"", lexer);
 	}
 	
-	public IToken Contextualize(IHasIdentifiers context, FunctionArgs arguments, int order, float priorityThreshold) => new TokenOptions(possibleTokens.Select(token => token.Contextualize(context, arguments, order, priorityThreshold)).ToArray());
+	public IToken Contextualize(IHasIdentifiers context, FunctionArgs arguments, int order) => new TokenOptions(possibleTokens.Select(token => token.Contextualize(context, arguments, order)).ToArray());
 	
 	public override string ToString() => "(" + string.Join(" | ", possibleTokens.AsEnumerable()) + ")";
 }

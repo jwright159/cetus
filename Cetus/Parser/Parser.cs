@@ -28,8 +28,6 @@ public class LateCompilerFunctionContext(TypeIdentifier returnType, string name,
 
 public partial class Parser(Lexer lexer)
 {
-	public const float ExpressionPriorityThreshold = 100;
-	
 	public Program Parse()
 	{
 		Program program = new();
@@ -92,7 +90,7 @@ public partial class Parser(Lexer lexer)
 	
 	private void ParseProgram(Program program)
 	{
-		FunctionCall programCall = new(program, 0, float.MaxValue);
+		FunctionCall programCall = new(program, 0);
 		Result result = lexer.Eat(programCall);
 		if (result is not Result.Ok)
 			throw new Exception("Parsing failed\n" + result);

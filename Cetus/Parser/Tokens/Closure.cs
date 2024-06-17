@@ -48,7 +48,7 @@ public class Closure : IToken, TypedValue, IHazIdentifiers
 		IHasIdentifiers = new IdentifiersNest(context, CompilationPhase.Function);
 		
 		FunctionArgs args = new(new FunctionParameters([(Visitor.AnyFunctionCall.List(), "statements")], null));
-		IToken token = new TokenSplit(new LiteralToken("{"), new LiteralToken(";"), new LiteralToken("}"), new ParameterStatementToken("statements")).Contextualize(context, args, 0, Parser.ExpressionPriorityThreshold);
+		IToken token = new TokenSplit(new LiteralToken("{"), new LiteralToken(";"), new LiteralToken("}"), new ParameterStatementToken("statements")).Contextualize(context, args, 0);
 		lexer.Index = lexerStartIndex;
 		Result result = lexer.Eat(token);
 		if (result is not Result.Ok)

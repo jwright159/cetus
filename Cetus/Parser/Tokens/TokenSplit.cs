@@ -88,12 +88,12 @@ public class TokenSplit(IToken start, IToken delim, IToken end, IToken token) : 
 		return Result.WrapPassable($"Expected token split \"{this}\"", results.ToArray());
 	}
 	
-	public IToken Contextualize(IHasIdentifiers context, FunctionArgs arguments, int order, float priorityThreshold) =>
+	public IToken Contextualize(IHasIdentifiers context, FunctionArgs arguments, int order) =>
 		new TokenSplit(
-			start.Contextualize(context, arguments, order, priorityThreshold),
-			delim.Contextualize(context, arguments, order, priorityThreshold),
-			end.Contextualize(context, arguments, order, priorityThreshold),
-			token.Contextualize(context, arguments, order, priorityThreshold));
+			start.Contextualize(context, arguments, order),
+			delim.Contextualize(context, arguments, order),
+			end.Contextualize(context, arguments, order),
+			token.Contextualize(context, arguments, order));
 	
 	public override string ToString() => $"{start} ({token} {delim})* {end}";
 }

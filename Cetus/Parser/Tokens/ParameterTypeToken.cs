@@ -9,7 +9,7 @@ public class ParameterTypeToken(string name) : IToken
 		throw new InvalidOperationException("Parameter token was not contextualized");
 	}
 	
-	public IToken Contextualize(IHasIdentifiers context, FunctionArgs arguments, int order, float priorityThreshold) => new ParameterTypeTokenContextualized(name, arguments);
+	public IToken Contextualize(IHasIdentifiers context, FunctionArgs arguments, int order) => new ParameterTypeTokenContextualized(name, arguments);
 	
 	public override string ToString() => $"${name}";
 }

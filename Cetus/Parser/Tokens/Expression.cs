@@ -4,7 +4,7 @@ using LLVMSharp.Interop;
 
 namespace Cetus.Parser.Tokens;
 
-public class Expression(IHasIdentifiers parent, int order, float priorityThreshold) : IToken, TypedValue
+public class Expression(IHasIdentifiers parent, int order) : IToken, TypedValue
 {
 	public LLVMBasicBlockRef Block;
 	public TypedValue ReturnValue;
@@ -14,7 +14,7 @@ public class Expression(IHasIdentifiers parent, int order, float priorityThresho
 	
 	public Result Eat(Lexer lexer)
 	{
-		FunctionCall functionCall = new(parent, order, priorityThreshold);
+		FunctionCall functionCall = new(parent, order);
 		if (lexer.Eat(functionCall) is Result.Passable functionCallResult)
 		{
 			ReturnValue = functionCall;
