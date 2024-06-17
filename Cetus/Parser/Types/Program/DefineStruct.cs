@@ -94,9 +94,7 @@ public class DefineStructCall(IHasIdentifiers parent, string name, List<(TypeIde
 	public void Transform(IHasIdentifiers context, TypedType? typeHint)
 	{
 		foreach (StructField field in Fields)
-		{
-			field.Type = context.Types.First(type => type.Name == field.TypeIdentifier.Name);
-		}
+			field.TypeIdentifier.Transform(this, null);
 		
 		foreach (DefineFunctionCall function in thisFunctions)
 		{
