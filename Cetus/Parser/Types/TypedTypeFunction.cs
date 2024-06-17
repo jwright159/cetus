@@ -77,16 +77,33 @@ public class FunctionArgs
 		foreach (FunctionParameter param in parameters.Parameters)
 		{
 			Keys.Add(param.Name);
-			args[param.Name] = (param.Type, null);
+			args.Add(param.Name, (param.Type, null));
+		}
+		if (parameters.VarArg is not null)
+		{
+			FunctionParameter param = parameters.VarArg;
+			TypedType varArgType = new TypedTypeCompilerList<TypedTypeCompilerAnyValue>(Visitor.AnyValueType);
+			Keys.Add(param.Name);
+			args.Add(param.Name, (new TypeIdentifier(varArgType), null));
 		}
 	}
 	
-	public FunctionArgs(FunctionParameters parameters, ICollection<TypedValue> arguments)
+	public FunctionArgs(FunctionParameters parameters, IList<TypedValue> arguments)
 	{
-		foreach ((FunctionParameter param, TypedValue arg) in parameters.ZipArgs(arguments, (param, arg) => (param, arg)))
+		int i = 0;
+		for (; i < parameters.Parameters.Count; i++)
 		{
+			FunctionParameter param = parameters.Parameters[i];
+			TypedValue arg = arguments[i];
 			Keys.Add(param.Name);
-			args[param.Name] = (param.Type, arg);
+			args.Add(param.Name, (param.Type, arg));
+		}
+		if (parameters.VarArg is not null)
+		{
+			FunctionParameter param = parameters.VarArg;
+			TypedType varArgType = new TypedTypeCompilerList<TypedTypeCompilerAnyValue>(Visitor.AnyValueType);
+			Keys.Add(param.Name);
+			args.Add(param.Name, (new TypeIdentifier(varArgType), new TypedValueCompiler<List<TypedValue>>(varArgType, arguments.Skip(i).ToList())));
 		}
 	}
 	

@@ -15,6 +15,9 @@ public class DefinedFunctionCall(string name, TypedValue function, TypeIdentifie
 	
 	public override LLVMValueRef? Visit(IHasIdentifiers context, TypedType? typeHint, Visitor visitor, FunctionArgs args)
 	{
-		return visitor.Builder.BuildCall2(LLVMType, function.LLVMValue, parameters.Parameters.Select(param => args[param.Name].LLVMValue).ToArray(), ReturnType.Type is TypedTypeVoid ? "" : Name + "Call");
+		List<LLVMValueRef> arguments = parameters.Parameters.Select(param => args[param.Name].LLVMValue).ToList();
+		if (Parameters.VarArg is not null)
+			arguments.AddRange(((TypedValueCompiler<List<TypedValue>>)args[parameters.VarArg.Name]).CompilerValue.Select(arg => arg.LLVMValue));
+		return visitor.Builder.BuildCall2(LLVMType, function.LLVMValue, arguments.ToArray(), ReturnType.Type is TypedTypeVoid ? "" : Name + "Call");
 	}
 }
