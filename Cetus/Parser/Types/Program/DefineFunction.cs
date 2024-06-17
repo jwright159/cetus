@@ -45,7 +45,8 @@ public class DefineFunctionCall(IHasIdentifiers parent, string name, TypeIdentif
 	public FunctionParameters Parameters => parameters;
 	public float Priority { get; }
 	public TypedType? Type { get; set; }
-	public LLVMValueRef LLVMValue { get; }
+	public LLVMValueRef LLVMValue => llvmValue;
+	private LLVMValueRef llvmValue;
 	public TypedValue? Value { get; set; }
 	public IToken? Pattern { get; set; }
 	public Closure? Body => body;
@@ -66,23 +67,23 @@ public class DefineFunctionCall(IHasIdentifiers parent, string name, TypeIdentif
 	
 	public void Visit(IHasIdentifiers context, TypedType? typeHint, Visitor visitor)
 	{
-		LLVMValueRef functionValue = visitor.Module.AddFunction(name, Type.LLVMType);
-		Value = new TypedValueValue(Type, functionValue);
+		llvmValue = visitor.Module.AddFunction(name, Type.LLVMType);
+		Value = new TypedValueValue(Type, llvmValue);
 		
-		functionValue.Linkage = LLVMLinkage.LLVMExternalLinkage;
+		llvmValue.Linkage = LLVMLinkage.LLVMExternalLinkage;
 		
 		for (int i = 0; i < parameters.Parameters.Count; ++i)
 		{
 			string parameterName = parameters.Parameters[i].Name;
 			TypedType parameterType = parameters.Parameters[i].Type.Type;
-			LLVMValueRef param = functionValue.GetParam((uint)i);
+			LLVMValueRef param = llvmValue.GetParam((uint)i);
 			param.Name = parameterName;
 			(this as IHasIdentifiers).Identifiers.Add(parameterName, new TypedValueValue(parameterType, param));
 		}
 		
 		if (body is not null)
 		{
-			visitor.Builder.PositionAtEnd(functionValue.AppendBasicBlock("entry"));
+			visitor.Builder.PositionAtEnd(llvmValue.AppendBasicBlock("entry"));
 			body.Parse(this);
 			body.Transform(this, null);
 			body.Visit(this, null, visitor);

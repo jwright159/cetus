@@ -15,19 +15,23 @@ public class While : TypedTypeFunctionSimple
 	
 	public override LLVMValueRef? Visit(IHasIdentifiers context, TypedType? typeHint, Visitor visitor, FunctionArgs args)
 	{
-		Expression condition = (Expression)args["condition"];
-		Closure body = (Closure)((Expression)args["body"]).ReturnValue;
-		LLVMBasicBlockRef merge = visitor.Builder.InsertBlock.Parent.AppendBasicBlock("whileMerge");
-		
-		visitor.Builder.BuildBr(condition.Block);
-		
-		visitor.Builder.PositionAtEnd(condition.Block);
-		visitor.Builder.BuildCondBr(condition.ReturnValue.LLVMValue, body.Block, merge);
-		
-		visitor.Builder.PositionAtEnd(body.Block);
-		visitor.Builder.BuildBr(condition.Block);
-		
-		visitor.Builder.PositionAtEnd(merge);
+		// Expression condition = (Expression)args["condition"];
+		// Closure body = (Closure)((Expression)args["body"]).ReturnValue;
+		// LLVMBasicBlockRef merge = visitor.Builder.InsertBlock.Parent.AppendBasicBlock("whileMerge");
+		//
+		// // LLVMBasicBlockRef originalBlock = visitor.Builder.InsertBlock;
+		// // Block = originalBlock.Parent.AppendBasicBlock("closureBlock");
+		// // visitor.Builder.PositionAtEnd(Block);
+		//
+		// visitor.Builder.BuildBr(condition.Block);
+		//
+		// visitor.Builder.PositionAtEnd(condition.Block);
+		// visitor.Builder.BuildCondBr(condition.ReturnValue.LLVMValue, body.Block, merge);
+		//
+		// visitor.Builder.PositionAtEnd(body.Block);
+		// visitor.Builder.BuildBr(condition.Block);
+		//
+		// visitor.Builder.PositionAtEnd(merge);
 		return null;
 	}
 }

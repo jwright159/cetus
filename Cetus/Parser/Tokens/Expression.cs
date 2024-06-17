@@ -6,7 +6,6 @@ namespace Cetus.Parser.Tokens;
 
 public class Expression(IHasIdentifiers parent, int order) : IToken, TypedValue
 {
-	public LLVMBasicBlockRef Block;
 	public TypedValue ReturnValue;
 	
 	public TypedType Type => ReturnValue.Type;
@@ -78,10 +77,6 @@ public class Expression(IHasIdentifiers parent, int order) : IToken, TypedValue
 	
 	public void Visit(IHasIdentifiers context, TypedType? typeHint, Visitor visitor)
 	{
-		LLVMBasicBlockRef originalBlock = visitor.Builder.InsertBlock;
-		Block = originalBlock.Parent.AppendBasicBlock("closureBlock");
-		visitor.Builder.PositionAtEnd(Block);
-		
 		ReturnValue.Visit(context, typeHint, visitor);
 		
 		if (ReturnValue is FunctionCall call)
@@ -91,8 +86,6 @@ public class Expression(IHasIdentifiers parent, int order) : IToken, TypedValue
 			ReturnValue.Transform(context, typeHint);
 			ReturnValue.Visit(context, typeHint, visitor);
 		}
-		
-		visitor.Builder.PositionAtEnd(originalBlock);
 	}
 	
 	public override string ToString() => $"{ReturnValue}";
