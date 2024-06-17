@@ -7,7 +7,7 @@ Foo
 	
 	Foo New(Int a, Int b)
 	{
-		Declare Foo this;
+		Foo this;
 		this.a = a;
 		this.b = b;
 		Return this;

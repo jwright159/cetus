@@ -35,4 +35,8 @@
         </None>
     </ItemGroup>
 
+    <ItemGroup>
+      <Folder Include="Parser\Types\Struct\" />
+    </ItemGroup>
+
 </Project>

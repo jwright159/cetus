@@ -51,6 +51,9 @@ public partial class Parser(Lexer lexer)
 		AddFunction(CompilationPhase.Program, new DefineStruct());
 		AddFunction(CompilationPhase.Program, new DefineFunction());
 		
+		AddFunction(CompilationPhase.Struct, new Declare());
+		AddFunction(CompilationPhase.Struct, new DefineFunction());
+		
 		AddFunction(CompilationPhase.Function, new Declare());
 		AddFunction(CompilationPhase.Function, new Define());
 		AddFunction(CompilationPhase.Function, new Assign());
