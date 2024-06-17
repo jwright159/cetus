@@ -15,6 +15,6 @@ public class Getter(TypedType @struct, StructField field) : TypedTypeFunctionSim
 	
 	public override LLVMValueRef? Visit(IHasIdentifiers context, TypedType? typeHint, Visitor visitor, FunctionArgs args)
 	{
-		return visitor.Builder.BuildStructGEP2(@struct.LLVMType, args["this"].LLVMValue, (uint)field.Index, field.Name + "Ptr");
+		return visitor.Builder.BuildStructGEP2(@struct.LLVMType, args["this"].LLVMValue, field.Index, field.Name + "Ptr");
 	}
 }

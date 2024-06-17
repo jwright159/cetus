@@ -51,12 +51,9 @@ public class DefineStructCall(IHasIdentifiers parent, string name, List<(TypeIde
 		
 		foreach ((TypeIdentifier fieldType, string fieldName) in fields)
 		{
-			StructField field = new();
-			field.TypeIdentifier = fieldType;
-			field.Name = fieldName;
-			field.Index = Fields.Count;
+			StructField field = new(fieldType, fieldName, (uint)Fields.Count);
 			field.Getter = new Getter(this, field);
-			
+			field.Parse(context);
 			Fields.Add(field);
 			(this as IHasIdentifiers).Functions.Add(field.Getter);
 		}
@@ -94,7 +91,7 @@ public class DefineStructCall(IHasIdentifiers parent, string name, List<(TypeIde
 	public void Transform(IHasIdentifiers context, TypedType? typeHint)
 	{
 		foreach (StructField field in Fields)
-			field.TypeIdentifier.Transform(this, null);
+			field.Transform(this, null);
 		
 		foreach (DefineFunctionCall function in thisFunctions)
 		{
@@ -110,6 +107,9 @@ public class DefineStructCall(IHasIdentifiers parent, string name, List<(TypeIde
 	
 	public void Visit(IHasIdentifiers context, TypedType? typeHint, Visitor visitor)
 	{
+		foreach (StructField field in Fields)
+			field.Visit(this, null, visitor);
+		
 		Type.LLVMType.StructSetBody(Fields.Select(field => field.Type.LLVMType).ToArray(), false);
 		
 		foreach (DefineFunctionCall function in thisFunctions)
@@ -117,13 +117,29 @@ public class DefineStructCall(IHasIdentifiers parent, string name, List<(TypeIde
 	}
 }
 
-public class StructField
+public class StructField(TypeIdentifier type, string name, uint index) : TypedValue
 {
-	public TypedType Type;
-	public TypeIdentifier TypeIdentifier;
-	public string Name;
-	public int Index;
+	public string Name => name;
+	public TypedType Type => TypeIdentifier.Type;
+	public LLVMValueRef LLVMValue => throw new Exception("StructField does not have an LLVMValue");
+	public TypeIdentifier TypeIdentifier => type;
 	public Getter Getter;
+	public uint Index => index;
+	
+	public void Parse(IHasIdentifiers context)
+	{
+		TypeIdentifier.Parse(context);
+	}
+	
+	public void Transform(IHasIdentifiers context, TypedType? typeHint)
+	{
+		TypeIdentifier.Transform(context, typeHint);
+	}
+	
+	public void Visit(IHasIdentifiers context, TypedType? typeHint, Visitor visitor)
+	{
+		TypeIdentifier.Visit(context, null, visitor);
+	}
 	
 	public override string ToString() => $"{Type} {Name}";
 }
