@@ -52,10 +52,8 @@ public class DefineStructCall(IHasIdentifiers parent, string name, List<(TypeIde
 		foreach ((TypeIdentifier fieldType, string fieldName) in fields)
 		{
 			StructField field = new(fieldType, fieldName, (uint)Fields.Count);
-			field.Getter = new Getter(this, field);
 			field.Parse(context);
 			Fields.Add(field);
-			(this as IHasIdentifiers).Functions.Add(field.Getter);
 		}
 		
 		thisFunctions = functionCalls.Select(functionCall => (DefineFunctionCall)functionCall.Call(this)).ToList();
@@ -91,7 +89,11 @@ public class DefineStructCall(IHasIdentifiers parent, string name, List<(TypeIde
 	public void Transform(IHasIdentifiers context, TypedType? typeHint)
 	{
 		foreach (StructField field in Fields)
+		{
 			field.Transform(this, null);
+			field.Getter = new Getter(this, field);
+			(this as IHasIdentifiers).Functions.Add(field.Getter);
+		}
 		
 		foreach (DefineFunctionCall function in thisFunctions)
 		{

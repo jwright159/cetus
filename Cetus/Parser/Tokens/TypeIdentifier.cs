@@ -91,5 +91,5 @@ public class TypeIdentifier : TypedValue, IToken
 	
 	public TypeIdentifier Pointer() => new("Pointer", this);
 	
-	public override string ToString() => $"{Name}{(InnerType is not null ? $"<{InnerType}>" : "")}";
+	public override string ToString() => $"{Name}{(InnerType is not null ? $"[{InnerType}]" : "")}";
 }

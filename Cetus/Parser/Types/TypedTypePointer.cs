@@ -14,5 +14,5 @@ public class TypedTypePointer : TypedTypeWithInnerType
 	public LLVMTypeRef LLVMType => LLVMTypeRef.CreatePointer(InnerType.LLVMType, 0);
 	public string Name => "Pointer";
 	public TypedType InnerType { get; set; }
-	public override string ToString() => Name;
+	public override string ToString() => $"{Name}[{InnerType}]";
 }
