@@ -1,18 +1,15 @@
 ﻿using Cetus.Parser.Types;
+using Cetus.Parser.Types.Program;
 using Cetus.Parser.Values;
 using LLVMSharp.Interop;
 
 namespace Cetus.Parser.Tokens;
 
-public class Closure : IToken, TypedValue, IHasIdentifiers
+public class Closure : IToken, TypedValue, IHazIdentifiers
 {
 	public List<TypedValue> Statements;
-	public IHasIdentifiers Base { get; private set; }
-	public IDictionary<string, TypedValue> Identifiers { get; private set; }
-	public ICollection<TypedTypeFunction> Functions { get; private set; }
-	public ICollection<TypedType> Types { get; private set; }
 	public List<TypedTypeFunction>? FinalizedFunctions { get; set; }
-	public ProgramContext Program { get; private set; }
+	public IHasIdentifiers IHasIdentifiers { get; set; }
 	public LLVMBasicBlockRef Block;
 	
 	public TypedType Type { get; }
@@ -48,11 +45,7 @@ public class Closure : IToken, TypedValue, IHasIdentifiers
 	
 	public void Parse(IHasIdentifiers context)
 	{
-		Base = context;
-		Identifiers = new NestedDictionary<string, TypedValue>(context.Identifiers);
-		Functions = new NestedCollection<TypedTypeFunction>(context.Functions);
-		Types = new NestedCollection<TypedType>(context.Types);
-		Program = context.Program;
+		IHasIdentifiers = new IdentifiersNest(context, CompilationPhase.Function);
 		
 		FunctionArgs args = new(new FunctionParameters([(Visitor.AnyFunctionCall.List(), "statements")], null));
 		IToken token = new TokenSplit(new LiteralToken("{"), new LiteralToken(";"), new LiteralToken("}"), new ParameterStatementToken("statements")).Contextualize(context, args, 0, Parser.ExpressionPriorityThreshold);
@@ -83,7 +76,7 @@ public class Closure : IToken, TypedValue, IHasIdentifiers
 		}
 		else if (typeHint is TypedTypeClosurePointer pointer)
 		{
-			Dictionary<string, TypedValue> uniqueClosureIdentifiers = ((NestedDictionary<string, TypedValue>)context.Identifiers).ThisDict;
+			IDictionary<string, TypedValue> uniqueClosureIdentifiers = ((NestedDictionary<string, TypedValue>)context.Identifiers).ThisDict;
 			TypedTypeStruct closureEnvType = new(LLVMTypeRef.CreateStruct(uniqueClosureIdentifiers.Values.Select(type => type.Type.LLVMType).ToArray(), false));
 			
 			TypedTypeFunction functionType = pointer.BlockType;
@@ -102,7 +95,7 @@ public class Closure : IToken, TypedValue, IHasIdentifiers
 				{
 					LLVMValueRef elementPtr = visitor.Builder.BuildStructGEP2(closureEnvType.LLVMType, closureEnvPtr, (uint)paramIndex++, name);
 					LLVMValueRef element = visitor.Builder.BuildLoad2(value.Type.LLVMType, elementPtr, name);
-					Identifiers.Add(name, new TypedValueValue(value.Type, element));
+					(this as IHasIdentifiers).Identifiers.Add(name, new TypedValueValue(value.Type, element));
 				}
 				
 				Statements.ForEach(statement => statement.Visit(this, null, visitor));

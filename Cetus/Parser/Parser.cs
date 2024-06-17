@@ -30,11 +30,13 @@ public partial class Parser(Lexer lexer)
 {
 	public const float ExpressionPriorityThreshold = 100;
 	
-	public ProgramContext Parse()
+	public Program Parse()
 	{
-		ProgramContext program = new();
-		program.Phases.Add(CompilationPhase.Program, new IdentifiersBase(program));
-		program.Phases.Add(CompilationPhase.Function, new IdentifiersNest(program.Phases[CompilationPhase.Program]));
+		Program program = new();
+		program.Contexts.Add(CompilationPhase.Program, new IdentifiersContext(program));
+		program.Contexts.Add(CompilationPhase.Struct, new IdentifiersContext(program));
+		program.Contexts.Add(CompilationPhase.Function, new IdentifiersContext(program));
+		program.IHasIdentifiers = new IdentifiersBase(program.Contexts[CompilationPhase.Program]);
 		
 		AddType(Visitor.VoidType);
 		AddType(Visitor.FloatType);
@@ -72,42 +74,43 @@ public partial class Parser(Lexer lexer)
 		
 		void AddType(TypedType type, string? name = null)
 		{
-			program.Phases[CompilationPhase.Program].Types.Add(type);
-			program.Phases[CompilationPhase.Program].Identifiers.Add(name ?? type.Name, new TypedValueType(type));
+			(program as IHasIdentifiers).Types.Add(type);
+			(program as IHasIdentifiers).Identifiers.Add(name ?? type.Name, new TypedValueType(type));
 		}
 		
 		void AddFunction(CompilationPhase context, TypedTypeFunction function)
 		{
-			program.Phases[context].Functions.Add(function);
-			program.Phases[context].Identifiers.Add(function.Name, new TypedValueType(function));
+			program.Contexts[context].Functions.Add(function);
+			program.Contexts[context].Identifiers.Add(function.Name, new TypedValueType(function));
 		}
 		
 		void AddValue(string name, TypedValue value)
 		{
-			program.Phases[CompilationPhase.Program].Identifiers.Add(name, value);
+			(program as IHasIdentifiers).Identifiers.Add(name, value);
 		}
 	}
 	
-	private void ParseProgram(ProgramContext program)
+	private void ParseProgram(Program program)
 	{
-		FunctionCall programCall = new(program.Phases[CompilationPhase.Program], 0, float.MaxValue);
+		FunctionCall programCall = new(program, 0, float.MaxValue);
 		Result result = lexer.Eat(programCall);
 		if (result is not Result.Ok)
 			throw new Exception("Parsing failed\n" + result);
 		if (programCall.FunctionType is not DefineProgram)
 			throw new Exception($"Parsed program is a {programCall.FunctionType}, not a program definition");
-		program.Call = (DefineProgramCall)programCall.Call(program.Phases[CompilationPhase.Program]);
-		program.Call.Parse(program.Phases[CompilationPhase.Program]);
+		program.Call = (DefineProgramCall)programCall.Call(program);
+		program.Call.Parse(program);
 	}
 	
-	private void TransformProgram(ProgramContext program)
+	private void TransformProgram(Program program)
 	{
-		program.Call.Transform(program.Phases[CompilationPhase.Program], null);
+		program.Call.Transform(program, null);
 	}
 }
 
 public enum CompilationPhase
 {
 	Program,
+	Struct,
 	Function,
 }

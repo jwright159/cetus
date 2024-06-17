@@ -1,4 +1,5 @@
 ﻿using Cetus.Parser.Tokens;
+using Cetus.Parser.Types.Program;
 using LLVMSharp.Interop;
 
 namespace Cetus.Parser.Types.Function;

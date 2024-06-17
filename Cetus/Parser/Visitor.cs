@@ -1,5 +1,6 @@
 ﻿using System.Diagnostics;
 using Cetus.Parser.Types;
+using Cetus.Parser.Types.Program;
 using Cetus.Parser.Values;
 using JetBrains.Annotations;
 using LLVMSharp.Interop;
@@ -42,7 +43,7 @@ public class Visitor
 		Builder = LLVMBuilderRef.Create(Module.Context);
 	}
 	
-	public void Visit(ProgramContext program)
+	public void Visit(Program program)
 	{
 		Console.WriteLine("Visiting...");
 		VisitProgram(program);
@@ -50,20 +51,20 @@ public class Visitor
 		Module.TryVerify(LLVMVerifierFailureAction.LLVMPrintMessageAction, out string _);
 	}
 	
-	private void VisitProgram(ProgramContext program)
+	private void VisitProgram(Program program)
 	{
-		program.Call.Visit(program.Phases[CompilationPhase.Program], null, this);
+		program.Call.Visit(program, null, this);
 	}
 	
 	[UsedImplicitly]
-	private void Printf(string message, ProgramContext program, params TypedValue[] args)
+	private void Printf(string message, Program program, params TypedValue[] args)
 	{
-		TypedValue function = program.Phases[CompilationPhase.Program].Identifiers["printf"];
+		TypedValue function = (program as IHasIdentifiers).Identifiers["printf"];
 		TypedTypeFunction functionType = (TypedTypeFunction)function.Type;
 		TypedValueValue messageValue = new(StringType, Builder.BuildGlobalStringPtr(message, "message"));
 		FunctionArgs functionArgs = new(functionType.Parameters);
 		functionArgs["args"] = new TypedValueCompiler<List<TypedValue>>(new TypedTypeCompilerValue().List(), args.Prepend(messageValue).ToList());
-		functionType.Call(program.Phases[CompilationPhase.Program], functionArgs);
+		functionType.Call(program, functionArgs);
 	}
 	
 	public void Optimize()
@@ -89,7 +90,7 @@ public class Visitor
 		Module.Dump();
 	}
 	
-	public void Compile(ProgramContext program, string filename = "main")
+	public void Compile(Program program, string filename = "main")
 	{
 		const string targetTriple = "x86_64-pc-windows-msvc";
 		LLVMTargetRef target = LLVMTargetRef.GetTargetFromTriple(targetTriple);

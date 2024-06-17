@@ -1,10 +1,11 @@
 ﻿using Cetus.Parser.Tokens;
 using Cetus.Parser.Types;
+using Cetus.Parser.Types.Program;
 using LLVMSharp.Interop;
 
 namespace Cetus.Parser;
 
-public class Getter(TypedType @struct, StructFieldContext field) : TypedTypeFunctionSimple
+public class Getter(TypedType @struct, StructField field) : TypedTypeFunctionSimple
 {
 	public override string Name => $"{@struct.Name}.Get_{field.Name}";
 	public override IToken Pattern { get; } = new TokenString([new ParameterExpressionToken(field.Name), new LiteralToken("."), new LiteralToken(field.Name)]);

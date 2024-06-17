@@ -10,7 +10,7 @@ public class DefineProgram : TypedTypeFunctionBase
 	public override IToken Pattern => new TokenSplit(new SOFToken(), new LiteralToken(";"), new EOFToken(), new ParameterStatementToken("statements"));
 	public override TypeIdentifier ReturnType => new(Visitor.VoidType);
 	public override FunctionParameters Parameters => new([(Visitor.AnyFunctionCall.List(), "statements")], null);
-	public override float Priority => 1000;
+	public override float Priority => 100;
 	
 	public override TypedValue Call(IHasIdentifiers context, FunctionArgs args)
 	{
@@ -45,4 +45,13 @@ public class DefineProgramCall(List<TypedValue> statements) : TypedValue
 	{
 		statements.ForEach(statement => statement.Visit(context, null, visitor));
 	}
+}
+
+public class Program : IHazIdentifiers
+{
+	public List<string> Libraries = [];
+	public Dictionary<CompilationPhase, IHasIdentifiers> Contexts = new();
+	public DefineProgramCall Call { get; set; }
+	public List<TypedTypeFunction>? FinalizedFunctions { get; set; }
+	public IHasIdentifiers IHasIdentifiers { get; set; }
 }

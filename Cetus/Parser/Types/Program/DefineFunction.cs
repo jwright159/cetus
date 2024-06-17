@@ -22,12 +22,12 @@ public class DefineFunction : TypedTypeFunctionBase
 		(Visitor.CompilerStringType, "varArgParameterName"),
 		(new TypedTypeCompilerClosure(Visitor.VoidType), "body"),
 	], null);
-	public override float Priority => 800;
+	public override float Priority => 80;
 	
 	public override TypedValue Call(IHasIdentifiers context, FunctionArgs args)
 	{
 		return new DefineFunctionCall(
-			context.Program.Phases[CompilationPhase.Function],
+			context,
 			((ValueIdentifier)args["name"]).Name,
 			(TypeIdentifier)args["returnType"],
 			new FunctionParameters(
@@ -37,7 +37,7 @@ public class DefineFunction : TypedTypeFunctionBase
 	}
 }
 
-public class DefineFunctionCall(IHasIdentifiers parent, string name, TypeIdentifier returnType, FunctionParameters parameters, Closure? body) : TypedValue, TypedTypeFunction, IHasIdentifiers
+public class DefineFunctionCall(IHasIdentifiers parent, string name, TypeIdentifier returnType, FunctionParameters parameters, Closure? body) : TypedValue, TypedTypeFunction, IHazIdentifiers
 {
 	public LLVMTypeRef LLVMType { get; }
 	public string Name => name;
@@ -49,12 +49,8 @@ public class DefineFunctionCall(IHasIdentifiers parent, string name, TypeIdentif
 	public TypedValue? Value { get; set; }
 	public IToken? Pattern { get; set; }
 	public Closure? Body => body;
-	public IHasIdentifiers Base => parent;
-	public IDictionary<string, TypedValue> Identifiers { get; } = new NestedDictionary<string, TypedValue>(parent.Identifiers);
-	public ICollection<TypedTypeFunction> Functions { get; } = new NestedCollection<TypedTypeFunction>(parent.Functions);
-	public ICollection<TypedType> Types { get; } = new NestedCollection<TypedType>(parent.Types);
 	public List<TypedTypeFunction>? FinalizedFunctions { get; set; }
-	public ProgramContext Program => parent.Program;
+	public IHasIdentifiers IHasIdentifiers { get; } = new IdentifiersNest(parent, CompilationPhase.Function);
 	
 	public void Parse(IHasIdentifiers context)
 	{
@@ -81,7 +77,7 @@ public class DefineFunctionCall(IHasIdentifiers parent, string name, TypeIdentif
 			TypedType parameterType = parameters.Parameters[i].Type.Type;
 			LLVMValueRef param = functionValue.GetParam((uint)i);
 			param.Name = parameterName;
-			Identifiers.Add(parameterName, new TypedValueValue(parameterType, param));
+			(this as IHasIdentifiers).Identifiers.Add(parameterName, new TypedValueValue(parameterType, param));
 		}
 		
 		if (body is not null)
@@ -99,4 +95,64 @@ public class DefineFunctionCall(IHasIdentifiers parent, string name, TypeIdentif
 	}
 	
 	public override string ToString() => $"{ReturnType} {Name}{Parameters}";
+}
+
+public class FunctionParameters
+{
+	public FunctionParameters(IEnumerable<FunctionParameter> parameters, FunctionParameter? varArg)
+	{
+		Parameters = parameters.ToList();
+		VarArg = varArg;
+	}
+	
+	public FunctionParameters(IEnumerable<(TypedType Type, string Name)> parameters, (TypedType Type, string Name)? varArg)
+	{
+		Parameters = parameters.Select(param => new FunctionParameter(new TypeIdentifier(param.Type), param.Name)).ToList();
+		VarArg = varArg is null ? null : new FunctionParameter(new TypeIdentifier(varArg.Value.Type), varArg.Value.Name);
+	}
+	
+	public List<FunctionParameter> Parameters;
+	public FunctionParameter? VarArg;
+	
+	public int Count => Parameters.Count;
+	
+	public IEnumerable<FunctionParameter> ParamsOfCount(int count)
+	{
+		if (VarArg is null)
+		{
+			if (count != Parameters.Count)
+				throw new ArgumentOutOfRangeException(nameof(count), $"Count must equal the number of parameters ({Parameters.Count})");
+			return Parameters;
+		}
+		else
+		{
+			if (count < Parameters.Count)
+				throw new ArgumentOutOfRangeException(nameof(count), $"Count must be greater than or equal to the number of parameters ({Parameters.Count})");
+			return Parameters.Concat(Enumerable.Repeat(VarArg, count - Parameters.Count));
+		}
+	}
+	
+	public IEnumerable<TReturn> ZipArgs<TReturn>(ICollection<TypedValue> arguments, Func<FunctionParameter, TypedValue, TReturn> zip)
+	{
+		return ParamsOfCount(arguments.Count).Zip(arguments, zip);
+	}
+	
+	public IEnumerable<(TypedType Type, string Name)> TupleParams => Parameters.Select(param => (param.Type.Type, param.Name));
+	
+	public void Transform(IHasIdentifiers context)
+	{
+		foreach (FunctionParameter parameter in Parameters)
+			parameter.Type.Transform(context, Visitor.TypeType);
+		VarArg?.Type.Transform(context, Visitor.TypeType);
+	}
+	
+	public override string ToString() => $"({string.Join(", ", Parameters)}{(VarArg is not null ? $", {VarArg.Type}... {VarArg.Name}" : "")})";
+}
+
+public class FunctionParameter(TypeIdentifier type, string name)
+{
+	public TypeIdentifier Type => type;
+	public string Name => name;
+	
+	public override string ToString() => $"{Type} {Name}";
 }
