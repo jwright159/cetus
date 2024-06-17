@@ -19,9 +19,10 @@ public class While : TypedTypeFunctionSimple
 	{
 		Expression condition = (Expression)args["condition"];
 		Closure body = (Closure)((Expression)args["body"]).ReturnValue;
+		body.BlockName = "whileBody";
 		
 		LLVMBasicBlockRef entryBlock = visitor.Builder.InsertBlock;
-		LLVMBasicBlockRef conditionBlock = entryBlock.Parent.AppendBasicBlock("condition");
+		LLVMBasicBlockRef conditionBlock = entryBlock.Parent.AppendBasicBlock("whileCondition");
 		condition.Visit(context, Parameters["condition"].Type, visitor);
 		body.Visit(context, Parameters["body"].Type, visitor);
 		LLVMBasicBlockRef mergeBlock =entryBlock.Parent.AppendBasicBlock("whileMerge");

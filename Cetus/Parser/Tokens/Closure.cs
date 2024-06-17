@@ -12,6 +12,8 @@ public class Closure : IToken, TypedValue, IHazIdentifiers
 	public IHasIdentifiers IHasIdentifiers { get; set; }
 	public LLVMBasicBlockRef Block;
 	
+	public string BlockName { get; set; } = "closureBlock";
+	
 	public TypedType Type { get; }
 	public LLVMValueRef LLVMValue { get; }
 	
@@ -67,7 +69,7 @@ public class Closure : IToken, TypedValue, IHazIdentifiers
 		if (typeHint is TypedTypeCompilerClosure)
 		{
 			LLVMBasicBlockRef originalBlock = visitor.Builder.InsertBlock;
-			Block = originalBlock.Parent.AppendBasicBlock("closureBlock");
+			Block = originalBlock.Parent.AppendBasicBlock(BlockName);
 			visitor.Builder.PositionAtEnd(Block);
 			
 			Statements.ForEach(statement => statement.Visit(this, null, visitor));
