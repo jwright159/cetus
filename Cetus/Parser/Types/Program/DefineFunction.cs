@@ -22,7 +22,7 @@ public class DefineFunction : TypedTypeFunctionBase
 		(Visitor.CompilerStringType, "varArgParameterName"),
 		(new TypedTypeCompilerClosure(Visitor.VoidType), "body"),
 	], null);
-	public override float Priority => 80;
+	public override float Priority => 90;
 	
 	public override TypedValue Call(IHasIdentifiers context, FunctionArgs args)
 	{

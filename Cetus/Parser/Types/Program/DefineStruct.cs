@@ -1,5 +1,6 @@
 ﻿using Cetus.Parser.Tokens;
 using Cetus.Parser.Types.Function;
+using Cetus.Parser.Types.Struct;
 using Cetus.Parser.Values;
 using LLVMSharp.Interop;
 
@@ -8,59 +9,59 @@ namespace Cetus.Parser.Types.Program;
 public class DefineStruct : TypedTypeFunctionBase
 {
 	public override string Name => "DefineStruct";
-	public override IToken Pattern => new TokenString([new ParameterValueToken("name"), new TokenSplit(new LiteralToken("{"), new LiteralToken(";"), new LiteralToken("}"), new TokenOptions([
-		new ParameterStatementToken("functions"),
-		new TokenString([new ParameterTypeToken("fieldTypes"), new ParameterValueToken("fieldNames")]),
-	]))]);
+	public override IToken Pattern => new TokenString([new ParameterValueToken("name"), new ParameterExpressionToken("body")]);
 	public override TypeIdentifier ReturnType => new(Visitor.VoidType);
 	public override FunctionParameters Parameters => new([
 		(Visitor.CompilerStringType, "name"),
-		(Visitor.AnyFunctionType.List(), "functions"),
-		(Visitor.TypeIdentifierType.List(), "fieldTypes"),
-		(Visitor.CompilerStringType.List(), "fieldNames"),
+		(new TypedTypeCompilerClosure(Visitor.VoidType), "body"),
 	], null);
-	public override float Priority => 90;
+	public override float Priority => 80;
 	
 	public override TypedValue Call(IHasIdentifiers context, FunctionArgs args)
 	{
 		return new DefineStructCall(
 			context,
 			((ValueIdentifier)args["name"]).Name,
-			((TypedValueCompiler<List<TypeIdentifier>>)args["fieldTypes"]).CompilerValue.Zip(((TypedValueCompiler<List<ValueIdentifier>>)args["fieldNames"]).CompilerValue, (type, name) => (type, name.Name)).ToList(),
-			((TypedValueCompiler<List<FunctionCall>>)args["functions"]).CompilerValue);
+			(Closure)((Expression)args["body"]).ReturnValue);
 	}
 }
 
-public class DefineStructCall(IHasIdentifiers parent, string name, List<(TypeIdentifier Type, string Name)> fields, List<FunctionCall> functionCalls) : TypedValue, TypedType, IHazIdentifiers
+public class DefineStructCall(IHasIdentifiers parent, string name, Closure body) : TypedValue, TypedType, IHazIdentifiers
 {
 	public string Name => name;
 	public TypedType Type { get; } = new TypedTypeStruct(LLVMContextRef.Global.CreateNamedStruct(name));
 	public LLVMValueRef LLVMValue => Visitor.Void.LLVMValue;
 	public LLVMTypeRef LLVMType => Type.LLVMType;
-	public List<StructField> Fields = [];
 	public List<TypedTypeFunction>? FinalizedFunctions { get; set; }
 	public IHasIdentifiers IHasIdentifiers { get; } = new IdentifiersNest(parent, CompilationPhase.Struct);
-	private List<DefineFunctionCall> thisFunctions;
 	public Dictionary<DefineFunctionCall, LateCompilerFunctionContext> FunctionGetters = new();
 	public Dictionary<DefineFunctionCall, LateCompilerFunctionContext> FunctionCallers = new();
+	public List<StructField> Fields { get; private set; }
+	public List<DefineFunctionCall> Functions { get; private set; }
 	
 	public void Parse(IHasIdentifiers context)
 	{
 		context.Types.Add(this);
 		context.Identifiers.Add(Name, new TypedValueType(Type));
 		
-		foreach ((TypeIdentifier fieldType, string fieldName) in fields)
-		{
-			StructField field = new(fieldType, fieldName, (uint)Fields.Count);
-			field.Parse(context);
-			Fields.Add(field);
-		}
+		body.Parse(this);
 		
-		thisFunctions = functionCalls.Select(functionCall => (DefineFunctionCall)functionCall.Call(this)).ToList();
-		foreach (DefineFunctionCall function in thisFunctions)
+		uint fieldIndex = 0;
+		Fields = body.Statements
+			.OfType<StructField>()
+			.Select(field =>
+			{
+				field.Index = fieldIndex++;
+				return field;
+			})
+			.ToList();
+		
+		Functions = body.Statements
+			.OfType<DefineFunctionCall>()
+			.ToList();
+		
+		foreach (DefineFunctionCall function in Functions)
 		{
-			function.Parse(this);
-			
 			{
 				LateCompilerFunctionContext getterFunction = new(
 					new TypeIdentifier($"{Name}.{function.Name}"),
@@ -88,17 +89,16 @@ public class DefineStructCall(IHasIdentifiers parent, string name, List<(TypeIde
 	
 	public void Transform(IHasIdentifiers context, TypedType? typeHint)
 	{
+		body.Transform(this, null);
+		
 		foreach (StructField field in Fields)
 		{
-			field.Transform(this, null);
 			field.Getter = new Getter(this, field);
 			(this as IHasIdentifiers).Functions.Add(field.Getter);
 		}
 		
-		foreach (DefineFunctionCall function in thisFunctions)
+		foreach (DefineFunctionCall function in Functions)
 		{
-			function.Transform(this, null);
-			
 			if (FunctionGetters.TryGetValue(function, out LateCompilerFunctionContext? getterFunction))
 				getterFunction.Type = new MethodGetter(this, function);
 			
@@ -114,36 +114,9 @@ public class DefineStructCall(IHasIdentifiers parent, string name, List<(TypeIde
 		
 		Type.LLVMType.StructSetBody(Fields.Select(field => field.Type.LLVMType).ToArray(), false);
 		
-		foreach (DefineFunctionCall function in thisFunctions)
+		foreach (DefineFunctionCall function in Functions)
 			function.Visit(this, null, visitor);
 	}
 	
 	public override string ToString() => Name;
-}
-
-public class StructField(TypeIdentifier type, string name, uint index) : TypedValue
-{
-	public string Name => name;
-	public TypedType Type => TypeIdentifier.Type;
-	public LLVMValueRef LLVMValue => throw new Exception("StructField does not have an LLVMValue");
-	public TypeIdentifier TypeIdentifier => type;
-	public Getter Getter;
-	public uint Index => index;
-	
-	public void Parse(IHasIdentifiers context)
-	{
-		TypeIdentifier.Parse(context);
-	}
-	
-	public void Transform(IHasIdentifiers context, TypedType? typeHint)
-	{
-		TypeIdentifier.Transform(context, typeHint);
-	}
-	
-	public void Visit(IHasIdentifiers context, TypedType? typeHint, Visitor visitor)
-	{
-		TypeIdentifier.Visit(context, null, visitor);
-	}
-	
-	public override string ToString() => $"{Type} {Name}";
 }

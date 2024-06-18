@@ -2,6 +2,7 @@
 using Cetus.Parser.Types;
 using Cetus.Parser.Types.Function;
 using Cetus.Parser.Types.Program;
+using Cetus.Parser.Types.Struct;
 using Cetus.Parser.Values;
 using LLVMSharp.Interop;
 
@@ -51,13 +52,13 @@ public partial class Parser(Lexer lexer)
 		AddFunction(CompilationPhase.Program, new DefineStruct());
 		AddFunction(CompilationPhase.Program, new DefineFunction());
 		
-		AddFunction(CompilationPhase.Struct, new Declare());
+		AddFunction(CompilationPhase.Struct, new DeclareField());
 		AddFunction(CompilationPhase.Struct, new DefineFunction());
 		
 		AddFunction(CompilationPhase.Function, new Declare());
 		AddFunction(CompilationPhase.Function, new Define());
 		AddFunction(CompilationPhase.Function, new Assign());
-		AddFunction(CompilationPhase.Function, new Types.Function.Return());
+		AddFunction(CompilationPhase.Function, new Return());
 		AddFunction(CompilationPhase.Function, new Add());
 		AddFunction(CompilationPhase.Function, new LessThan());
 		AddFunction(CompilationPhase.Function, new While());

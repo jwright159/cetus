@@ -1,6 +1,7 @@
 ﻿using Cetus.Parser.Tokens;
 using Cetus.Parser.Types;
 using Cetus.Parser.Types.Program;
+using Cetus.Parser.Types.Struct;
 using LLVMSharp.Interop;
 
 namespace Cetus.Parser;
