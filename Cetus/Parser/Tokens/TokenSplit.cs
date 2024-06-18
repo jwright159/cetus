@@ -20,72 +20,83 @@ public class TokenSplit(IToken start, IToken delim, IToken end, IToken token) : 
 		bool lookingForDelim = false; // If false, looking for token
 		while (true)
 		{
-			// Start by checking for the end
+			if (TryEnd())
+				break;
+			
+			if (!lookingForDelim)
+				TryToken();
+			
+			else if (!TryDelim() && SkipToDelimOrEnd())
+				break;
+		}
+		
+		return Result.WrapPassable($"Expected token split \"{this}\"", results.ToArray());
+		
+		
+		bool TryEnd()
+		{
 			Result endResult = lexer.Eat(end);
 			if (endResult is Result.Passable)
 			{
 				results.Add(endResult);
-				break;
+				return true;
 			}
-			
-			// If we're looking for a token, start with that
+			return false;
+		}
+		
+		bool TryToken()
+		{
 			// Doesn't matter if it fails or not, we'll just go to the next delim or end
-			if (!lookingForDelim)
-			{
-				Result tokenResult = lexer.Eat(token);
-				results.Add(tokenResult);
-				lookingForDelim = true;
-				continue;
-			}
-			
-			// Otherwise, if we're looking for a delimiter, do that instead
+			lookingForDelim = true;
+			Result tokenResult = lexer.Eat(token);
+			results.Add(tokenResult);
+			return true;
+		}
+		
+		bool TryDelim()
+		{
 			lookingForDelim = false;
 			Result delimResult = lexer.Eat(delim);
 			if (delimResult is Result.Passable)
 			{
 				results.Add(delimResult);
-				continue;
+				return true;
 			}
-			
-			// Oops, didn't find a delim, skip ahead to the next delim or end
+			return false;
+		}
+		
+		// If true, found end
+		bool SkipToDelimOrEnd()
+		{
 			int skipStartIndex = lexer.Index;
 			int skipStartLine = lexer.Line;
 			int skipStartColumn = lexer.Column;
-			bool shouldBreak = false;
-			bool shouldContinue = false;
 			while (!lexer.IsAtEnd)
 			{
 				int skipEndLine = lexer.Line;
 				int skipEndColumn = lexer.Column;
 				
-				delimResult = lexer.Eat(delim);
+				Result delimResult = lexer.Eat(delim);
 				if (delimResult is Result.Passable)
 				{
 					results.Add(new Result.TokenRuleFailed($"Skipped to delimeter {delim} at {skipEndLine}:{skipEndColumn}", skipStartLine, skipStartColumn));
-					shouldContinue = true;
-					break;
+					return false;
 				}
 				
-				endResult = lexer.Eat(end);
+				Result endResult = lexer.Eat(end);
 				if (endResult is Result.Passable)
 				{
 					results.Add(new Result.TokenRuleFailed($"Skipped to end token {end} at {skipEndLine}:{skipEndColumn}", skipStartLine, skipStartColumn));
-					shouldBreak = true;
-					break;
+					return true;
 				}
 				
 				if (!lexer.EatAnyMatches())
 					lexer.Index++;
 			}
 			
-			if (shouldBreak) break;
-			if (shouldContinue) continue;
-			
 			results.Add(new Result.TokenRuleFailed($"Expected delimiter or end, found {lexer[skipStartIndex]}, skipped to EOF", skipStartLine, skipStartColumn));
-			break;
+			return true;
 		}
-		
-		return Result.WrapPassable($"Expected token split \"{this}\"", results.ToArray());
 	}
 	
 	public IToken Contextualize(IHasIdentifiers context, FunctionArgs arguments, int order) =>
