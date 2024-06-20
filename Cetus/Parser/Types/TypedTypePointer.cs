@@ -17,7 +17,17 @@ public class TypedTypePointer : TypedTypeWithPattern
 	public IToken Pattern => new TokenString([new LiteralToken("&"), new ParameterTypeToken("innerType")]);
 	public float Priority => 10;
 	public TypeParameters TypeParameters => new(["innerType"]);
-	public TypedType InnerType { get; }
+	private TypedType innerType;
+	public TypedType InnerType
+	{
+		get => innerType;
+		set
+		{
+			if (innerType is TypedTypePointer)
+				throw new Exception("Cannot have a pointer to a pointer");
+			innerType = value;
+		}
+	}
 	public override string ToString() => $"{Name}[{InnerType}]";
 	
 	public TypedType Call(IHasIdentifiers context, TypeArgs args)
