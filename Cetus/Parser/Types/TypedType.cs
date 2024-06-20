@@ -1,4 +1,5 @@
-﻿using Cetus.Parser.Values;
+﻿using Cetus.Parser.Tokens;
+using Cetus.Parser.Values;
 using LLVMSharp.Interop;
 
 namespace Cetus.Parser.Types;
@@ -9,9 +10,13 @@ public interface TypedType
 	public string Name { get; }
 }
 
-public interface TypedTypeWithInnerType : TypedType
+public interface TypedTypeWithPattern : TypedType
 {
-	public TypedType? InnerType { get; set; }
+	public IToken Pattern { get; }
+	public float Priority { get; }
+	public TypeParameters TypeParameters { get; }
+	
+	public TypedType Call(IHasIdentifiers context, TypeArgs args);
 }
 
 public static class TypedTypeExtensions
@@ -76,4 +81,95 @@ public static class TypedTypeExtensions
 	}
 	
 	public static TypedTypeCompilerList<T> List<T>(this T type) where T : TypedType => new(type);
+	
+	public static TypeIdentifierBase Id(this TypedType type) => new(type);
+}
+
+public class TypeParameters
+{
+	public TypeParameters(IEnumerable<TypeParameter> parameters)
+	{
+		Parameters = parameters.ToList();
+	}
+	
+	public TypeParameters(IEnumerable<string> parameters)
+	{
+		Parameters = parameters.Select(param => new TypeParameter(param)).ToList();
+	}
+	
+	public List<TypeParameter> Parameters;
+	
+	public int Count => Parameters.Count;
+	
+	public override string ToString() => $"({string.Join(", ", Parameters)})";
+}
+
+public class TypeParameter(string name)
+{
+	public string Name => name;
+	
+	public override string ToString() => $"{Name}";
+}
+
+public class TypeArgs : Args
+{
+	public List<string> Keys = [];
+	private Dictionary<string, TypeIdentifier?> args = new();
+	
+	public TypeArgs(TypeParameters parameters)
+	{
+		foreach (TypeParameter param in parameters.Parameters)
+		{
+			Keys.Add(param.Name);
+			args.Add(param.Name, null);
+		}
+	}
+	
+	public TypeArgs(TypeParameters parameters, IList<TypeIdentifier> arguments)
+	{
+		int i = 0;
+		for (; i < parameters.Parameters.Count; i++)
+		{
+			TypeParameter param = parameters.Parameters[i];
+			TypeIdentifier arg = arguments[i];
+			Keys.Add(param.Name);
+			args.Add(param.Name, arg);
+		}
+	}
+	
+	public TypedValue this[string key]
+	{
+		get
+		{
+			if (!args.TryGetValue(key, out TypeIdentifier? arg))
+				throw new KeyNotFoundException($"Argument {key} does not exist");
+			return arg;
+		}
+		set
+		{
+			if (!args.TryGetValue(key, out TypeIdentifier? arg))
+				throw new KeyNotFoundException($"Argument {key} does not exist");
+			args[key] = (TypeIdentifier)value;
+		}
+	}
+	
+	public void Parse(IHasIdentifiers context)
+	{
+		foreach (TypeIdentifier arg in args.Values)
+			arg?.Parse(context);
+	}
+	
+	public void Transform(IHasIdentifiers context)
+	{
+		foreach (TypeIdentifier arg in args.Values)
+			arg?.Transform(context, null);
+	}
+	
+	public void Visit(IHasIdentifiers context, Visitor visitor)
+	{
+		foreach (TypeIdentifier arg in args.Values)
+			arg?.Visit(context, null, visitor);
+	}
+	
+	public override string ToString() => "(\n\t" + string.Join(",\n", args.Select(arg => $"{arg.Key}: {arg.Value}")).Replace("\n", "\n\t") + "\n)";
 }

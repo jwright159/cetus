@@ -9,12 +9,12 @@ public class ParameterExpressionToken(string name, bool resetOrder = false) : IT
 		throw new InvalidOperationException("Parameter token was not contextualized");
 	}
 	
-	public IToken Contextualize(IHasIdentifiers context, FunctionArgs arguments, int order) => new ParameterExpressionTokenContextualized(name, context, arguments, resetOrder ? 0 : order);
+	public IToken Contextualize(IHasIdentifiers context, Args arguments, int order) => new ParameterExpressionTokenContextualized(name, context, arguments, resetOrder ? 0 : order);
 	
 	public override string ToString() => $"${name}";
 }
 
-public class ParameterExpressionTokenContextualized(string name, IHasIdentifiers context, FunctionArgs arguments, int order) : IToken
+public class ParameterExpressionTokenContextualized(string name, IHasIdentifiers context, Args arguments, int order) : IToken
 {
 	public Result Eat(Lexer lexer)
 	{

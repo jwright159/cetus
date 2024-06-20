@@ -1,5 +1,4 @@
 ﻿using Cetus.Parser.Tokens;
-using Cetus.Parser.Types.Program;
 using Cetus.Parser.Values;
 using LLVMSharp.Interop;
 
@@ -67,7 +66,87 @@ public abstract class TypedTypeFunctionSimple : TypedTypeFunctionBase
 	}
 }
 
-public class FunctionArgs
+public class FunctionParameters
+{
+	public FunctionParameters(IEnumerable<FunctionParameter> parameters, FunctionParameter? varArg)
+	{
+		Parameters = parameters.ToList();
+		VarArg = varArg;
+	}
+	
+	public FunctionParameters(IEnumerable<(TypedType Type, string Name)> parameters, (TypedType Type, string Name)? varArg = null)
+	{
+		Parameters = parameters.Select(param => new FunctionParameter(param.Type.Id(), param.Name)).ToList();
+		VarArg = varArg is null ? null : new FunctionParameter(varArg.Value.Type.Id(), varArg.Value.Name);
+	}
+	
+	public List<FunctionParameter> Parameters;
+	public FunctionParameter? VarArg;
+	
+	public int Count => Parameters.Count;
+	
+	public IEnumerable<FunctionParameter> ParamsOfCount(int count)
+	{
+		if (VarArg is null)
+		{
+			if (count != Parameters.Count)
+				throw new ArgumentOutOfRangeException(nameof(count), $"Count must equal the number of parameters ({Parameters.Count})");
+			return Parameters;
+		}
+		else
+		{
+			if (count < Parameters.Count)
+				throw new ArgumentOutOfRangeException(nameof(count), $"Count must be greater than or equal to the number of parameters ({Parameters.Count})");
+			return Parameters.Concat(Enumerable.Repeat(VarArg, count - Parameters.Count));
+		}
+	}
+	
+	public IEnumerable<TReturn> ZipArgs<TReturn>(ICollection<TypedValue> arguments, Func<FunctionParameter, TypedValue, TReturn> zip)
+	{
+		return ParamsOfCount(arguments.Count).Zip(arguments, zip);
+	}
+	
+	public IEnumerable<(TypedType Type, string Name)> TupleParams => Parameters.Select(param => (param.Type.Type, param.Name));
+	
+	public void Transform(IHasIdentifiers context)
+	{
+		foreach (FunctionParameter parameter in Parameters)
+			parameter.Type.Transform(context, Visitor.TypeType);
+		VarArg?.Type.Transform(context, Visitor.TypeType);
+	}
+	
+	public TypeIdentifier this[string name]
+	{
+		get
+		{
+			FunctionParameter? parameter = Parameters.FirstOrDefault(param => param.Name == name);
+			if (parameter is not null)
+				return parameter.Type;
+			
+			if (VarArg is not null && VarArg.Name == name)
+				return VarArg.Type;
+			
+			throw new KeyNotFoundException($"Parameter {name} does not exist");
+		}
+	}
+	
+	public override string ToString() => $"({string.Join(", ", Parameters)}{(VarArg is not null ? $", {VarArg.Type}... {VarArg.Name}" : "")})";
+}
+
+public class FunctionParameter(TypeIdentifier type, string name)
+{
+	public TypeIdentifier Type => type;
+	public string Name => name;
+	
+	public override string ToString() => $"{Type} {Name}";
+}
+
+public interface Args
+{
+	public TypedValue this[string key] { get; set; }
+}
+
+public class FunctionArgs : Args
 {
 	public List<string> Keys = [];
 	private Dictionary<string, (TypeIdentifier Type, TypedValue? Value)> args = new();
@@ -84,7 +163,7 @@ public class FunctionArgs
 			FunctionParameter param = parameters.VarArg;
 			TypedType varArgType = new TypedTypeCompilerList<TypedTypeCompilerAnyValue>(Visitor.AnyValueType);
 			Keys.Add(param.Name);
-			args.Add(param.Name, (new TypeIdentifier(varArgType), null));
+			args.Add(param.Name, (varArgType.Id(), null));
 		}
 	}
 	
@@ -103,7 +182,7 @@ public class FunctionArgs
 			FunctionParameter param = parameters.VarArg;
 			TypedType varArgType = new TypedTypeCompilerList<TypedTypeCompilerAnyValue>(Visitor.AnyValueType);
 			Keys.Add(param.Name);
-			args.Add(param.Name, (new TypeIdentifier(varArgType), new TypedValueCompiler<List<TypedValue>>(varArgType, arguments.Skip(i).ToList())));
+			args.Add(param.Name, (varArgType.Id(), new TypedValueCompiler<List<TypedValue>>(varArgType, arguments.Skip(i).ToList())));
 		}
 	}
 	

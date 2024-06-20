@@ -1,5 +1,4 @@
 ﻿using Cetus.Parser.Types;
-using Cetus.Parser.Types.Program;
 using Cetus.Parser.Values;
 using LLVMSharp.Interop;
 
@@ -9,6 +8,7 @@ public class Closure : IToken, TypedValue, IHazIdentifiers
 {
 	public List<TypedValue> Statements;
 	public List<TypedTypeFunction>? FinalizedFunctions { get; set; }
+	public List<TypedTypeWithPattern>? FinalizedTypes { get; set; }
 	public IHasIdentifiers IHasIdentifiers { get; set; }
 	public LLVMBasicBlockRef Block;
 	

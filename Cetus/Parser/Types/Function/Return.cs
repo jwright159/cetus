@@ -9,7 +9,7 @@ public class Return : TypedTypeFunctionSimple
 {
 	public override string Name => "Return";
 	public override IToken Pattern => new TokenString([new LiteralToken("Return"), new TokenOptional(new ParameterExpressionToken("value"))]);
-	public override TypeIdentifier ReturnType => new(Visitor.VoidType);
+	public override TypeIdentifier ReturnType => Visitor.VoidType.Id();
 	public override FunctionParameters Parameters => new([(Visitor.AnyValueType, "value")], null);
 	public override float Priority => 100;
 	

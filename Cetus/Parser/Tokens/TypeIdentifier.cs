@@ -1,51 +1,24 @@
 ﻿using Cetus.Parser.Tokens;
 using Cetus.Parser.Types;
 using Cetus.Parser.Types.Function;
-using Cetus.Parser.Types.Program;
 using Cetus.Parser.Values;
 using LLVMSharp.Interop;
 
 namespace Cetus.Parser;
 
-public class TypeIdentifier : TypedValue, IToken
+public interface TypeIdentifier : TypedValue
 {
-	public string Name { get; private set; }
-	public TypedType? Type { get; private set; }
-	public LLVMValueRef LLVMValue => throw new Exception("TypeIdentifier does not have an LLVMValue");
-	public TypeIdentifier? InnerType { get; private set; }
-	
-	public TypeIdentifier() { }
-	
-	public TypeIdentifier(string name, TypeIdentifier? innerType = null)
-	{
-		Name = name;
-		InnerType = innerType;
-	}
-	
-	public TypeIdentifier(TypedType type) : this(type.Name, type is TypedTypeWithInnerType { InnerType: not null } withInnerType ? new TypeIdentifier(withInnerType.InnerType) : null)
-	{
-		Type = type;
-	}
-	
-	public Result Eat(Lexer lexer)
-	{
-		List<Result> results = [];
-		
-		Result nameResult = lexer.Eat(out Word name);
-		results.Add(nameResult);
-		if (nameResult is Result.Passable)
-			Name = name.Value;
-		
-		// This sucks! Implement type patterns
-		if (lexer.Eat(new LiteralToken("[")) is Result.Passable)
-		{
-			results.Add(lexer.Eat(out TypeIdentifier innerType));
-			InnerType = innerType;
-			results.Add(lexer.Eat(new LiteralToken("]")));
-		}
-		
-		return Result.WrapPassable("Invalid type identifier", results.ToArray());
-	}
+	LLVMValueRef TypedValue.LLVMValue => throw new Exception("TypeIdentifier does not have an LLVMValue");
+}
+
+public static class TypeIdentifierExtensions
+{
+	public static TypeIdentifier Pointer(this TypeIdentifier identifier) => TypeIdentifierCall.Pointer(identifier);
+}
+
+public class TypeIdentifierBase(TypedType type) : TypeIdentifier
+{
+	public TypedType Type => type;
 	
 	public void Parse(IHasIdentifiers context)
 	{
@@ -54,20 +27,102 @@ public class TypeIdentifier : TypedValue, IToken
 	
 	public void Transform(IHasIdentifiers context, TypedType? typeHint)
 	{
-		InnerType?.Transform(context, null);
 		
+	}
+	
+	public void Visit(IHasIdentifiers context, TypedType? typeHint, Visitor visitor)
+	{
+		
+	}
+}
+
+public class TypeIdentifierCall(IHasIdentifiers parent, int order) : TypeIdentifier, IToken
+{
+	public TypedType? Type { get; private set; }
+	public TypedTypeWithPattern MatchedType { get; private set; }
+	public TypeArgs Arguments { get; private set; }
+	
+	public Result Eat(Lexer lexer)
+	{
+		int startIndex = lexer.Index;
+		
+		foreach (TypedTypeWithPattern type in parent.GetFinalizedTypes().Skip(order))
+		{
+			order++;
+			IToken token = type.Pattern;
+			TypeArgs arguments = new(type.TypeParameters);
+			
+			Result result = lexer.Eat(token.Contextualize(parent, arguments, order));
+			if (result is not Result.Passable)
+			{
+				lexer.Index = startIndex;
+				continue;
+			}
+			
+			Arguments = arguments;
+			MatchedType = type;
+			
+			return result;
+		}
+		
+		return new Result.TokenRuleFailed("Expected function call", lexer, startIndex);
+	}
+	
+	public void Parse(IHasIdentifiers context)
+	{
+		Arguments.Parse(context);
+	}
+	
+	public void Transform(IHasIdentifiers context, TypedType? typeHint)
+	{
+		if (Type is not null)
+			return;
+		
+		Arguments.Transform(context);
+		Type = MatchedType.Call(context, Arguments);
+	}
+	
+	public void Visit(IHasIdentifiers context, TypedType? typeHint, Visitor visitor)
+	{
+		Arguments.Visit(context, visitor);
+	}
+	
+	public static TypeIdentifierCall Pointer(TypeIdentifier identifier)
+	{
+		TypeIdentifierCall call = new(null, 0);
+		call.MatchedType = new TypedTypePointer();
+		call.Arguments = new TypeArgs(new TypeParameters(["innerType"]));
+		call.Arguments["innerType"] = identifier;
+		return call;
+	}
+	
+	public override string ToString() => $"{MatchedType.Name}{Arguments}";
+}
+
+public class TypeIdentifierName(string name) : TypeIdentifier
+{
+	public string Name => name;
+	public TypedType? Type { get; private set; }
+	
+	public void Parse(IHasIdentifiers context)
+	{
+		
+	}
+	
+	public void Transform(IHasIdentifiers context, TypedType? typeHint)
+	{
 		if (Type is not null)
 			return;
 		
 		if (Name == "Closure")
 		{
-			DefinedFunctionCall functionType = new("block", this, InnerType ?? new TypeIdentifier(Visitor.VoidType), new FunctionParameters([(new TypedTypePointer(new TypedTypeChar()), "data")], null));
+			DefinedFunctionCall functionType = new("block", this, Visitor.VoidType.Id(), new FunctionParameters([(new TypedTypePointer(new TypedTypeChar()), "data")], null));
 			TypedTypeStruct closureStructType = new(LLVMTypeRef.CreateStruct([LLVMTypeRef.CreatePointer(functionType.LLVMType, 0), LLVMTypeRef.CreatePointer(LLVMTypeRef.Int8, 0)], false));
 			Type = new TypedTypeClosurePointer(closureStructType, functionType);
 		}
 		else if (Name == "CompilerClosure")
 		{
-			Type = new TypedTypeCompilerClosure(InnerType?.Type ?? Visitor.VoidType);
+			Type = new TypedTypeCompilerClosure(Visitor.VoidType);
 		}
 		else
 		{
@@ -79,12 +134,6 @@ public class TypeIdentifier : TypedValue, IToken
 			
 			Type = value.Type;
 		}
-		
-		if (InnerType is not null)
-		{
-			// Super not correct lol
-			Type = new TypedTypePointer(InnerType.Type);
-		}
 	}
 	
 	public void Visit(IHasIdentifiers context, TypedType? typeHint, Visitor visitor)
@@ -92,7 +141,5 @@ public class TypeIdentifier : TypedValue, IToken
 		
 	}
 	
-	public TypeIdentifier Pointer() => new("Pointer", this);
-	
-	public override string ToString() => $"{Name}{(InnerType is not null ? $"[{InnerType}]" : "")}";
+	public override string ToString() => $"{Name}";
 }

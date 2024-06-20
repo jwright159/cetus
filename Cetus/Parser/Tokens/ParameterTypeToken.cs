@@ -9,19 +9,29 @@ public class ParameterTypeToken(string name) : IToken
 		throw new InvalidOperationException("Parameter token was not contextualized");
 	}
 	
-	public IToken Contextualize(IHasIdentifiers context, FunctionArgs arguments, int order) => new ParameterTypeTokenContextualized(name, arguments);
+	public IToken Contextualize(IHasIdentifiers context, Args arguments, int order) => new ParameterTypeTokenContextualized(name, context, arguments);
 	
 	public override string ToString() => $"${name}";
 }
 
-public class ParameterTypeTokenContextualized(string name, FunctionArgs arguments) : IToken
+public class ParameterTypeTokenContextualized(string name, IHasIdentifiers context, Args arguments) : IToken
 {
 	public Result Eat(Lexer lexer)
 	{
-		Result valueResult = lexer.Eat(out TypeIdentifier value);
-		if (valueResult is Result.Passable)
-			arguments[name] = value;
-		return valueResult;
+		TypeIdentifierCall call = new(context, 0);
+		if (lexer.Eat(call) is Result.Passable callResult)
+		{
+			arguments[name] = call;
+			return callResult;
+		}
+		
+		if (lexer.Eat(out ValueIdentifier nameId) is Result.Passable nameResult)
+		{
+			arguments[name] = new TypeIdentifierName(nameId.Name);
+			return nameResult;
+		}
+		
+		return new Result.TokenRuleFailed("Expreted type identifier", lexer);
 	}
 	
 	public override string ToString() => $"${name}";

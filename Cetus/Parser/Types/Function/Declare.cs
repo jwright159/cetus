@@ -1,5 +1,4 @@
 ﻿using Cetus.Parser.Tokens;
-using Cetus.Parser.Types.Program;
 using Cetus.Parser.Values;
 using LLVMSharp.Interop;
 
@@ -9,7 +8,7 @@ public class Declare : TypedTypeFunctionSimple
 {
 	public override string Name => "Declare";
 	public override IToken Pattern => new TokenString([new ParameterTypeToken("type"), new ParameterValueToken("name")]);
-	public override TypeIdentifier ReturnType => new(Visitor.VoidType);
+	public override TypeIdentifier ReturnType => Visitor.VoidType.Id();
 	public override FunctionParameters Parameters => new([(Visitor.TypeType, "type"), (Visitor.CompilerStringType, "name")], null);
 	public override float Priority => 99;
 	

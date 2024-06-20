@@ -1,5 +1,4 @@
 ﻿using Cetus.Parser.Tokens;
-using Cetus.Parser.Types.Program;
 using Cetus.Parser.Values;
 using LLVMSharp.Interop;
 
@@ -9,7 +8,7 @@ public class MethodCaller(TypedType @struct, TypedTypeFunction calledFunction) :
 {
 	public override string Name => $"{@struct.Name}.Call_{calledFunction.Name}";
 	public override IToken? Pattern => null;
-	public override TypeIdentifier ReturnType => new(new Lambda(calledFunction, null, null));
+	public override TypeIdentifier ReturnType => new Lambda(calledFunction, null, null).Id();
 	public override FunctionParameters Parameters => new([(@struct, "value")], null);
 	public override float Priority => 0;
 	

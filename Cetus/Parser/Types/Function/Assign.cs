@@ -1,5 +1,4 @@
 ﻿using Cetus.Parser.Tokens;
-using Cetus.Parser.Types.Program;
 using LLVMSharp.Interop;
 
 namespace Cetus.Parser.Types.Function;
@@ -8,7 +7,7 @@ public class Assign : TypedTypeFunctionSimple
 {
 	public override string Name => "Assign";
 	public override IToken Pattern => new TokenString([new ParameterExpressionToken("target"), new LiteralToken("="), new ParameterExpressionToken("value")]);
-	public override TypeIdentifier ReturnType => new(Visitor.VoidType);
+	public override TypeIdentifier ReturnType => Visitor.VoidType.Id();
 	public override FunctionParameters Parameters => new([(Visitor.IntType.Pointer(), "target"), (Visitor.IntType, "value")], null);
 	public override float Priority => 100;
 	

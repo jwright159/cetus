@@ -11,6 +11,7 @@ public interface IHasIdentifiers
 	public NestedCollection<TypedTypeFunction> Functions { get; }
 	public NestedCollection<TypedType> Types { get; }
 	public List<TypedTypeFunction>? FinalizedFunctions { get; set; }
+	public List<TypedTypeWithPattern>? FinalizedTypes { get; set; }
 	public Program Program { get; }
 }
 
@@ -31,6 +32,7 @@ public class IdentifiersContext(Program program) : IHasIdentifiers
 	public NestedCollection<TypedTypeFunction> Functions { get; } = [];
 	public NestedCollection<TypedType> Types { get; } = [];
 	public List<TypedTypeFunction>? FinalizedFunctions { get; set; }
+	public List<TypedTypeWithPattern>? FinalizedTypes { get; set; }
 	public Program Program => program;
 }
 
@@ -41,6 +43,7 @@ public class IdentifiersBase(IHasIdentifiers context) : IHasIdentifiers
 	public NestedCollection<TypedTypeFunction> Functions { get; } = new(context.Functions);
 	public NestedCollection<TypedType> Types { get; } = new(context.Types);
 	public List<TypedTypeFunction>? FinalizedFunctions { get; set; }
+	public List<TypedTypeWithPattern>? FinalizedTypes { get; set; }
 	public Program Program => context.Program;
 }
 
@@ -51,6 +54,7 @@ public class IdentifiersNest(IHasIdentifiers @base, CompilationPhase phase) : IH
 	public NestedCollection<TypedTypeFunction> Functions { get; } = new(@base.Functions, @base.Program.Contexts[phase].Functions);
 	public NestedCollection<TypedType> Types { get; } = new(@base.Types, @base.Program.Contexts[phase].Types);
 	public List<TypedTypeFunction>? FinalizedFunctions { get; set; }
+	public List<TypedTypeWithPattern>? FinalizedTypes { get; set; }
 	public Program Program => @base.Program;
 }
 
@@ -66,5 +70,17 @@ public static class IHasIdentifiersExtensions
 			program.FinalizedFunctions.Sort((a, b) => -a.Priority.CompareTo(b.Priority)); // Sort in descending order
 		}
 		return program.FinalizedFunctions;
+	}
+	
+	public static List<TypedTypeWithPattern> GetFinalizedTypes(this IHasIdentifiers program)
+	{
+		if (program.FinalizedTypes is null)
+		{
+			program.FinalizedTypes = program.Types
+				.OfType<TypedTypeWithPattern>()
+				.ToList();
+			program.FinalizedTypes.Sort((a, b) => -a.Priority.CompareTo(b.Priority)); // Sort in descending order
+		}
+		return program.FinalizedTypes;
 	}
 }

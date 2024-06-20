@@ -1,6 +1,4 @@
 ﻿using Cetus.Parser.Tokens;
-using Cetus.Parser.Types.Program;
-using Cetus.Parser.Values;
 using LLVMSharp.Interop;
 
 namespace Cetus.Parser.Types.Function;
@@ -9,7 +7,7 @@ public class While : TypedTypeFunctionSimple
 {
 	public override string Name => "While";
 	public override IToken Pattern => new TokenString([new LiteralToken("While"), new LiteralToken("("), new ParameterExpressionToken("condition"), new LiteralToken(")"), new ParameterExpressionToken("body")]);
-	public override TypeIdentifier ReturnType => new(Visitor.VoidType);
+	public override TypeIdentifier ReturnType => Visitor.VoidType.Id();
 	public override FunctionParameters Parameters => new([(new TypedTypeCompilerExpression(Visitor.BoolType), "condition"), (new TypedTypeCompilerClosure(Visitor.VoidType), "body")], null);
 	public override float Priority => 100;
 

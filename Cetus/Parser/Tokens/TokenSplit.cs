@@ -99,7 +99,7 @@ public class TokenSplit(IToken start, IToken delim, IToken end, IToken token) : 
 		}
 	}
 	
-	public IToken Contextualize(IHasIdentifiers context, FunctionArgs arguments, int order) =>
+	public IToken Contextualize(IHasIdentifiers context, Args arguments, int order) =>
 		new TokenSplit(
 			start.Contextualize(context, arguments, order),
 			delim.Contextualize(context, arguments, order),
