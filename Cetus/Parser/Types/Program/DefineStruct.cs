@@ -35,8 +35,6 @@ public class DefineStructCall(IHasIdentifiers parent, string name, Closure body)
 	public List<TypedTypeFunction>? FinalizedFunctions { get; set; }
 	public List<TypedTypeWithPattern>? FinalizedTypes { get; set; }
 	public IHasIdentifiers IHasIdentifiers { get; } = new IdentifiersNest(parent, CompilationPhase.Struct);
-	public Dictionary<DefineFunctionCall, LateCompilerFunctionContext> FunctionGetters = new();
-	public Dictionary<DefineFunctionCall, LateCompilerFunctionContext> FunctionCallers = new();
 	public List<StructField> Fields { get; private set; }
 	public List<DefineFunctionCall> Functions { get; private set; }
 	
@@ -74,30 +72,14 @@ public class DefineStructCall(IHasIdentifiers parent, string name, Closure body)
 		
 		foreach (DefineFunctionCall function in Functions)
 		{
-			{
-				LateCompilerFunctionContext getterFunction = new(
-					function.Id(),
-					$"{Name}.Get_{function.Name}",
-					0,
-					new TokenString([new ParameterValueToken("type"), new LiteralToken("."), new LiteralToken(function.Name)]),
-					new FunctionParameters([new FunctionParameter(Visitor.TypeType.Id(), "type")], null));
-				getterFunction.Type = new MethodGetter(this, function);
-				FunctionGetters.Add(function, getterFunction);
-				context.Functions.Add(getterFunction);
-			}
-			
-			if (TypedTypeExtensions.TypesEqual(function.Parameters.Parameters[0].Type.Type, this))
-			{
-				LateCompilerFunctionContext callerFunction = new(
-					function.Id(),
-					$"{Name}.Call_{function.Name}",
-					0,
-					new TokenString([new ParameterValueToken("this"), new LiteralToken("."), new LiteralToken(function.Name)]),
-					new FunctionParameters([new FunctionParameter(new TypeIdentifierName(Name), "this")], null));
-				callerFunction.Type = new MethodCaller(this, function);
-				FunctionCallers.Add(function, callerFunction);
-				context.Functions.Add(callerFunction);
-			}
+			LateCompilerFunctionContext getterFunction = new(
+				new MethodGetter(this, function),
+				function.Id(),
+				$"{Name}.{function.Name}",
+				0,
+				new TokenString([new ParameterValueToken("type"), new LiteralToken("."), new LiteralToken(function.Name)]),
+				new FunctionParameters([new FunctionParameter(Visitor.TypeType.Id(), "type")], null));
+			context.Functions.Add(getterFunction);
 		}
 	}
 	

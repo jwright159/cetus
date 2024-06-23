@@ -11,7 +11,7 @@ public class Add : TypedTypeFunctionSimple
 	public override FunctionParameters Parameters => new([(Visitor.IntType, "a"), (Visitor.IntType, "b")], null);
 	public override float Priority => 30;
 	
-	public override LLVMValueRef? Visit(IHasIdentifiers context, TypedType? typeHint, Visitor visitor, FunctionArgs args)
+	public override LLVMValueRef? VisitResult(IHasIdentifiers context, TypedType? typeHint, Visitor visitor, FunctionArgs args)
 	{
 		return visitor.Builder.BuildAdd(args["a"].LLVMValue, args["b"].LLVMValue, "addtmp");
 	}

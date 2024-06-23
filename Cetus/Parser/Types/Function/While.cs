@@ -13,7 +13,7 @@ public class While : TypedTypeFunctionSimple
 
 	protected override bool AutoVisit => false;
 	
-	public override LLVMValueRef? Visit(IHasIdentifiers context, TypedType? typeHint, Visitor visitor, FunctionArgs args)
+	public override LLVMValueRef? VisitResult(IHasIdentifiers context, TypedType? typeHint, Visitor visitor, FunctionArgs args)
 	{
 		Expression condition = (Expression)args["condition"];
 		Closure body = (Closure)((Expression)args["body"]).ReturnValue;

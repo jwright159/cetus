@@ -37,10 +37,10 @@ public abstract class TypedTypeFunctionSimple : TypedTypeFunctionBase
 	
 	public override TypedValue Call(IHasIdentifiers context, FunctionArgs args)
 	{
-		return new SimpleCall(ReturnType.Type, args, Visit, AutoVisit);
+		return new SimpleCall(ReturnType.Type, args, VisitResult, AutoVisit);
 	}
 	
-	public abstract LLVMValueRef? Visit(IHasIdentifiers context, TypedType? typeHint, Visitor visitor, FunctionArgs args);
+	public abstract LLVMValueRef? VisitResult(IHasIdentifiers context, TypedType? typeHint, Visitor visitor, FunctionArgs args);
 	
 	private class SimpleCall(TypedType returnType, FunctionArgs args, Func<IHasIdentifiers, TypedType?, Visitor, FunctionArgs, LLVMValueRef?> visit, bool autoVisit) : TypedValue
 	{
@@ -105,8 +105,6 @@ public class FunctionParameters
 	{
 		return ParamsOfCount(arguments.Count).Zip(arguments, zip);
 	}
-	
-	public IEnumerable<(TypedType Type, string Name)> TupleParams => Parameters.Select(param => (param.Type.Type, param.Name));
 	
 	public void Transform(IHasIdentifiers context)
 	{
@@ -186,18 +184,37 @@ public class FunctionArgs : Args
 		}
 	}
 	
+	public FunctionArgs(FunctionParameters parameters, FunctionArgs arguments)
+	{
+		int i = 0;
+		for (; i < parameters.Parameters.Count; i++)
+		{
+			FunctionParameter param = parameters.Parameters[i];
+			TypedValue? arg = arguments.Keys.Contains(param.Name) ? arguments[param.Name] : null;
+			Keys.Add(param.Name);
+			args.Add(param.Name, (param.Type, arg));
+		}
+		if (parameters.VarArg is not null)
+		{
+			FunctionParameter param = parameters.VarArg;
+			TypedValue? arg = arguments.Keys.Contains(param.Name) ? arguments[param.Name] : null;
+			Keys.Add(param.Name);
+			args.Add(param.Name, (param.Type, arg));
+		}
+	}
+	
 	public TypedValue this[string key]
 	{
 		get
 		{
 			if (!args.TryGetValue(key, out (TypeIdentifier Type, TypedValue? Value) arg))
-				throw new KeyNotFoundException($"Argument {key} does not exist");
+				throw new KeyNotFoundException($"Argument \"{key}\" does not exist");
 			return arg.Value;
 		}
 		set
 		{
 			if (!args.TryGetValue(key, out (TypeIdentifier Type, TypedValue? Value) arg))
-				throw new KeyNotFoundException($"Argument {key} does not exist");
+				throw new KeyNotFoundException($"Argument \"{key}\" does not exist");
 			switch (arg.Type.Type)
 			{
 				case TypedTypeCompilerList<TypedTypeCompilerAnyFunctionCall>:

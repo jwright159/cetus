@@ -13,7 +13,7 @@ public class Return : TypedTypeFunctionSimple
 	public override FunctionParameters Parameters => new([(Visitor.AnyValueType, "value")], null);
 	public override float Priority => 100;
 	
-	public override LLVMValueRef? Visit(IHasIdentifiers context, TypedType? typeHint, Visitor visitor, FunctionArgs args)
+	public override LLVMValueRef? VisitResult(IHasIdentifiers context, TypedType? typeHint, Visitor visitor, FunctionArgs args)
 	{
 		IHasIdentifiers function = context;
 		while (function is not DefineFunctionCall)

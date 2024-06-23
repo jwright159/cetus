@@ -12,7 +12,7 @@ public class Define : TypedTypeFunctionSimple
 	public override FunctionParameters Parameters => new([(Visitor.TypeType, "type"), (Visitor.CompilerStringType, "name"), (Visitor.AnyValueType, "value")], null);
 	public override float Priority => 100;
 	
-	public override LLVMValueRef? Visit(IHasIdentifiers context, TypedType? typeHint, Visitor visitor, FunctionArgs args)
+	public override LLVMValueRef? VisitResult(IHasIdentifiers context, TypedType? typeHint, Visitor visitor, FunctionArgs args)
 	{
 		TypedType type = args["type"].Type;
 		string name = ((ValueIdentifier)args["name"]).Name;

@@ -8,12 +8,12 @@ using LLVMSharp.Interop;
 
 namespace Cetus.Parser;
 
-public class LateCompilerFunctionContext(TypeIdentifier returnType, string name, float priority, IToken? pattern, FunctionParameters parameters) : TypedTypeFunction
+public class LateCompilerFunctionContext(TypedTypeFunction function, TypeIdentifier returnType, string name, float priority, IToken? pattern, FunctionParameters parameters) : TypedTypeFunction
 {
 	public LLVMTypeRef LLVMType { get; }
 	public string Name => name;
-	public TypedType? Type { get; set; }
-	public TypedValue? Value => Type is null ? null : new TypedValueType(Type);
+	public TypedType Type => function;
+	public TypedValue Value => new TypedValueType(Type);
 	public TypeIdentifier ReturnType => returnType;
 	public FunctionParameters Parameters => parameters;
 	public float Priority => priority;
@@ -21,10 +21,15 @@ public class LateCompilerFunctionContext(TypeIdentifier returnType, string name,
 	
 	public TypedValue Call(IHasIdentifiers context, FunctionArgs args)
 	{
-		return ((TypedTypeFunction)Type).Call(context, args);
+		return function.Call(context, args);
 	}
 	
 	public override string ToString() => $"{ReturnType} {Name}{Parameters}";
+}
+
+public interface ITypedTypeRequiresVisit : TypedType
+{
+	public void Visit(IHasIdentifiers context, Visitor visitor);
 }
 
 public partial class Parser(Lexer lexer)

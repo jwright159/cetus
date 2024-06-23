@@ -20,7 +20,8 @@ public class TypedValueType(TypedType type) : TypedValue
 	
 	public void Visit(IHasIdentifiers context, TypedType? typeHint, Visitor visitor)
 	{
-		
+		if (type is ITypedTypeRequiresVisit requiresVisit)
+			requiresVisit.Visit(context, visitor);
 	}
 	
 	public override string ToString() => type.ToString()!;
